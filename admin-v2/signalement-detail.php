@@ -129,19 +129,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $collabEmail = trim($_POST['collaborateur_email'] ?? '');
             $collabTel = trim($_POST['collaborateur_telephone'] ?? '');
             $modeNotif = $_POST['mode_notification'] ?? 'email';
+            // Utiliser l'ID collaborateur sélectionné dans le dropdown (si disponible)
+            $collabId = !empty($_POST['collab_select_id']) ? (int)$_POST['collab_select_id'] : null;
 
             if (empty($collabNom)) {
                 $errors[] = 'Le nom du collaborateur est obligatoire.';
             } else {
-                $pdo->prepare("
-                    UPDATE signalements
-                    SET collaborateur_nom = ?, collaborateur_email = ?, collaborateur_telephone = ?,
-                        mode_notification_collab = ?,
-                        date_attribution = COALESCE(date_attribution, NOW()),
-                        statut = CASE WHEN statut = 'nouveau' THEN 'en_cours' ELSE statut END,
-                        updated_at = NOW()
-                    WHERE id = ?
-                ")->execute([$collabNom, $collabEmail, $collabTel, $modeNotif, $id]);
+                // Tenter la mise à jour avec collaborateur_id (disponible après migration 082)
+                try {
+                    $pdo->prepare("
+                        UPDATE signalements
+                        SET collaborateur_nom = ?, collaborateur_email = ?, collaborateur_telephone = ?,
+                            mode_notification_collab = ?,
+                            collaborateur_id = ?,
+                            date_attribution = COALESCE(date_attribution, NOW()),
+                            statut = CASE WHEN statut = 'nouveau' THEN 'en_cours' ELSE statut END,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([$collabNom, $collabEmail, $collabTel, $modeNotif, $collabId, $id]);
+                } catch (Exception $e) {
+                    // Fallback sans collaborateur_id si colonne absente
+                    $pdo->prepare("
+                        UPDATE signalements
+                        SET collaborateur_nom = ?, collaborateur_email = ?, collaborateur_telephone = ?,
+                            mode_notification_collab = ?,
+                            date_attribution = COALESCE(date_attribution, NOW()),
+                            statut = CASE WHEN statut = 'nouveau' THEN 'en_cours' ELSE statut END,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([$collabNom, $collabEmail, $collabTel, $modeNotif, $id]);
+                }
 
                 $pdo->prepare("
                     INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, nouvelle_valeur, ip_address)
@@ -213,6 +230,14 @@ $isClos = ($sig['statut'] === 'clos');
 $actionsStmt = $pdo->prepare("SELECT * FROM signalements_actions WHERE signalement_id = ? ORDER BY created_at ASC");
 $actionsStmt->execute([$id]);
 $actions = $actionsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Charger la liste des collaborateurs actifs
+try {
+    $collabListStmt = $pdo->query("SELECT id, nom, metier, email, telephone FROM collaborateurs WHERE actif = 1 ORDER BY nom ASC");
+    $collabList = $collabListStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $collabList = []; // Table absente si migration non appliquée
+}
 
 $csrfToken = generateCsrfToken();
 
@@ -553,21 +578,46 @@ if ($successParam) {
                     <h6 class="fw-semibold mb-3">
                         <i class="bi bi-person-check me-2"></i>Transférer à un collaborateur
                     </h6>
-                    <form method="POST">
+                    <form method="POST" id="attribuer-form">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="attribuer">
+
+                        <?php if (!empty($collabList)): ?>
                         <div class="mb-2">
-                            <input type="text" class="form-control form-control-sm" name="collaborateur_nom"
+                            <label class="form-label small fw-semibold">Sélectionner un collaborateur</label>
+                            <select class="form-select form-select-sm" id="collab-select" name="collab_select_id">
+                                <option value="">— Saisie manuelle —</option>
+                                <?php foreach ($collabList as $cl): ?>
+                                <option value="<?php echo $cl['id']; ?>"
+                                    data-nom="<?php echo htmlspecialchars($cl['nom']); ?>"
+                                    data-email="<?php echo htmlspecialchars($cl['email'] ?? ''); ?>"
+                                    data-tel="<?php echo htmlspecialchars($cl['telephone'] ?? ''); ?>"
+                                    <?php echo ((int)($sig['collaborateur_id'] ?? 0) === (int)$cl['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($cl['nom']); ?>
+                                    <?php if ($cl['metier']): ?>(<?php echo htmlspecialchars($cl['metier']); ?>)<?php endif; ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-1">
+                            <a href="collaborateurs.php" class="small text-muted">
+                                <i class="bi bi-gear me-1"></i>Gérer les collaborateurs
+                            </a>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" name="collaborateur_nom" id="collab-nom"
                                    placeholder="Nom du collaborateur *"
                                    value="<?php echo htmlspecialchars($sig['collaborateur_nom'] ?? ''); ?>" required>
                         </div>
                         <div class="mb-2">
-                            <input type="email" class="form-control form-control-sm" name="collaborateur_email"
+                            <input type="email" class="form-control form-control-sm" name="collaborateur_email" id="collab-email"
                                    placeholder="Email"
                                    value="<?php echo htmlspecialchars($sig['collaborateur_email'] ?? ''); ?>">
                         </div>
                         <div class="mb-2">
-                            <input type="tel" class="form-control form-control-sm" name="collaborateur_telephone"
+                            <input type="tel" class="form-control form-control-sm" name="collaborateur_telephone" id="collab-tel"
                                    placeholder="Téléphone / WhatsApp"
                                    value="<?php echo htmlspecialchars($sig['collaborateur_telephone'] ?? ''); ?>">
                         </div>
@@ -618,6 +668,18 @@ if ($successParam) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    // Auto-remplissage depuis la liste des collaborateurs
+    var collabSelect = document.getElementById('collab-select');
+    if (collabSelect) {
+        collabSelect.addEventListener('change', function() {
+            var opt = this.options[this.selectedIndex];
+            if (opt.value) {
+                document.getElementById('collab-nom').value   = opt.dataset.nom   || '';
+                document.getElementById('collab-email').value = opt.dataset.email || '';
+                document.getElementById('collab-tel').value   = opt.dataset.tel   || '';
+            }
+        });
+    }
     // Afficher le texte WhatsApp si mode = whatsapp ou les_deux
     document.querySelectorAll('[name="mode_notification"]').forEach(function(radio) {
         radio.addEventListener('change', function() {

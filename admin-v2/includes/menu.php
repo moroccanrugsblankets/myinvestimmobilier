@@ -58,6 +58,7 @@ $page_to_menu_map = [
     'configuration-rappels-loyers.php' => 'gestion-loyers.php',
     'stripe-configuration.php' => 'gestion-loyers.php',
     'signalement-detail.php' => 'signalements.php',
+    'collaborateurs.php'     => 'signalements.php',
 ];
 
 // Check if current page is a detail page, if so use parent menu
@@ -185,6 +186,15 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             <a class="nav-link <?php echo $active_menu === 'signalements.php' ? 'active' : ''; ?>" href="signalements.php">
                 <i class="bi bi-exclamation-triangle"></i> Signalements
             </a>
+            <?php if ($active_menu === 'signalements.php'): ?>
+            <ul class="nav flex-column ms-3">
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'collaborateurs.php' ? 'active' : ''; ?>" href="collaborateurs.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-people"></i> Collaborateurs
+                    </a>
+                </li>
+            </ul>
+            <?php endif; ?>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'email-templates.php' ? 'active' : ''; ?>" href="email-templates.php">

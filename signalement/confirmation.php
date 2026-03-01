@@ -2,17 +2,16 @@
 /**
  * Confirmation après soumission d'un signalement — Portail locataire
  *
- * URL: /signalement/confirmation.php?ref=ID&token=XXXXX
+ * URL: /signalement/confirmation.php?ref=ID
  */
 
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$token = isset($_GET['token']) ? trim($_GET['token']) : '';
 $sigId = isset($_GET['ref']) ? (int)$_GET['ref'] : 0;
 
-if (empty($token) || !preg_match('/^[a-f0-9]{64}$/', $token) || $sigId <= 0) {
+if ($sigId <= 0) {
     http_response_code(404);
     die('Lien invalide.');
 }
@@ -23,12 +22,10 @@ try {
                l.adresse
         FROM signalements sig
         INNER JOIN logements l ON sig.logement_id = l.id
-        INNER JOIN locataires loc ON sig.locataire_id = loc.id
         WHERE sig.id = ?
-          AND loc.token_signalement = ?
         LIMIT 1
     ");
-    $stmt->execute([$sigId, $token]);
+    $stmt->execute([$sigId]);
     $sig = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     error_log('signalement/confirmation.php DB error: ' . $e->getMessage());
@@ -93,7 +90,7 @@ if (!$sig) {
                         Conservez cette référence <strong><?php echo htmlspecialchars($sig['reference']); ?></strong>
                         pour tout suivi auprès de votre gestionnaire.
                     </p>
-                    <a href="form.php?token=<?php echo urlencode($token); ?>" class="btn btn-outline-secondary mt-2">
+                    <a href="form.php" class="btn btn-outline-secondary mt-2">
                         <i class="bi bi-plus-circle me-1"></i>Nouveau signalement
                     </a>
                 </div>

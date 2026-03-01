@@ -113,6 +113,33 @@ if ($session['statut'] !== 'paye') {
 
             $pdo->commit();
             $session['statut'] = 'paye';
+
+            // Envoyer email de confirmation aux locataires (fallback si le webhook n'a pas encore traité)
+            try {
+                require_once __DIR__ . '/../includes/mail-templates.php';
+                $locatairesStmt = $pdo->prepare("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre");
+                $locatairesStmt->execute([$session['contrat_id']]);
+                $locataires = $locatairesStmt->fetchAll(PDO::FETCH_ASSOC);
+                $logementStmt = $pdo->prepare("SELECT adresse, loyer, charges FROM logements WHERE id = ?");
+                $logementStmt->execute([$session['logement_id']]);
+                $logement = $logementStmt->fetch(PDO::FETCH_ASSOC);
+                $loyer   = $logement['loyer']   ?? 0;
+                $charges = $logement['charges'] ?? 0;
+                foreach ($locataires as $locataire) {
+                    sendTemplatedEmail('confirmation_paiement_loyer', $locataire['email'], [
+                        'locataire_nom'    => $locataire['nom'],
+                        'locataire_prenom' => $locataire['prenom'],
+                        'adresse'          => $session['adresse'],
+                        'periode'          => $periode,
+                        'montant_loyer'    => number_format((float)$loyer, 2, ',', ' '),
+                        'montant_charges'  => number_format((float)$charges, 2, ',', ' '),
+                        'montant_total'    => number_format((float)$session['montant'], 2, ',', ' '),
+                        'signature'        => getParameter('email_signature', ''),
+                    ], null, false, false, ['contexte' => 'merci_paiement_confirmation']);
+                }
+            } catch (Exception $mailEx) {
+                error_log('Stripe merci.php email confirmation error: ' . $mailEx->getMessage());
+            }
         } catch (Exception $e) {
             $pdo->rollBack();
             error_log('Stripe merci.php update error: ' . $e->getMessage());
