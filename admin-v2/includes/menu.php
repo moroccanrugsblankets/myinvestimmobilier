@@ -57,6 +57,7 @@ $page_to_menu_map = [
     'bilan-logement-configuration.php' => 'contrats.php',
     'configuration-rappels-loyers.php' => 'gestion-loyers.php',
     'stripe-configuration.php' => 'gestion-loyers.php',
+    'signalement-detail.php' => 'signalements.php',
 ];
 
 // Check if current page is a detail page, if so use parent menu
@@ -179,6 +180,11 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                 </li>
             </ul>
             <?php endif; ?>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo $active_menu === 'signalements.php' ? 'active' : ''; ?>" href="signalements.php">
+                <i class="bi bi-exclamation-triangle"></i> Signalements
+            </a>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'email-templates.php' ? 'active' : ''; ?>" href="email-templates.php">

@@ -184,7 +184,6 @@ foreach ($contrats as $contrat) {
 
             $lienPaiement = $siteUrl . '/payment/pay.php?token=' . urlencode($token);
             $dateExpiration = date('d/m/Y à H:i', $expirationTimestamp);
-            $locataire['email'] = "contact@myinvest-immobilier.com";
 
             $sent = sendTemplatedEmail(
                 $templateId,

@@ -256,6 +256,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: contrat-detail.php?id=' . $contractId);
         exit;
     }
+
+    if ($_POST['action'] === 'generate_signalement_token') {
+        $locataireId = (int)($_POST['locataire_id'] ?? 0);
+        if ($locataireId > 0) {
+            // Verify the locataire belongs to this contract
+            $check = $pdo->prepare("SELECT id FROM locataires WHERE id = ? AND contrat_id = ?");
+            $check->execute([$locataireId, $contractId]);
+            if ($check->fetch()) {
+                // Check if token_signalement column exists (migration 081)
+                $colCheck = $pdo->query("
+                    SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires'
+                    AND COLUMN_NAME = 'token_signalement'
+                ");
+                if ($colCheck->fetch()) {
+                    $newToken = bin2hex(random_bytes(32));
+                    $pdo->prepare("UPDATE locataires SET token_signalement = ? WHERE id = ?")
+                        ->execute([$newToken, $locataireId]);
+                    $_SESSION['success'] = "Lien de signalement généré avec succès.";
+                } else {
+                    $_SESSION['error'] = "La migration 081 n'a pas encore été exécutée.";
+                }
+            }
+        }
+        header('Location: contrat-detail.php?id=' . $contractId);
+        exit;
+    }
 }
 
 // Get contract details
@@ -641,6 +668,46 @@ if ($contrat['validated_by']) {
                                         <i class="bi bi-check-circle text-success"></i> Mention "Lu et approuvé" validée
                                     </div>
                                 <?php endif; ?>
+
+                                <!-- Lien de signalement -->
+                                <div class="mt-3 pt-3 border-top">
+                                    <strong><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Signalement d'anomalie</strong>
+                                    <?php
+                                    $sigToken = $locataire['token_signalement'] ?? null;
+                                    $siteUrlBase = rtrim($config['SITE_URL'], '/');
+                                    ?>
+                                    <?php if (!empty($sigToken)): ?>
+                                        <div class="mt-1">
+                                            <input type="text" class="form-control form-control-sm font-monospace"
+                                                   value="<?php echo htmlspecialchars($siteUrlBase . '/signalement/form.php?token=' . $sigToken); ?>"
+                                                   id="sig-link-<?php echo $locataire['id']; ?>" readonly>
+                                            <div class="d-flex gap-2 mt-1">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                        onclick="copySignalementLink(<?php echo $locataire['id']; ?>)">
+                                                    <i class="bi bi-clipboard me-1"></i>Copier
+                                                </button>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Régénérer le lien ? L\'ancien lien ne fonctionnera plus.');">
+                                                    <input type="hidden" name="action" value="generate_signalement_token">
+                                                    <input type="hidden" name="locataire_id" value="<?php echo $locataire['id']; ?>">
+                                                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                                                        <i class="bi bi-arrow-clockwise me-1"></i>Régénérer
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="mt-1">
+                                            <small class="text-muted">Aucun lien généré.</small>
+                                            <form method="POST" class="mt-1">
+                                                <input type="hidden" name="action" value="generate_signalement_token">
+                                                <input type="hidden" name="locataire_id" value="<?php echo $locataire['id']; ?>">
+                                                <button type="submit" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-link-45deg me-1"></i>Générer le lien
+                                                </button>
+                                            </form>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1240,6 +1307,17 @@ if ($contrat['validated_by']) {
             document.getElementById('ar24DateFin').value = dateFin || '';
             var modal = new bootstrap.Modal(document.getElementById('ar24Modal'));
             modal.show();
+        }
+        function copySignalementLink(locataireId) {
+            var input = document.getElementById('sig-link-' + locataireId);
+            if (input) {
+                input.select();
+                navigator.clipboard.writeText(input.value).then(function() {
+                    alert('Lien copié dans le presse-papier !');
+                }).catch(function() {
+                    document.execCommand('copy');
+                });
+            }
         }
     </script>
 </body>
