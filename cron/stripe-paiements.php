@@ -72,7 +72,8 @@ $jourInvitationCalendaire = getNthWorkingDayOfMonth($jourInvitation, $anneeActue
 $doInvitation = ($aujourdHui === $jourInvitationCalendaire);
 $doRappel     = in_array($aujourdHui, $joursRappel, true);
 
-if (!$doInvitation && !$doRappel) { logMsg(" aujourd'hui."); exit; }
+ //en dure provisoirement pour ne pas envoyer les tests au clients
+//if (!$doInvitation && !$doRappel) { logMsg(" aujourd'hui."); exit; }
 
 logSection("Démarrage du cron - mode=$stripeMode, jour=$aujourdHui");
 
@@ -184,7 +185,8 @@ foreach ($contrats as $contrat) {
 
             $lienPaiement = $siteUrl . '/payment/pay.php?token=' . urlencode($token);
             $dateExpiration = date('d/m/Y à H:i', $expirationTimestamp);
-            $locataire['email'] = "lahaswindaum@gmail.com"; //en dure provisoirement pour ne pas envoyer les tests au clients
+            //en dure provisoirement pour ne pas envoyer les tests au clients
+            $locataire['email'] = "lahaswindaum@gmail.com";
 
             $sent = sendTemplatedEmail(
                 $templateId,
