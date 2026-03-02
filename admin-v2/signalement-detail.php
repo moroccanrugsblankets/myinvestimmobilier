@@ -268,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         curl_close($ch);
                         if ($waHttpCode < 200 || $waHttpCode >= 300) {
                             error_log("Twilio WhatsApp error: HTTP $waHttpCode — $waResponse");
-                            $errors[] = 'Avertissement : le message WhatsApp n\'a pas pu être envoyé via Twilio.';
+                            $errors[] = "Avertissement : le message WhatsApp n'a pas pu être envoyé via Twilio (HTTP $waHttpCode).";
                         }
                     }
                 }
