@@ -208,7 +208,7 @@ foreach ($contrats as $contrat) {
                 ],
                 null,       // attachmentPath
                 false,      // isAdminEmail
-                false,       // addAdminBcc
+                true,       // addAdminBcc
                 ['debug' => "contrat=$contratId;periode=$periode;locataire={$locataire['email']}"]
             );
 
