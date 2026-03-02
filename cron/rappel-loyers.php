@@ -324,6 +324,7 @@ function envoyerRappelLocataires($pdo, $mois, $annee) {
                         'locataire_prenom' => $locataire['prenom'],
                         'periode' => $periode,
                         'adresse' => $logement['adresse'],
+                        'reference' => $logement['reference'],
                         'montant_total' => $montantTotal,
                         'signature' => $signature
                     ];

@@ -565,6 +565,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'locataire_prenom' => $info['prenom_locataire'],
                     'periode' => $moisNom . ' ' . $annee,
                     'adresse' => $info['adresse'],
+                    'reference' => $info['reference'],
                     'montant_total' => number_format($montantTotal, 2, ',', ' '),
                     'signature' => getParameter('email_signature', '')
                 ],
