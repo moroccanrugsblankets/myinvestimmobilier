@@ -82,13 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $etapeFormulaire && !empty($_POST['
         $errors[] = 'Veuillez confirmer avoir pris connaissance des conditions d\'intervention.';
     }
 
-    // Validation des photos (obligatoires)
+    // Validation des photos/vidéos (obligatoires)
     $uploadedPhotos = [];
     if (empty($_FILES['photos']['name'][0])) {
         $errors[] = 'Au moins une photo est obligatoire.';
     } else {
-        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        $maxSize = 10 * 1024 * 1024; // 10 Mo par photo
+        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+        $maxSize = 10 * 1024 * 1024; // 10 Mo par fichier
         $uploadDir = __DIR__ . '/../uploads/signalements/';
 
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
@@ -101,12 +101,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $etapeFormulaire && !empty($_POST['
             foreach ($_FILES['photos']['tmp_name'] as $i => $tmpName) {
                 if ($_FILES['photos']['error'][$i] !== UPLOAD_ERR_OK) continue;
                 if ($_FILES['photos']['size'][$i] > $maxSize) {
-                    $errors[] = 'La photo « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » dépasse la taille maximale (10 Mo).';
+                    $errors[] = 'Le fichier « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » dépasse la taille maximale (10 Mo).';
                     continue;
                 }
                 $mime = mime_content_type($tmpName);
                 if (!in_array($mime, $allowedMimes)) {
-                    $errors[] = 'Format de photo non supporté pour « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » (JPG, PNG ou WebP uniquement).';
+                    $errors[] = 'Format non supporté pour « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » (JPG, PNG, WebP ou vidéo MP4/MOV).';
                     continue;
                 }
                 $ext = pathinfo($_FILES['photos']['name'][$i], PATHINFO_EXTENSION);
@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $etapeFormulaire && !empty($_POST['
                 ];
             }
             if (empty($uploadedPhotos) && empty($errors)) {
-                $errors[] = 'Au moins une photo valide est obligatoire.';
+                $errors[] = 'Au moins un fichier valide est obligatoire.';
             }
         }
     }
@@ -152,7 +152,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $etapeFormulaire && !empty($_POST['
                     $checklistConfirmee ? 1 : 0,
                 ]);
             } catch (Exception $e) {
-                // Fallback sans type_probleme si colonne absente
+                // Fallback sans type_probleme si colonne absente (migration 085 non encore appliquée)
+                if (strpos($e->getMessage(), 'type_probleme') === false && strpos($e->getMessage(), 'Unknown column') === false) {
+                    throw $e; // Re-lancer si l'erreur n'est pas liée à la colonne manquante
+                }
+                error_log('signalement/form.php: type_probleme column not found, falling back to old INSERT: ' . $e->getMessage());
                 $insertStmt = $pdo->prepare("
                     INSERT INTO signalements
                         (reference, contrat_id, logement_id, locataire_id, titre, description,
@@ -248,7 +252,9 @@ if ($success) {
 }
 
 // Paramètre configurable : lien vers le guide des réparations locatives
-$guideLien = getParameter('guide_reparations_lien', '');
+// Valider l'URL pour éviter les schémas dangereux (javascript:, data:, etc.)
+$guideLienRaw = getParameter('guide_reparations_lien', '');
+$guideLien = (!empty($guideLienRaw) && preg_match('#^https?://#i', $guideLienRaw)) ? $guideLienRaw : '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -435,12 +441,13 @@ $guideLien = getParameter('guide_reparations_lien', '');
                                 $types = ['Plomberie', 'Électricité', 'Serrurerie', 'Chauffage', 'Électroménager', 'Autre'];
                                 $typeIcons = ['Plomberie' => '🔧', 'Électricité' => '⚡', 'Serrurerie' => '🔑', 'Chauffage' => '🔥', 'Électroménager' => '🏠', 'Autre' => '❓'];
                                 $selectedType = $_POST['type_probleme'] ?? '';
-                                foreach ($types as $type): ?>
+                                foreach ($types as $type):
+                                    $typeId = 'type_' . strtolower(preg_replace('/[^a-z]/i', '_', $type)); ?>
                                 <div class="col-6 col-md-4 type-radio">
-                                    <input type="radio" name="type_probleme" id="type_<?php echo strtolower(preg_replace('/[^a-z]/i', '_', $type)); ?>"
+                                    <input type="radio" name="type_probleme" id="<?php echo $typeId; ?>"
                                            value="<?php echo htmlspecialchars($type); ?>"
                                            <?php echo $selectedType === $type ? 'checked' : ''; ?>>
-                                    <label for="type_<?php echo strtolower(preg_replace('/[^a-z]/i', '_', $type)); ?>">
+                                    <label for="<?php echo $typeId; ?>">
                                         <?php echo $typeIcons[$type]; ?> <?php echo htmlspecialchars($type); ?>
                                     </label>
                                 </div>
