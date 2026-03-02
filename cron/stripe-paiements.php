@@ -72,8 +72,10 @@ $jourInvitationCalendaire = getNthWorkingDayOfMonth($jourInvitation, $anneeActue
 $doInvitation = ($aujourdHui === $jourInvitationCalendaire);
 $doRappel     = in_array($aujourdHui, $joursRappel, true);
 
- //en dure provisoirement pour ne pas envoyer les tests au clients
-//if (!$doInvitation && !$doRappel) { logMsg(" aujourd'hui."); exit; }
+// Mode test : décommenter les 2 lignes ci-dessous pour forcer l'envoi quel que soit le jour
+// $doInvitation = true;
+// $doRappel     = true;
+if (!$doInvitation && !$doRappel) { logMsg("Rien à faire aujourd'hui (invitation=$jourInvitationCalendaire, rappel=" . implode(',', $joursRappel) . ")."); exit; }
 
 logSection("Démarrage du cron - mode=$stripeMode, jour=$aujourdHui");
 
@@ -185,8 +187,8 @@ foreach ($contrats as $contrat) {
 
             $lienPaiement = $siteUrl . '/payment/pay.php?token=' . urlencode($token);
             $dateExpiration = date('d/m/Y à H:i', $expirationTimestamp);
-            //en dure provisoirement pour ne pas envoyer les tests au clients
-            $locataire['email'] = "lahaswindaum@gmail.com";
+            // Mode test : décommenter la ligne ci-dessous pour forcer l'envoi vers une adresse de test
+            // $locataire['email'] = "lahaswindaum@gmail.com";
 
             $sent = sendTemplatedEmail(
                 $templateId,

@@ -245,19 +245,28 @@ $statutLabels = [
             </div>
         </div>
 
-        <!-- Générer des liens locataires -->
+        <!-- Accès au formulaire de signalement -->
         <div class="card mt-4">
             <div class="card-header">
-                <i class="bi bi-link-45deg me-2"></i>Générer des liens de signalement pour les locataires
+                <i class="bi bi-link-45deg me-2"></i>Formulaire de signalement locataire
             </div>
             <div class="card-body">
-                <p class="text-muted small mb-3">
-                    Chaque locataire dispose d'un lien personnel sécurisé pour soumettre un signalement.
-                    Vous pouvez générer ou régénérer ces liens depuis la fiche d'un contrat actif.
+                <p class="text-muted small mb-2">
+                    Les locataires peuvent signaler directement une anomalie en saisissant leur adresse email sur la page de signalement.
+                    Aucun lien personnalisé à générer — l'identification se fait automatiquement par email.
                 </p>
-                <a href="contrats.php" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-file-earmark-check me-1"></i>Aller aux contrats
-                </a>
+                <?php
+                $signalementUrl = rtrim($config['SITE_URL'] ?? '', '/') . '/signalement/form.php';
+                ?>
+                <div class="input-group input-group-sm" style="max-width:480px;">
+                    <input type="text" class="form-control font-monospace" id="sig-url-input"
+                           value="<?php echo htmlspecialchars($signalementUrl); ?>" readonly>
+                    <button class="btn btn-outline-secondary" type="button" onclick="
+                        navigator.clipboard.writeText(document.getElementById('sig-url-input').value);
+                        this.textContent='Copié !';
+                        setTimeout(()=>{this.textContent='Copier';},2000);
+                    ">Copier</button>
+                </div>
             </div>
         </div>
 

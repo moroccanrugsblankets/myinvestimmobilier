@@ -2,57 +2,62 @@
 /**
  * Formulaire de signalement d'anomalie — Portail locataire
  *
- * URL: /signalement/form.php?token=XXXXX
+ * URL: /signalement/form.php
  *
- * Le locataire accède à ce formulaire via un lien sécurisé (token unique).
+ * Le locataire s'identifie par son adresse email (toujours transformée en minuscule).
  * Ce formulaire permet d'ouvrir un ticket de signalement avec :
- *   - Titre, description, priorité, photos
+ *   - Email (identification), Titre, Description, Priorité, Photos
  *   - Confirmation de la check-list responsabilité
+ *   - Date automatique de signalement
  */
 
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$token = isset($_GET['token']) ? trim($_GET['token']) : '';
-
-// Validation du token
-if (empty($token) || !preg_match('/^[a-f0-9]{64}$/', $token)) {
-    http_response_code(404);
-    die('Lien invalide ou expiré. Veuillez contacter votre propriétaire.');
-}
-
-// Récupérer le locataire via son token
-try {
-    $stmt = $pdo->prepare("
-        SELECT loc.*, c.id as contrat_id, l.id as logement_id,
-               l.adresse, l.reference as logement_ref
-        FROM locataires loc
-        INNER JOIN contrats c ON loc.contrat_id = c.id
-        INNER JOIN logements l ON c.logement_id = l.id
-        WHERE loc.token_signalement = ?
-          AND c.statut = 'valide'
-        LIMIT 1
-    ");
-    $stmt->execute([$token]);
-    $locataire = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    error_log('signalement/form.php DB error: ' . $e->getMessage());
-    http_response_code(500);
-    die('Erreur interne. Veuillez réessayer plus tard.');
-}
-
-if (!$locataire) {
-    http_response_code(404);
-    die('Lien invalide ou contrat inactif. Veuillez contacter votre propriétaire.');
-}
-
-// ── Traitement du formulaire ─────────────────────────────────────────────────
 $errors = [];
 $success = false;
 $newSignalementId = null;
+$locataire = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Étape 1 : identification par email
+$emailSaisi = strtolower(trim($_POST['email'] ?? $_GET['email'] ?? ''));
+$etapeFormulaire = false;
+
+if (!empty($emailSaisi)) {
+    if (!filter_var($emailSaisi, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Adresse email invalide.';
+    } else {
+        try {
+            $stmt = $pdo->prepare("
+                SELECT loc.*, c.id as contrat_id, l.id as logement_id,
+                       l.adresse, l.reference as logement_ref
+                FROM locataires loc
+                INNER JOIN contrats c ON loc.contrat_id = c.id
+                INNER JOIN logements l ON c.logement_id = l.id
+                WHERE LOWER(loc.email) = ?
+                  AND c.statut = 'valide'
+                LIMIT 1
+            ");
+            $stmt->execute([$emailSaisi]);
+            $locataire = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log('signalement/form.php DB error: ' . $e->getMessage());
+            $errors[] = 'Erreur interne. Veuillez réessayer plus tard.';
+        }
+
+        if (empty($errors) && !$locataire) {
+            $errors[] = 'Aucun contrat actif trouvé pour cette adresse email. Vérifiez l\'adresse saisie ou contactez votre gestionnaire.';
+        }
+
+        if (empty($errors) && $locataire) {
+            $etapeFormulaire = true;
+        }
+    }
+}
+
+// Étape 2 : traitement du signalement
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $etapeFormulaire && !empty($_POST['action_signaler'])) {
     $titre = trim($_POST['titre'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $priorite = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
@@ -72,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Vous devez confirmer avoir vérifié la liste des responsabilités avant de soumettre votre signalement.';
     }
 
-    // Validation des photos (obligatoires selon le cahier des charges)
+    // Validation des photos (obligatoires)
     $uploadedPhotos = [];
     if (empty($_FILES['photos']['name'][0])) {
         $errors[] = 'Au moins une photo est obligatoire.';
@@ -81,7 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $maxSize = 10 * 1024 * 1024; // 10 Mo par photo
         $uploadDir = __DIR__ . '/../uploads/signalements/';
 
-        // S'assurer que le répertoire existe et est accessible en écriture
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
             $errors[] = 'Erreur serveur : impossible de créer le répertoire d\'upload. Contactez l\'administrateur.';
         } elseif (!is_writable($uploadDir)) {
@@ -120,10 +124,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            // Générer la référence unique
             $reference = 'SIG-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 
-            // Insérer le signalement
             $insertStmt = $pdo->prepare("
                 INSERT INTO signalements
                     (reference, contrat_id, logement_id, locataire_id, titre, description,
@@ -142,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $newSignalementId = $pdo->lastInsertId();
 
-            // Déplacer et enregistrer les photos
             foreach ($uploadedPhotos as $photo) {
                 $dest = __DIR__ . '/../uploads/signalements/' . $photo['filename'];
                 if (move_uploaded_file($photo['tmp'], $dest)) {
@@ -153,7 +154,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Enregistrer l'action dans la timeline
             $pdo->prepare("
                 INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ip_address)
                 VALUES (?, 'creation', ?, ?, ?)
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($success) {
-    header('Location: confirmation.php?ref=' . urlencode($newSignalementId ?? '') . '&token=' . urlencode($token));
+    header('Location: confirmation.php?ref=' . urlencode($newSignalementId ?? ''));
     exit;
 }
 ?>
@@ -189,17 +189,8 @@ if ($success) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { background: #f0f4f8; }
-        .form-card {
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-        }
-        .header-brand {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: #fff;
-            border-radius: 14px 14px 0 0;
-            padding: 28px 30px 22px;
-        }
+        .form-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .header-brand { background: linear-gradient(135deg, #2c3e50, #3498db); color: #fff; border-radius: 14px 14px 0 0; padding: 28px 30px 22px; }
         .checklist-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
         .checklist-item:last-child { border-bottom: none; }
         .badge-urgent { background: #dc3545; }
@@ -212,14 +203,17 @@ if ($success) {
         <div class="col-lg-8 col-md-10">
 
             <div class="form-card mb-5">
-                <!-- En-tête -->
                 <div class="header-brand">
                     <h2 class="mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Signaler une anomalie</h2>
+                    <?php if ($locataire): ?>
                     <p class="mb-0 opacity-75">
                         <?php echo htmlspecialchars($locataire['adresse']); ?>
                         &nbsp;—&nbsp;
                         <?php echo htmlspecialchars($locataire['prenom'] . ' ' . $locataire['nom']); ?>
                     </p>
+                    <?php else: ?>
+                    <p class="mb-0 opacity-75">Portail locataire — <?php echo htmlspecialchars($config['COMPANY_NAME']); ?></p>
+                    <?php endif; ?>
                 </div>
 
                 <div class="p-4 p-md-5">
@@ -235,9 +229,30 @@ if ($success) {
                         </div>
                     <?php endif; ?>
 
-                    <form method="POST" enctype="multipart/form-data" novalidate>
+                    <?php if (!$etapeFormulaire): ?>
+                    <!-- Étape 1 : identification par email -->
+                    <p class="text-muted mb-4">Saisissez votre adresse email pour accéder au formulaire de signalement.</p>
+                    <form method="POST" novalidate>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold" for="email">
+                                Votre adresse email <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" class="form-control form-control-lg" id="email" name="email"
+                                   required autofocus placeholder="votre@email.fr"
+                                   value="<?php echo htmlspecialchars($emailSaisi); ?>">
+                            <div class="form-text">L'adresse email associée à votre contrat de location.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-arrow-right me-2"></i>Continuer
+                        </button>
+                    </form>
 
-                        <!-- Titre -->
+                    <?php else: ?>
+                    <!-- Étape 2 : formulaire de signalement -->
+                    <form method="POST" enctype="multipart/form-data" novalidate>
+                        <input type="hidden" name="email" value="<?php echo htmlspecialchars($emailSaisi); ?>">
+                        <input type="hidden" name="action_signaler" value="1">
+
                         <div class="mb-4">
                             <label class="form-label fw-semibold" for="titre">
                                 Titre du signalement <span class="text-danger">*</span>
@@ -248,11 +263,8 @@ if ($success) {
                                    value="<?php echo htmlspecialchars($_POST['titre'] ?? ''); ?>">
                         </div>
 
-                        <!-- Priorité -->
                         <div class="mb-4">
-                            <label class="form-label fw-semibold">
-                                Priorité <span class="text-danger">*</span>
-                            </label>
+                            <label class="form-label fw-semibold">Priorité <span class="text-danger">*</span></label>
                             <div class="d-flex gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="priorite" id="prio_normal"
@@ -273,7 +285,6 @@ if ($success) {
                             </div>
                         </div>
 
-                        <!-- Description -->
                         <div class="mb-4">
                             <label class="form-label fw-semibold" for="description">
                                 Description détaillée <span class="text-danger">*</span>
@@ -283,7 +294,6 @@ if ($success) {
                                       placeholder="Décrivez précisément l'anomalie, quand elle a commencé, ce que vous avez constaté..."><?php echo htmlspecialchars($_POST['description'] ?? ''); ?></textarea>
                         </div>
 
-                        <!-- Photos -->
                         <div class="mb-4">
                             <label class="form-label fw-semibold" for="photos">
                                 Photos <span class="text-danger">*</span>
@@ -293,7 +303,6 @@ if ($success) {
                             <div class="form-text">JPG, PNG ou WebP — 10 Mo max par photo. Ajoutez plusieurs photos si nécessaire.</div>
                         </div>
 
-                        <!-- Check-list responsabilité -->
                         <div class="mb-4">
                             <div class="card border-warning">
                                 <div class="card-header bg-warning bg-opacity-10 fw-semibold">
@@ -305,7 +314,6 @@ if ($success) {
                                         Avant de valider votre signalement, veuillez vérifier si la réparation est à votre charge
                                         ou à celle du propriétaire.
                                     </p>
-
                                     <div class="row g-3 mb-3">
                                         <div class="col-md-6">
                                             <div class="p-3 rounded" style="background:#fff3cd;">
@@ -328,7 +336,6 @@ if ($success) {
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="form-check mt-2">
                                         <input class="form-check-input" type="checkbox" id="checklist_confirmee"
                                                name="checklist_confirmee" value="1"
@@ -342,7 +349,6 @@ if ($success) {
                             </div>
                         </div>
 
-                        <!-- Note légale -->
                         <div class="alert alert-light border small text-muted mb-4">
                             <i class="bi bi-info-circle me-1"></i>
                             Votre signalement sera transmis à l'équipe de gestion. La date de dépôt sera
@@ -354,6 +360,7 @@ if ($success) {
                             <i class="bi bi-send me-2"></i>Soumettre le signalement
                         </button>
                     </form>
+                    <?php endif; ?>
                 </div>
             </div>
 
