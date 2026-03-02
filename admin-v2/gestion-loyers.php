@@ -1321,11 +1321,11 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
     <script>
         function changerStatut(logementId, mois, annee, statutActuel) {
             // Cycle entre les statuts
-            // Pour 'impaye', on passe directement à 'paye' afin d'éviter
-            // que la page recalcule immédiatement 'attente' -> 'impaye' pour les mois passés.
+            // attente → paye → attente (retour possible en cas d'erreur)
+            // impaye → paye (marquer comme payé)
             const cycle = {
                 'attente': 'paye',
-                'paye': 'impaye',
+                'paye': 'attente',
                 'impaye': 'paye'
             };
             

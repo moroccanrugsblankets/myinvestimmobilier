@@ -63,7 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $pkLive       = trim($_POST['stripe_public_key_live'] ?? '');
             $skLive       = trim($_POST['stripe_secret_key_live'] ?? '');
             $webhookSecret = trim($_POST['stripe_webhook_secret'] ?? '');
-            $jourInvitation = max(1, min(23, (int)($_POST['stripe_paiement_invitation_jour'] ?? 1)));
+            $invitationOuvrable = in_array($_POST['stripe_paiement_invitation_ouvrable'] ?? 'ouvrable', ['ouvrable', 'non_ouvrable']) ? $_POST['stripe_paiement_invitation_ouvrable'] : 'ouvrable';
+            $jourMax = ($invitationOuvrable === 'non_ouvrable') ? 31 : 23;
+            $jourInvitation = max(1, min($jourMax, (int)($_POST['stripe_paiement_invitation_jour'] ?? 1)));
             $liensHeures  = max(24, min(720, (int)($_POST['stripe_lien_expiration_heures'] ?? 168)));
             $maxMoisArrieres = max(0, min(24, (int)($_POST['stripe_rappel_mois_arrieres_max'] ?? 3)));
 
@@ -100,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 if (!empty($skLive)) setParam($pdo, 'stripe_secret_key_live', $skLive);
                 if (!empty($webhookSecret)) setParam($pdo, 'stripe_webhook_secret', $webhookSecret);
                 setParam($pdo, 'stripe_paiement_invitation_jour', (string)$jourInvitation);
+                setParam($pdo, 'stripe_paiement_invitation_ouvrable', $invitationOuvrable);
                 setParam($pdo, 'stripe_lien_expiration_heures', (string)$liensHeures);
                 setParam($pdo, 'stripe_paiement_rappel_jours', $rappelJoursJson);
                 setParam($pdo, 'stripe_methodes_paiement', $methodesJson);
@@ -140,6 +143,7 @@ $pkTest              = getParam($pdo, 'stripe_public_key_test', '');
 $pkLive              = getParam($pdo, 'stripe_public_key_live', '');
 $webhookConfigured   = !empty(getParam($pdo, 'stripe_webhook_secret', ''));
 $jourInvitation      = (int)getParam($pdo, 'stripe_paiement_invitation_jour', 1);
+$invitationOuvrable  = getParam($pdo, 'stripe_paiement_invitation_ouvrable', 'ouvrable');
 $rappelJours         = getParam($pdo, 'stripe_paiement_rappel_jours', [7, 14]);
 $liensHeures         = (int)getParam($pdo, 'stripe_lien_expiration_heures', 168);
 $maxMoisArrieres     = (int)getParam($pdo, 'stripe_rappel_mois_arrieres_max', 3);
@@ -353,11 +357,31 @@ $csrfToken = generateCsrfToken();
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">
-                                Jour ouvrable d'envoi de l'invitation mensuelle
+                                Jour d'envoi de l'invitation mensuelle
                             </label>
                             <input type="number" class="form-control" name="stripe_paiement_invitation_jour"
-                                   value="<?php echo $jourInvitation; ?>" min="1" max="23">
-                            <div class="form-text">Numéro de jour ouvrable du mois (lundi–vendredi) : 1 = 1<sup>er</sup> jour ouvrable, 2 = 2<sup>e</sup> jour ouvrable, etc. (défaut : 1)</div>
+                                   id="invitation_jour"
+                                   value="<?php echo $jourInvitation; ?>" min="1"
+                                   max="<?php echo $invitationOuvrable === 'non_ouvrable' ? 31 : 23; ?>">
+                            <div class="form-text">Numéro du jour du mois pour l'envoi de l'invitation (défaut : 1)</div>
+                            <div class="mt-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="stripe_paiement_invitation_ouvrable"
+                                           id="invitation_ouvrable" value="ouvrable"
+                                           <?php echo $invitationOuvrable !== 'non_ouvrable' ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="invitation_ouvrable">Ouvrable</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="stripe_paiement_invitation_ouvrable"
+                                           id="invitation_non_ouvrable" value="non_ouvrable"
+                                           <?php echo $invitationOuvrable === 'non_ouvrable' ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="invitation_non_ouvrable">Non Ouvrable</label>
+                                </div>
+                                <div class="form-text">
+                                    <strong>Ouvrable</strong> : Nième jour ouvrable (lun–ven) ;
+                                    <strong>Non Ouvrable</strong> : Nième jour calendaire
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -451,6 +475,18 @@ $csrfToken = generateCsrfToken();
             const h = parseInt(this.value) || 0;
             this.closest('.mb-3').querySelector('.form-text').textContent =
                 (h / 24).toFixed(1) + ' jour(s) — défaut: 168h (7 jours)';
+        });
+
+        // Mettre à jour le max du champ "Jour" selon le type (ouvrable/non_ouvrable)
+        document.querySelectorAll('[name="stripe_paiement_invitation_ouvrable"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                var jourInput = document.getElementById('invitation_jour');
+                var maxVal = (this.value === 'non_ouvrable') ? 31 : 23;
+                jourInput.max = maxVal;
+                if (parseInt(jourInput.value) > maxVal) {
+                    jourInput.value = maxVal;
+                }
+            });
         });
     </script>
 </body>

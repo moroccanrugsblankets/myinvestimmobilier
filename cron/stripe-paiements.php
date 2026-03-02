@@ -62,21 +62,6 @@ function getNthWorkingDayOfMonth(int $n, int $year, int $month): int {
     return $daysInMonth;
 }
 
-$jourInvitation = (int)getParameter('stripe_paiement_invitation_jour', 1);
-$joursRappel    = getParameter('stripe_paiement_rappel_jours', [7, 14]);
-if (!is_array($joursRappel)) $joursRappel = [7, 14];
-
-// Convertir le N-ième jour ouvrable en jour calendaire
-$jourInvitationCalendaire = getNthWorkingDayOfMonth($jourInvitation, $anneeActuelle, $moisActuel);
-
-$doInvitation = ($aujourdHui === $jourInvitationCalendaire);
-$doRappel     = in_array($aujourdHui, $joursRappel, true);
-
-// Mode test : décommenter les 2 lignes ci-dessous pour forcer l'envoi quel que soit le jour
-// $doInvitation = true;
-// $doRappel     = true;
-if (!$doInvitation && !$doRappel) { logMsg("Rien à faire aujourd'hui (invitation=$jourInvitationCalendaire, rappel=" . implode(',', $joursRappel) . ")."); exit; }
-
 logSection("Démarrage du cron - mode=$stripeMode, jour=$aujourdHui");
 
 $sqlContrats = "
@@ -108,7 +93,7 @@ foreach ($contrats as $contrat) {
     if (empty($locataires)) { logStep("Pas de locataires"); continue; }
 
     $sqlImpayes = "
-        SELECT id, mois, annee, montant_attendu
+        SELECT id, mois, annee, montant_attendu, statut_paiement
         FROM loyers_tracking
         WHERE contrat_id = ? 
           AND statut_paiement != 'paye'
@@ -122,21 +107,20 @@ foreach ($contrats as $contrat) {
     foreach ($monthsToProcess as $monthEntry) {
         $mois   = (int)$monthEntry['mois'];
         $annee  = (int)$monthEntry['annee'];
-        $isPast = ($annee < $anneeActuelle) || ($annee == $anneeActuelle && $mois < $moisActuel);
         $periode = $nomsMois[$mois] . ' ' . $annee;
 
         logStep("Traitement période $periode");
 
-        // Sur le jour d'invitation : invitation pour le mois courant uniquement
-        if ($doInvitation && !$isPast) {
+        // Sélectionner le template selon le statut du mois
+        $statut = $monthEntry['statut_paiement'];
+        if ($statut === 'attente') {
             $templateId = 'stripe_invitation_paiement';
-            logStep("Template choisi = INVITATION");
-        } elseif ($doRappel && $isPast) {
-            // Sur un jour de rappel : rappels pour les mois passés impayés uniquement
+            logStep("Template choisi = INVITATION (statut=attente)");
+        } elseif ($statut === 'impaye') {
             $templateId = 'stripe_rappel_paiement';
-            logStep("Template choisi = RAPPEL");
+            logStep("Template choisi = RAPPEL (statut=impaye)");
         } else {
-            logStep("Ignoré : mois " . ($isPast ? "passé" : "courant") . " mais condition non remplie (invitation=$doInvitation, rappel=$doRappel)");
+            logStep("Ignoré : statut '$statut' non traité");
             continue;
         }
 
