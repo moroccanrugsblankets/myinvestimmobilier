@@ -92,16 +92,16 @@ $contenu = getParameter('guide_reparations_contenu', '');
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
     tinymce.init({
         selector: '#guide_contenu',
-        plugins: 'lists link image code table',
-        toolbar: 'undo redo | formatselect | bold italic underline | bullist numlist | link image table | code',
+        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount',
+        toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
         menubar: false,
         height: 500,
-        language: 'fr_FR',
         content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        branding: false,
         promotion: false
     });
     </script>
