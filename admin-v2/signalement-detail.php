@@ -455,7 +455,12 @@ if ($successParam) {
                         </dd>
 
                         <dt class="col-sm-4">Logement</dt>
-                        <dd class="col-sm-8"><?php echo htmlspecialchars($sig['adresse']); ?></dd>
+                        <dd class="col-sm-8">
+                            <?php echo htmlspecialchars($sig['adresse']); ?>
+                            <?php if (!empty($sig['logement_ref'])): ?>
+                                <br><small class="text-muted font-monospace"><?php echo htmlspecialchars($sig['logement_ref']); ?></small>
+                            <?php endif; ?>
+                        </dd>
 
                         <dt class="col-sm-4">Contrat</dt>
                         <dd class="col-sm-8">

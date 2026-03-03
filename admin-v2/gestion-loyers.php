@@ -444,7 +444,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($nouveauStatut === 'paye') {
                 // Récupérer les informations du contrat et du logement depuis loyers_tracking
                 $stmtPayment = $pdo->prepare("
-                    SELECT lt.contrat_id, l.adresse, l.loyer, l.charges
+                    SELECT lt.contrat_id, l.adresse, l.reference as logement_ref, l.loyer, l.charges
                     FROM loyers_tracking lt
                     INNER JOIN logements l ON l.id = lt.logement_id
                     WHERE lt.logement_id = ? AND lt.mois = ? AND lt.annee = ?
@@ -476,6 +476,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     'locataire_prenom'  => $loc['prenom'],
                                     'periode'           => $periodeNom,
                                     'adresse'           => $paymentInfo['adresse'],
+                                    'reference'         => $paymentInfo['logement_ref'] ?? '',
                                     'montant_loyer'     => $montantLoyerFmt,
                                     'montant_charges'   => $montantChargesFmt,
                                     'montant_total'     => $montantTotalFmt,

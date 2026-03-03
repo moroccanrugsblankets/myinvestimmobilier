@@ -19,7 +19,7 @@ if ($sigId <= 0) {
 try {
     $stmt = $pdo->prepare("
         SELECT sig.reference, sig.titre, sig.priorite, sig.date_signalement,
-               l.adresse
+               l.adresse, l.reference as logement_ref
         FROM signalements sig
         INNER JOIN logements l ON sig.logement_id = l.id
         WHERE sig.id = ?
@@ -80,6 +80,9 @@ if (!$sig) {
                         </div>
                         <div class="mb-1">
                             <strong>Logement :</strong> <?php echo htmlspecialchars($sig['adresse']); ?>
+                            <?php if (!empty($sig['logement_ref'])): ?>
+                                <span class="text-muted font-monospace ms-1">(<?php echo htmlspecialchars($sig['logement_ref']); ?>)</span>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <strong>Date :</strong>

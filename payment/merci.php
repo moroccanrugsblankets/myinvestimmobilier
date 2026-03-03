@@ -120,7 +120,7 @@ if ($session['statut'] !== 'paye') {
                 $locatairesStmt = $pdo->prepare("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre");
                 $locatairesStmt->execute([$session['contrat_id']]);
                 $locataires = $locatairesStmt->fetchAll(PDO::FETCH_ASSOC);
-                $logementStmt = $pdo->prepare("SELECT adresse, loyer, charges FROM logements WHERE id = ?");
+                $logementStmt = $pdo->prepare("SELECT adresse, reference, loyer, charges FROM logements WHERE id = ?");
                 $logementStmt->execute([$session['logement_id']]);
                 $logement = $logementStmt->fetch(PDO::FETCH_ASSOC);
                 $loyer   = $logement['loyer']   ?? 0;
@@ -130,6 +130,7 @@ if ($session['statut'] !== 'paye') {
                         'locataire_nom'    => $locataire['nom'],
                         'locataire_prenom' => $locataire['prenom'],
                         'adresse'          => $session['adresse'],
+                        'reference'        => $logement['reference'] ?? '',
                         'periode'          => $periode,
                         'montant_loyer'    => number_format((float)$loyer, 2, ',', ' '),
                         'montant_charges'  => number_format((float)$charges, 2, ',', ' '),
