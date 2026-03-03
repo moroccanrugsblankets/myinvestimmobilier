@@ -57,8 +57,9 @@ $page_to_menu_map = [
     'bilan-logement-configuration.php' => 'contrats.php',
     'configuration-rappels-loyers.php' => 'gestion-loyers.php',
     'stripe-configuration.php' => 'gestion-loyers.php',
-    'signalement-detail.php' => 'signalements.php',
-    'collaborateurs.php'     => 'signalements.php',
+    'signalement-detail.php'  => 'signalements.php',
+    'collaborateurs.php'      => 'signalements.php',
+    'guide-reparations.php'   => 'signalements.php',
 ];
 
 // Check if current page is a detail page, if so use parent menu
@@ -191,6 +192,11 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'collaborateurs.php' ? 'active' : ''; ?>" href="collaborateurs.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-people"></i> Collaborateurs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'guide-reparations.php' ? 'active' : ''; ?>" href="guide-reparations.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-book"></i> Guide des réparations
                     </a>
                 </li>
             </ul>

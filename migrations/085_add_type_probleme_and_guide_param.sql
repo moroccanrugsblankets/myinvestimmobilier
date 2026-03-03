@@ -5,10 +5,13 @@
 --   2. Ajoute le paramètre guide_reparations_lien (lien configurable vers le guide des réparations locatives)
 --   3. Met à jour le template rappel_loyer_impaye_locataire pour inclure la variable {{reference}}
 
--- 1. Colonne type_probleme dans signalements
-ALTER TABLE signalements
-    ADD COLUMN IF NOT EXISTS type_probleme VARCHAR(50) NULL COMMENT 'Type de problème : Plomberie, Électricité, Serrurerie, Chauffage, Électroménager, Autre'
-    AFTER priorite;
+-- 1. Colonne type_probleme dans signalements (compatible MySQL < 8.0)
+SET @dbname = DATABASE();
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'signalements' AND COLUMN_NAME = 'type_probleme');
+SET @sql = IF(@col_exists = 0, 'ALTER TABLE signalements ADD COLUMN type_probleme VARCHAR(50) NULL COMMENT ''Type de problème : Plomberie, Électricité, Serrurerie, Chauffage, Électroménager, Autre'' AFTER priorite', 'SELECT ''Column type_probleme already exists'' as message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 2. Paramètre configurable : lien vers le guide des réparations locatives
 INSERT INTO parametres (cle, valeur, type, description, groupe) VALUES
