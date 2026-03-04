@@ -54,6 +54,15 @@ $errors = [];
 $successMsg = '';
 $isClos = ($sig['statut'] === 'clos');
 
+// Charger la liste des collaborateurs actifs (nécessaire avant le traitement du formulaire)
+$serviceTechniqueMetier = 'service technique';
+try {
+    $collabListStmt = $pdo->query("SELECT id, nom, metier, email, telephone FROM collaborateurs WHERE actif = 1 ORDER BY nom ASC");
+    $collabList = $collabListStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $collabList = []; // Table absente si migration non appliquée
+}
+
 // ── Traitement des formulaires ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
@@ -401,22 +410,13 @@ $actionsStmt = $pdo->prepare("SELECT * FROM signalements_actions WHERE signaleme
 $actionsStmt->execute([$id]);
 $actions = $actionsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Charger la liste des collaborateurs actifs
-$serviceTechniqueMetier = 'service technique';
-try {
-    $collabListStmt = $pdo->query("SELECT id, nom, metier, email, telephone FROM collaborateurs WHERE actif = 1 ORDER BY nom ASC");
-    $collabList = $collabListStmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $collabList = []; // Table absente si migration non appliquée
-}
-
 // Charger la liste des contrats actifs pour le changement de contrat
 $contratsListStmt = $pdo->query("
     SELECT c.id, c.reference_unique, l.adresse, l.reference as _ref,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
             FROM locataires WHERE contrat_id = c.id) as locataires
     FROM contrats c
-    INNER JOIN s l ON c._id = l.id
+    INNER JOIN logements l ON c.logement_id = l.id
     WHERE c.statut = 'valide'
     ORDER BY l.adresse
 ");

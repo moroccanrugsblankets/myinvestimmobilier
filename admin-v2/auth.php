@@ -34,6 +34,18 @@ if (!isset($_SESSION['admin_id'])) {
         session_destroy();
         sendAjaxAuthError('Session expirée. Veuillez vous reconnecter.', 'login.php');
     }
+    // Save the originally requested URL so we can redirect after login
+    $requestedUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+        . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+        . ($_SERVER['REQUEST_URI'] ?? '');
+    // Only save URLs on the same host to prevent open redirect attacks
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host && strpos($requestedUrl, 'http') === 0) {
+        $parsedHost = parse_url($requestedUrl, PHP_URL_HOST);
+        if ($parsedHost === $host) {
+            $_SESSION['redirect_after_login'] = $requestedUrl;
+        }
+    }
     header('Location: login.php');
     exit;
 }

@@ -27,7 +27,17 @@ if (isset($_POST['login'])) {
             $updateStmt = $pdo->prepare("UPDATE administrateurs SET derniere_connexion = NOW() WHERE id = ?");
             $updateStmt->execute([$admin['id']]);
             
-            header('Location: index.php');
+            // Redirect to originally requested URL if available and on the same host
+            $redirectUrl = 'index.php';
+            if (!empty($_SESSION['redirect_after_login'])) {
+                $savedUrl = $_SESSION['redirect_after_login'];
+                $parsedHost = parse_url($savedUrl, PHP_URL_HOST);
+                if ($parsedHost === ($_SERVER['HTTP_HOST'] ?? '')) {
+                    $redirectUrl = $savedUrl;
+                }
+                unset($_SESSION['redirect_after_login']);
+            }
+            header('Location: ' . $redirectUrl);
             exit;
         } else {
             $error = "Identifiants incorrects.";
