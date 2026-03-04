@@ -417,6 +417,58 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
             background: #eaf4fd;
         }
         .type-radio input[type="radio"] { display: none; }
+        .file-preview-item {
+            position: relative;
+            width: 110px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        .file-preview-item img {
+            width: 100%;
+            height: 75px;
+            object-fit: cover;
+            display: block;
+        }
+        .file-preview-item .file-preview-icon {
+            width: 100%;
+            height: 75px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #343a40;
+            font-size: 2rem;
+            color: #fff;
+        }
+        .file-preview-item .file-preview-name {
+            font-size: 10px;
+            padding: 3px 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            color: #495057;
+        }
+        .file-preview-item .btn-remove-file {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(220,53,69,0.85);
+            color: #fff;
+            border: none;
+            font-size: 11px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .file-preview-item .btn-remove-file:hover { background: #dc3545; }
     </style>
 </head>
 <body>
@@ -658,6 +710,11 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                 <input type="file" class="form-control" id="photos" name="photos[]"
                                        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple>
                                 <div class="form-text">JPG, PNG, WebP ou vidéo — 10 Mo max par fichier.</div>
+                                <!-- Preview zone for selected files -->
+                                <div id="file-preview-zone" class="mt-3 d-none">
+                                    <p class="small fw-semibold mb-2">Fichiers sélectionnés :</p>
+                                    <div id="file-preview-list" class="d-flex flex-wrap gap-2"></div>
+                                </div>
                             </div>
 
                             <div class="mb-4">
@@ -700,5 +757,88 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+    var fileInput = document.getElementById('photos');
+    var previewZone = document.getElementById('file-preview-zone');
+    var previewList = document.getElementById('file-preview-list');
+
+    if (!fileInput || !previewZone || !previewList) return;
+
+    // We maintain our own file list because <input type="file"> is read-only
+    var selectedFiles = [];
+
+    function refreshInput() {
+        // Rebuild the file list on a new DataTransfer object
+        var dt = new DataTransfer();
+        selectedFiles.forEach(function (f) { dt.items.add(f); });
+        fileInput.files = dt.files;
+    }
+
+    function renderPreviews() {
+        previewList.innerHTML = '';
+        if (selectedFiles.length === 0) {
+            previewZone.classList.add('d-none');
+            return;
+        }
+        previewZone.classList.remove('d-none');
+
+        selectedFiles.forEach(function (file, idx) {
+            var item = document.createElement('div');
+            item.className = 'file-preview-item';
+
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-remove-file';
+            removeBtn.title = 'Supprimer';
+            removeBtn.innerHTML = '&times;';
+            (function (fileRef) {
+                removeBtn.addEventListener('click', function () {
+                    selectedFiles = selectedFiles.filter(function (f) { return f !== fileRef; });
+                    refreshInput();
+                    renderPreviews();
+                });
+            })(file);
+            item.appendChild(removeBtn);
+
+            if (file.type.startsWith('image/')) {
+                var img = document.createElement('img');
+                img.alt = file.name;
+                var reader = new FileReader();
+                reader.onload = function (e) { img.src = e.target.result; };
+                reader.readAsDataURL(file);
+                item.appendChild(img);
+            } else {
+                // Video or other file type — show icon
+                var iconDiv = document.createElement('div');
+                iconDiv.className = 'file-preview-icon';
+                iconDiv.innerHTML = '<i class="bi bi-play-circle-fill"></i>';
+                item.appendChild(iconDiv);
+            }
+
+            var nameDiv = document.createElement('div');
+            nameDiv.className = 'file-preview-name';
+            nameDiv.textContent = file.name;
+            item.appendChild(nameDiv);
+
+            previewList.appendChild(item);
+        });
+    }
+
+    fileInput.addEventListener('change', function () {
+        // Append new files (avoid duplicates by name+size)
+        Array.from(fileInput.files).forEach(function (newFile) {
+            var duplicate = selectedFiles.some(function (f) {
+                return f.name === newFile.name && f.size === newFile.size;
+            });
+            if (!duplicate) {
+                selectedFiles.push(newFile);
+            }
+        });
+        refreshInput();
+        renderPreviews();
+    });
+})();
+</script>
 </body>
 </html>
