@@ -20,12 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'] ?? '';
 
         if ($action === 'add' || $action === 'edit') {
-            $nom     = trim($_POST['nom'] ?? '');
-            $metier  = trim($_POST['metier'] ?? '');
-            $email   = trim($_POST['email'] ?? '');
-            $tel     = trim($_POST['telephone'] ?? '');
-            $notes   = trim($_POST['notes'] ?? '');
-            $actif   = !empty($_POST['actif']) ? 1 : 0;
+            $nom              = trim($_POST['nom'] ?? '');
+            $metier           = trim($_POST['metier'] ?? '');
+            $email            = trim($_POST['email'] ?? '');
+            $tel              = trim($_POST['telephone'] ?? '');
+            $notes            = trim($_POST['notes'] ?? '');
+            $actif            = !empty($_POST['actif']) ? 1 : 0;
+            $serviceTechnique = !empty($_POST['service_technique']) ? 1 : 0;
 
             if (empty($nom)) {
                 $errors[] = 'Le nom est obligatoire.';
@@ -36,14 +37,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (empty($errors)) {
                 if ($action === 'add') {
-                    $pdo->prepare("INSERT INTO collaborateurs (nom, metier, email, telephone, notes, actif) VALUES (?, ?, ?, ?, ?, ?)")
-                        ->execute([$nom, $metier, $email, $tel, $notes, 1]);
+                    try {
+                        $pdo->prepare("INSERT INTO collaborateurs (nom, metier, email, telephone, notes, actif, service_technique) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                            ->execute([$nom, $metier, $email, $tel, $notes, 1, $serviceTechnique]);
+                    } catch (Exception $e) {
+                        // Fallback if service_technique column not yet available
+                        $pdo->prepare("INSERT INTO collaborateurs (nom, metier, email, telephone, notes, actif) VALUES (?, ?, ?, ?, ?, ?)")
+                            ->execute([$nom, $metier, $email, $tel, $notes, 1]);
+                    }
                     $successMsg = 'Collaborateur ajouté avec succès.';
                 } else {
                     $editId = (int)($_POST['edit_id'] ?? 0);
                     if ($editId > 0) {
-                        $pdo->prepare("UPDATE collaborateurs SET nom=?, metier=?, email=?, telephone=?, notes=?, actif=?, updated_at=NOW() WHERE id=?")
-                            ->execute([$nom, $metier, $email, $tel, $notes, $actif, $editId]);
+                        try {
+                            $pdo->prepare("UPDATE collaborateurs SET nom=?, metier=?, email=?, telephone=?, notes=?, actif=?, service_technique=?, updated_at=NOW() WHERE id=?")
+                                ->execute([$nom, $metier, $email, $tel, $notes, $actif, $serviceTechnique, $editId]);
+                        } catch (Exception $e) {
+                            // Fallback if service_technique column not yet available
+                            $pdo->prepare("UPDATE collaborateurs SET nom=?, metier=?, email=?, telephone=?, notes=?, actif=?, updated_at=NOW() WHERE id=?")
+                                ->execute([$nom, $metier, $email, $tel, $notes, $actif, $editId]);
+                        }
                         $successMsg = 'Collaborateur mis à jour.';
                     }
                 }
@@ -157,6 +170,16 @@ $csrfToken = generateCsrfToken();
                                 <label class="form-label fw-semibold">Notes internes</label>
                                 <textarea class="form-control" name="notes" rows="3"><?php echo htmlspecialchars($editCollab['notes'] ?? ''); ?></textarea>
                             </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="service_technique" name="service_technique" value="1"
+                                           <?php echo !empty($editCollab['service_technique']) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label fw-semibold" for="service_technique">
+                                        <i class="bi bi-tools me-1"></i>Service Technique
+                                    </label>
+                                    <div class="form-text">Reçoit automatiquement les notifications de signalement en copie.</div>
+                                </div>
+                            </div>
                             <?php if ($editCollab): ?>
                             <div class="mb-3">
                                 <div class="form-check">
@@ -227,6 +250,9 @@ $csrfToken = generateCsrfToken();
                                                 <span class="badge bg-success">Actif</span>
                                             <?php else: ?>
                                                 <span class="badge bg-secondary">Inactif</span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($c['service_technique'])): ?>
+                                                <span class="badge bg-warning text-dark ms-1"><i class="bi bi-tools me-1"></i>Serv. Technique</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">

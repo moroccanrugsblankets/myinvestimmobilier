@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $stmt = $pdo->prepare("
-                    SELECT loc.id, loc.prenom, loc.nom, loc.email,
+                    SELECT loc.id, loc.prenom, loc.nom, loc.email, loc.telephone,
                            c.id as contrat_id, c.reference_unique as contrat_ref,
                            l.id as logement_id, l.adresse, l.reference as logement_ref
                     FROM locataires loc
@@ -48,6 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     INNER JOIN logements l ON c.logement_id = l.id
                     WHERE LOWER(loc.email) = ?
                       AND c.statut = 'valide'
+                      AND (c.date_prise_effet IS NULL OR c.date_prise_effet <= CURDATE())
+                    ORDER BY c.date_prise_effet DESC, c.id DESC
                     LIMIT 1
                 ");
                 $stmt->execute([$emailSaisi]);
@@ -111,9 +113,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Vous devez confirmer la checklist à l'étape précédente.";
             $state = 'anomalie2';
         } else {
-            $typeProbleme = trim($_POST['type_probleme'] ?? '');
-            $description  = trim($_POST['description']  ?? '');
-            $priorite     = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
+            $typeProbleme  = trim($_POST['type_probleme'] ?? '');
+            $description   = trim($_POST['description']  ?? '');
+            $priorite      = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
+            $disponibilites = trim($_POST['disponibilites'] ?? '');
 
             $typesValides = ['Plomberie', 'Électricité', 'Serrurerie', 'Chauffage', 'Électroménager', 'Autre'];
             if (empty($typeProbleme) || !in_array($typeProbleme, $typesValides)) {
@@ -177,8 +180,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $insertStmt = $pdo->prepare("
                             INSERT INTO signalements
                                 (reference, contrat_id, logement_id, locataire_id, titre, description,
-                                 priorite, type_probleme, checklist_confirmee, statut)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'nouveau')
+                                 priorite, type_probleme, checklist_confirmee, statut, disponibilites)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'nouveau', ?)
                         ");
                         $insertStmt->execute([
                             $reference,
@@ -189,6 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $description,
                             $priorite,
                             $typeProbleme,
+                            $disponibilites ?: null,
                         ]);
                     } catch (Exception $e) {
                         if (strpos($e->getMessage(), 'type_probleme') === false && strpos($e->getMessage(), 'Unknown column') === false) {
@@ -237,6 +241,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Emails de notification
                     $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
 
+                    // Build photos/videos HTML for service technique email
+                    $photosHtml = '';
+                    if (!empty($uploadedPhotos)) {
+                        $photosHtml = '<p style="margin-top:15px;"><strong>Photos / Vidéos jointes :</strong></p><ul>';
+                        foreach ($uploadedPhotos as $up) {
+                            $mediaUrl = $siteUrl . '/uploads/signalements/' . rawurlencode($up['filename']);
+                            $photosHtml .= '<li><a href="' . htmlspecialchars($mediaUrl) . '">' . htmlspecialchars($up['original']) . '</a></li>';
+                        }
+                        $photosHtml .= '</ul>';
+                    }
+
+                    // Disponibilités HTML for service technique email
+                    $disponibilitesHtml = '';
+                    if (!empty($disponibilites)) {
+                        $disponibilitesHtml = '<p style="margin: 5px 0;"><strong>Disponibilités du locataire :</strong> ' . nl2br(htmlspecialchars($disponibilites)) . '</p>';
+                    }
+
                     $locataireEmail = strtolower(trim($locataire['email'] ?? ''));
                     if (!empty($locataireEmail)) {
                         sendTemplatedEmail('nouveau_signalement_locataire', $locataireEmail, [
@@ -254,15 +275,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $adminEmail = getAdminEmail();
                     if (!empty($adminEmail)) {
                         sendTemplatedEmail('nouveau_signalement_admin', $adminEmail, [
-                            'reference'   => $reference,
-                            'titre'       => $titre,
-                            'priorite'    => ucfirst($priorite),
-                            'adresse'     => $locataire['adresse'],
-                            'locataire'   => $locataire['prenom'] . ' ' . $locataire['nom'],
-                            'description' => $description,
-                            'date'        => date('d/m/Y à H:i'),
-                            'lien_admin'  => $siteUrl . '/admin-v2/signalement-detail.php?id=' . $newSignalementId,
+                            'reference'          => $reference,
+                            'titre'              => $titre,
+                            'priorite'           => ucfirst($priorite),
+                            'adresse'            => $locataire['adresse'],
+                            'locataire'          => $locataire['prenom'] . ' ' . $locataire['nom'],
+                            'telephone'          => $locataire['telephone'] ?? '—',
+                            'description'        => $description,
+                            'date'               => date('d/m/Y à H:i'),
+                            'lien_admin'         => $siteUrl . '/admin-v2/signalement-detail.php?id=' . $newSignalementId,
+                            'disponibilites_html' => $disponibilitesHtml,
+                            'photos_html'        => $photosHtml,
                         ], null, true, false, ['contexte' => "signalement_admin_notification;sig_id=$newSignalementId"]);
+                    }
+
+                    // Notify service technique (separate email without admin link)
+                    $stEmail = getServiceTechniqueEmail();
+                    if ($stEmail && strtolower($stEmail) !== strtolower($adminEmail)) {
+                        sendTemplatedEmail('nouveau_signalement_service_technique', $stEmail, [
+                            'reference'          => $reference,
+                            'titre'              => $titre,
+                            'priorite'           => ucfirst($priorite),
+                            'adresse'            => $locataire['adresse'],
+                            'locataire'          => $locataire['prenom'] . ' ' . $locataire['nom'],
+                            'telephone'          => $locataire['telephone'] ?? '—',
+                            'description'        => $description,
+                            'date'               => date('d/m/Y à H:i'),
+                            'disponibilites_html' => $disponibilitesHtml,
+                            'photos_html'        => $photosHtml,
+                        ], null, false, false, ['contexte' => "signalement_st_notification;sig_id=$newSignalementId"]);
                     }
 
                     // Réinitialiser l'état du portail (garder la session locataire pour un éventuel retour)
@@ -726,6 +767,15 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                 <input type="file" class="form-control" id="photos" name="photos[]"
                                        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple>
                                 <div class="form-text">JPG, PNG, WebP ou vidéo — 10 Mo max par fichier.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold" for="disponibilites">
+                                    Vos disponibilités <small class="text-muted fw-normal">(optionnel)</small>
+                                </label>
+                                <textarea class="form-control" id="disponibilites" name="disponibilites" rows="3"
+                                          placeholder="Ex : demain 8h–16h / après-demain 14h–18h / dans 3 jours toute la journée..."><?php echo htmlspecialchars($_POST['disponibilites'] ?? ''); ?></textarea>
+                                <div class="form-text">Indiquez vos disponibilités sur les 3 prochains jours pour faciliter l'intervention.</div>
                             </div>
 
                             <div class="d-flex justify-content-between">

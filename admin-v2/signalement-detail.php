@@ -22,6 +22,7 @@ $stmt = $pdo->prepare("
            l.adresse, l.reference as logement_ref, l.loyer, l.charges,
            c.reference_unique as contrat_ref,
            CONCAT(loc.prenom, ' ', loc.nom) as locataire_nom,
+           loc.prenom as locataire_prenom,
            loc.email as locataire_email, loc.telephone as locataire_telephone,
            loc.token_signalement
     FROM signalements sig
@@ -149,17 +150,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $errors[] = 'Responsabilité invalide.';
             } else {
                 $old = $sig['responsabilite'];
-                $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, updated_at = NOW() WHERE id = ?")
-                    ->execute([$responsabilite, $id]);
+
+                // If locataire is responsible, automatically close the ticket
+                $autoClose = ($responsabilite === 'locataire');
+                if ($autoClose) {
+                    $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, statut = 'clos', date_cloture = COALESCE(date_cloture, NOW()), updated_at = NOW() WHERE id = ?")
+                        ->execute([$responsabilite, $id]);
+                } else {
+                    $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, updated_at = NOW() WHERE id = ?")
+                        ->execute([$responsabilite, $id]);
+                }
 
                 $pdo->prepare("
                     INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ancienne_valeur, nouvelle_valeur, ip_address)
                     VALUES (?, 'responsabilite', ?, ?, ?, ?, ?)
                 ")->execute([$id,
-                    "Responsabilité définie : $old → $responsabilite",
+                    "Responsabilité définie : $old → $responsabilite" . ($autoClose ? ' (dossier clos automatiquement)' : ''),
                     $adminName, $old, $responsabilite,
                     $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                 ]);
+
+                // Send email to tenant when responsibility is confirmed (locataire)
+                if ($autoClose && !empty($sig['locataire_email'])) {
+                    $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+                    $emailVars = [
+                        'prenom'    => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+                        'nom'       => $sig['locataire_nom'],
+                        'reference' => $sig['reference'],
+                        'titre'     => $sig['titre'],
+                        'adresse'   => $sig['adresse'],
+                        'company'   => $companyName,
+                    ];
+                    $sent = sendTemplatedEmail(
+                        'confirmation_responsabilite_locataire',
+                        $sig['locataire_email'],
+                        $emailVars,
+                        null,
+                        false,
+                        true, // addAdminBcc
+                        ['contexte' => 'responsabilite_locataire;sig_id=' . $id]
+                    );
+                    // Also notify service technique
+                    $stEmail = getServiceTechniqueEmail();
+                    if ($stEmail && strtolower($stEmail) !== strtolower($sig['locataire_email'])) {
+                        sendTemplatedEmail(
+                            'confirmation_responsabilite_locataire',
+                            $stEmail,
+                            $emailVars,
+                            null,
+                            false,
+                            false,
+                            ['contexte' => 'responsabilite_locataire_st;sig_id=' . $id]
+                        );
+                    }
+                }
 
                 header("Location: signalement-detail.php?id=$id&success=responsabilite");
                 exit;
@@ -452,6 +496,9 @@ if ($successParam) {
                             <?php if (!empty($sig['locataire_email'])): ?>
                                 <br><small class="text-muted"><?php echo htmlspecialchars($sig['locataire_email']); ?></small>
                             <?php endif; ?>
+                            <?php if (!empty($sig['locataire_telephone'])): ?>
+                                <br><small class="text-muted"><i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($sig['locataire_telephone']); ?></small>
+                            <?php endif; ?>
                         </dd>
 
                         <dt class="col-sm-4">Logement</dt>
@@ -475,6 +522,13 @@ if ($successParam) {
                                 echo htmlspecialchars($sig['description']);
                             ?></div>
                         </dd>
+
+                        <?php if (!empty($sig['disponibilites'])): ?>
+                        <dt class="col-sm-4">Disponibilités</dt>
+                        <dd class="col-sm-8">
+                            <div class="p-2 bg-light rounded small" style="white-space:pre-wrap;"><?php echo htmlspecialchars($sig['disponibilites']); ?></div>
+                        </dd>
+                        <?php endif; ?>
 
                         <dt class="col-sm-4">Responsabilité</dt>
                         <dd class="col-sm-8">
@@ -517,20 +571,68 @@ if ($successParam) {
                     </dl>
                 </div>
 
-                <!-- Photos -->
+                <!-- Photos / Vidéos -->
                 <?php if (!empty($photos)): ?>
                 <div class="section-card">
-                    <h5 class="mb-3"><i class="bi bi-camera me-2"></i>Photos (<?php echo count($photos); ?>)</h5>
+                    <h5 class="mb-3"><i class="bi bi-camera me-2"></i>Photos / Vidéos (<?php echo count($photos); ?>)</h5>
                     <div class="d-flex flex-wrap gap-2">
-                        <?php foreach ($photos as $photo): ?>
+                        <?php foreach ($photos as $idx => $photo): ?>
                             <?php
-                            $photoUrl = rtrim($config['SITE_URL'], '/') . '/uploads/signalements/' . urlencode($photo['filename']);
+                            $mediaUrl  = rtrim($config['SITE_URL'], '/') . '/uploads/signalements/' . urlencode($photo['filename']);
+                            $isVideo   = strpos($photo['mime_type'] ?? '', 'video/') === 0;
+                            $modalId   = 'media-modal-' . $idx;
                             ?>
-                            <a href="<?php echo htmlspecialchars($photoUrl); ?>" target="_blank" title="<?php echo htmlspecialchars($photo['original_name']); ?>">
-                                <img src="<?php echo htmlspecialchars($photoUrl); ?>"
-                                     alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
-                                     class="photo-thumb">
-                            </a>
+                            <?php if ($isVideo): ?>
+                            <!-- Video thumbnail -->
+                            <div class="position-relative" style="width:120px;height:90px;cursor:pointer;"
+                                 data-bs-toggle="modal" data-bs-target="#<?php echo $modalId; ?>"
+                                 title="<?php echo htmlspecialchars($photo['original_name']); ?>">
+                                <div class="d-flex align-items-center justify-content-center bg-dark rounded h-100 w-100"
+                                     style="border:1px solid #dee2e6;">
+                                    <i class="bi bi-play-circle-fill text-white" style="font-size:2.5rem;"></i>
+                                </div>
+                                <small class="position-absolute bottom-0 start-0 end-0 text-center text-white bg-dark bg-opacity-75 rounded-bottom"
+                                       style="font-size:10px;padding:2px;"><?php echo htmlspecialchars($photo['original_name']); ?></small>
+                            </div>
+                            <?php else: ?>
+                            <!-- Image thumbnail -->
+                            <img src="<?php echo htmlspecialchars($mediaUrl); ?>"
+                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
+                                 class="photo-thumb"
+                                 data-bs-toggle="modal" data-bs-target="#<?php echo $modalId; ?>"
+                                 title="<?php echo htmlspecialchars($photo['original_name']); ?>">
+                            <?php endif; ?>
+
+                            <!-- Modal for this media -->
+                            <div class="modal fade" id="<?php echo $modalId; ?>" tabindex="-1"
+                                 aria-label="<?php echo htmlspecialchars($photo['original_name']); ?>">
+                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <span class="modal-title small text-truncate"><?php echo htmlspecialchars($photo['original_name']); ?></span>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center p-2">
+                                            <?php if ($isVideo): ?>
+                                            <video controls class="w-100" style="max-height:70vh;">
+                                                <source src="<?php echo htmlspecialchars($mediaUrl); ?>" type="<?php echo htmlspecialchars($photo['mime_type']); ?>">
+                                                Votre navigateur ne supporte pas la lecture vidéo.
+                                            </video>
+                                            <?php else: ?>
+                                            <img src="<?php echo htmlspecialchars($mediaUrl); ?>"
+                                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
+                                                 class="img-fluid" style="max-height:70vh;">
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="modal-footer py-2">
+                                            <a href="<?php echo htmlspecialchars($mediaUrl); ?>" class="btn btn-sm btn-outline-secondary" download>
+                                                <i class="bi bi-download me-1"></i>Télécharger
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -752,38 +854,10 @@ if ($successParam) {
                             <div>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="mode_notification" id="mode_email"
-                                           value="email" <?php echo ($sig['mode_notification_collab'] ?? 'email') === 'email' ? 'checked' : ''; ?>>
+                                           value="email" checked>
                                     <label class="form-check-label" for="mode_email">Email</label>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="mode_notification" id="mode_whatsapp"
-                                           value="whatsapp" <?php echo ($sig['mode_notification_collab'] ?? '') === 'whatsapp' ? 'checked' : ''; ?>>
-                                    <label class="form-check-label" for="mode_whatsapp">WhatsApp</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="mode_notification" id="mode_les_deux"
-                                           value="les_deux" <?php echo ($sig['mode_notification_collab'] ?? '') === 'les_deux' ? 'checked' : ''; ?>>
-                                    <label class="form-check-label" for="mode_les_deux">Les deux</label>
-                                </div>
                             </div>
-                        </div>
-                        <div id="whatsapp-info" class="alert alert-info small mb-2 d-none">
-                            <i class="bi bi-whatsapp me-1"></i>
-                            <?php
-                            $twilioConfigured = !empty(getParameter('twilio_account_sid')) && !empty(getParameter('twilio_auth_token')) && !empty(getParameter('twilio_whatsapp_from'));
-                            if ($twilioConfigured): ?>
-                            Le message WhatsApp sera envoyé automatiquement via l'API Twilio lors du transfert.
-                            <?php else: ?>
-                            <strong>Twilio non configuré.</strong> Copiez le message ci-dessous et envoyez-le manuellement via WhatsApp :
-                            <div class="mt-1 font-monospace small p-2 bg-white rounded border" id="whatsapp-msg">
-                                [Signalement <?php echo htmlspecialchars($sig['priorite']); ?>] <?php echo htmlspecialchars($sig['titre']); ?>
-                                Adresse : <?php echo htmlspecialchars($sig['adresse']); ?>
-                                Priorité : <?php echo htmlspecialchars($sig['priorite']); ?>
-                                Description : <?php echo htmlspecialchars(mb_substr($sig['description'], 0, 200)); ?>...
-                                Lien mission : <?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/admin-v2/signalement-detail.php?id=' . $id); ?>
-                            </div>
-                            <div class="mt-1"><a href="parametres.php#twilio" class="small">Configurer Twilio →</a></div>
-                            <?php endif; ?>
                         </div>
                         <button type="submit" class="btn btn-info btn-sm w-100 text-white">
                             <i class="bi bi-send me-1"></i>Transférer
@@ -812,22 +886,6 @@ if ($successParam) {
                 document.getElementById('collab-tel').value   = opt.dataset.tel   || '';
             }
         });
-    }
-    // Afficher le texte WhatsApp si mode = whatsapp ou les_deux
-    document.querySelectorAll('[name="mode_notification"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var info = document.getElementById('whatsapp-info');
-            if (this.value === 'whatsapp' || this.value === 'les_deux') {
-                info.classList.remove('d-none');
-            } else {
-                info.classList.add('d-none');
-            }
-        });
-    });
-    // Initialisation
-    var selected = document.querySelector('[name="mode_notification"]:checked');
-    if (selected && (selected.value === 'whatsapp' || selected.value === 'les_deux')) {
-        document.getElementById('whatsapp-info').classList.remove('d-none');
     }
     </script>
 </body>
