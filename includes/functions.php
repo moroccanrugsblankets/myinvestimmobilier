@@ -757,7 +757,8 @@ function replaceTemplateVariables($template, $data) {
         // - 'commentaire' is user input that's already escaped with htmlspecialchars() before being wrapped in HTML
         // - 'status_paiements' is HTML generated server-side with htmlspecialchars() on user data
         // - 'bouton_interface' is HTML generated server-side with a trusted URL
-        $htmlExemptKeys = ['signature', 'commentaire', 'status_paiements', 'bouton_interface'];
+        // - 'photos_html' / 'disponibilites_html' are HTML generated server-side with htmlspecialchars() on user data
+        $htmlExemptKeys = ['signature', 'commentaire', 'status_paiements', 'bouton_interface', 'photos_html', 'disponibilites_html'];
         if (in_array($key, $htmlExemptKeys, true)) {
             $template = str_replace($placeholder, $value, $template);
         } else {

@@ -170,37 +170,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                 ]);
 
-                // Send email to tenant when responsibility is confirmed (locataire)
-                if ($autoClose && !empty($sig['locataire_email'])) {
+                // Send email to tenant when responsibility is confirmed
+                if ($responsabilite !== 'non_determine' && !empty($sig['locataire_email'])) {
                     $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                     $emailVars = [
-                        'prenom'    => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
-                        'nom'       => $sig['locataire_nom'],
-                        'reference' => $sig['reference'],
-                        'titre'     => $sig['titre'],
-                        'adresse'   => $sig['adresse'],
-                        'company'   => $companyName,
+                        'prenom'         => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+                        'nom'            => $sig['locataire_nom'],
+                        'reference'      => $sig['reference'],
+                        'titre'          => $sig['titre'],
+                        'adresse'        => $sig['adresse'],
+                        'company'        => $companyName,
+                        'responsabilite' => ['locataire' => 'Locataire', 'proprietaire' => 'Propriétaire', 'non_determine' => 'Non déterminée'][$responsabilite] ?? $responsabilite,
                     ];
-                    $sent = sendTemplatedEmail(
-                        'confirmation_responsabilite_locataire',
+                    $templateId = ($responsabilite === 'proprietaire')
+                        ? 'confirmation_responsabilite_proprietaire'
+                        : 'confirmation_responsabilite_locataire';
+
+                    // Send to tenant with admin BCC
+                    sendTemplatedEmail(
+                        $templateId,
                         $sig['locataire_email'],
                         $emailVars,
                         null,
                         false,
                         true, // addAdminBcc
-                        ['contexte' => 'responsabilite_locataire;sig_id=' . $id]
+                        ['contexte' => 'responsabilite_' . $responsabilite . ';sig_id=' . $id]
                     );
                     // Also notify service technique
                     $stEmail = getServiceTechniqueEmail();
                     if ($stEmail && strtolower($stEmail) !== strtolower($sig['locataire_email'])) {
                         sendTemplatedEmail(
-                            'confirmation_responsabilite_locataire',
+                            $templateId,
                             $stEmail,
                             $emailVars,
                             null,
                             false,
                             false,
-                            ['contexte' => 'responsabilite_locataire_st;sig_id=' . $id]
+                            ['contexte' => 'responsabilite_' . $responsabilite . '_st;sig_id=' . $id]
                         );
                     }
                 }
@@ -210,19 +216,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
         }
 
-        // ── Attribution à un collaborateur ───────────────────────────────────
+        // ── Attribution à un/plusieurs collaborateur(s) ──────────────────────
         if ($action === 'attribuer' && !$isClos) {
-            $collabNom = trim($_POST['collaborateur_nom'] ?? '');
-            $collabEmail = trim($_POST['collaborateur_email'] ?? '');
-            $collabTel = trim($_POST['collaborateur_telephone'] ?? '');
             $modeNotif = $_POST['mode_notification'] ?? 'email';
-            // Utiliser l'ID collaborateur sélectionné dans le dropdown (si disponible)
-            $collabId = !empty($_POST['collab_select_id']) ? (int)$_POST['collab_select_id'] : null;
+            // Collecter les IDs sélectionnés (multi-sélection)
+            $selectedCollabIds = array_filter(array_map('intval', (array)($_POST['collab_ids'] ?? [])));
+            // Saisie manuelle (si pas de sélection dans la liste)
+            $manualNom   = trim($_POST['collaborateur_nom'] ?? '');
+            $manualEmail = trim($_POST['collaborateur_email'] ?? '');
+            $manualTel   = trim($_POST['collaborateur_telephone'] ?? '');
 
-            if (empty($collabNom)) {
-                $errors[] = 'Le nom du collaborateur est obligatoire.';
+            // Construire la liste des collaborateurs à attribuer
+            $toAttribuer = [];
+            if (!empty($selectedCollabIds) && !empty($collabList)) {
+                $collabMap = array_column($collabList, null, 'id');
+                foreach ($selectedCollabIds as $cid) {
+                    if (isset($collabMap[$cid])) {
+                        $cl = $collabMap[$cid];
+                        $toAttribuer[] = [
+                            'id'    => $cid,
+                            'nom'   => $cl['nom'],
+                            'email' => $cl['email'] ?? '',
+                            'tel'   => $cl['telephone'] ?? '',
+                        ];
+                    }
+                }
+            } elseif (!empty($manualNom)) {
+                $toAttribuer[] = ['id' => null, 'nom' => $manualNom, 'email' => $manualEmail, 'tel' => $manualTel];
+            }
+
+            if (empty($toAttribuer)) {
+                $errors[] = 'Veuillez sélectionner au moins un collaborateur.';
             } else {
-                // Tenter la mise à jour avec collaborateur_id (disponible après migration 082)
+                $siteUrl = rtrim($config['SITE_URL'], '/');
+                $signalementUrl = $siteUrl . '/admin-v2/signalement-detail.php?id=' . $id;
+                $nomsList = implode(', ', array_column($toAttribuer, 'nom'));
+
+                // Update signalements avec le 1er collaborateur (rétrocompatibilité)
+                $primary = $toAttribuer[0];
                 try {
                     $pdo->prepare("
                         UPDATE signalements
@@ -233,9 +264,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             statut = CASE WHEN statut = 'nouveau' THEN 'en_cours' ELSE statut END,
                             updated_at = NOW()
                         WHERE id = ?
-                    ")->execute([$collabNom, $collabEmail, $collabTel, $modeNotif, $collabId, $id]);
+                    ")->execute([$nomsList, $primary['email'], $primary['tel'], $modeNotif, $primary['id'], $id]);
                 } catch (Exception $e) {
-                    // Fallback sans collaborateur_id si colonne absente
                     $pdo->prepare("
                         UPDATE signalements
                         SET collaborateur_nom = ?, collaborateur_email = ?, collaborateur_telephone = ?,
@@ -244,75 +274,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             statut = CASE WHEN statut = 'nouveau' THEN 'en_cours' ELSE statut END,
                             updated_at = NOW()
                         WHERE id = ?
-                    ")->execute([$collabNom, $collabEmail, $collabTel, $modeNotif, $id]);
+                    ")->execute([$nomsList, $primary['email'], $primary['tel'], $modeNotif, $id]);
+                }
+
+                // Insérer dans signalements_collaborateurs (si table disponible)
+                foreach ($toAttribuer as $collab) {
+                    try {
+                        $pdo->prepare("
+                            INSERT INTO signalements_collaborateurs
+                                (signalement_id, collaborateur_id, collaborateur_nom, collaborateur_email,
+                                 collaborateur_telephone, mode_notification, attribue_par)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                collaborateur_nom = VALUES(collaborateur_nom),
+                                collaborateur_email = VALUES(collaborateur_email),
+                                collaborateur_telephone = VALUES(collaborateur_telephone)
+                        ")->execute([$id, $collab['id'], $collab['nom'], $collab['email'], $collab['tel'], $modeNotif, $adminName]);
+                    } catch (Exception $e) {
+                        // Table absente si migration 089 non appliquée — ignorer
+                    }
                 }
 
                 $pdo->prepare("
                     INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, nouvelle_valeur, ip_address)
                     VALUES (?, 'attribution', ?, ?, ?, ?)
                 ")->execute([$id,
-                    "Attribué à $collabNom (mode : $modeNotif)",
+                    "Attribué à $nomsList (mode : $modeNotif)",
                     $adminName,
-                    json_encode(['nom' => $collabNom, 'email' => $collabEmail, 'tel' => $collabTel, 'mode' => $modeNotif]),
+                    json_encode(array_map(function($c) use ($modeNotif) { return ['nom' => $c['nom'], 'email' => $c['email'], 'tel' => $c['tel'], 'mode' => $modeNotif]; }, $toAttribuer)),
                     $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                 ]);
 
-                // Envoyer email au collaborateur si mode email ou les_deux
-                if (in_array($modeNotif, ['email', 'les_deux']) && !empty($collabEmail)) {
-                    $siteUrl = rtrim($config['SITE_URL'], '/');
-                    $signalementUrl = $siteUrl . '/admin-v2/signalement-detail.php?id=' . $id;
-                    $subject = "[Signalement {$sig['priorite']}] " . htmlspecialchars($sig['titre']) . " — " . htmlspecialchars($sig['adresse']);
-                    $body = "<p>Bonjour " . htmlspecialchars($collabNom) . ",</p>"
-                        . "<p>Un signalement vous a été attribué :</p>"
-                        . "<ul>"
-                        . "<li><strong>Référence :</strong> " . htmlspecialchars($sig['reference']) . "</li>"
-                        . "<li><strong>Titre :</strong> " . htmlspecialchars($sig['titre']) . "</li>"
-                        . "<li><strong>Priorité :</strong> " . htmlspecialchars($sig['priorite']) . "</li>"
-                        . "<li><strong>Adresse :</strong> " . htmlspecialchars($sig['adresse']) . "</li>"
-                        . "<li><strong>Description :</strong> " . nl2br(htmlspecialchars($sig['description'])) . "</li>"
-                        . "</ul>"
-                        . "<p><a href=\"" . htmlspecialchars($signalementUrl) . "\">Voir la mission interne</a></p>";
-
-                    $sent = sendEmail($collabEmail, $subject, $body, null, true, false, null, null, false,
-                        ['contexte' => "signalement_attribution;sig_id=$id"]);
-                    if (!$sent) {
-                        $errors[] = 'Avertissement : l\'email au collaborateur n\'a pas pu être envoyé.';
-                    }
-                }
-
-                // Envoyer WhatsApp via Twilio si mode whatsapp ou les_deux
-                if (in_array($modeNotif, ['whatsapp', 'les_deux']) && !empty($collabTel)) {
-                    $twilioSid    = getParameter('twilio_account_sid', '');
-                    $twilioToken  = getParameter('twilio_auth_token', '');
-                    $twilioFrom   = getParameter('twilio_whatsapp_from', '');
-                    if (!empty($twilioSid) && !empty($twilioToken) && !empty($twilioFrom)) {
-                        $siteUrl = rtrim($config['SITE_URL'], '/');
-                        $signalementUrl = $siteUrl . '/admin-v2/signalement-detail.php?id=' . $id;
-                        $waMessage = "[Signalement {$sig['priorite']}] {$sig['titre']}\n"
-                            . "Adresse : {$sig['adresse']}\n"
-                            . "Priorité : {$sig['priorite']}\n"
-                            . "Description : " . mb_substr($sig['description'], 0, 200) . "...\n"
-                            . "Lien mission : $signalementUrl";
-                        $toNum = preg_replace('/\s+/', '', $collabTel);
-                        if (substr($toNum, 0, 1) !== '+') {
-                            $toNum = '+' . $toNum;
+                // Notifier chaque collaborateur
+                foreach ($toAttribuer as $collab) {
+                    // Envoyer email si mode email ou les_deux
+                    if (in_array($modeNotif, ['email', 'les_deux']) && !empty($collab['email'])) {
+                        $subject = "[Signalement {$sig['priorite']}] " . $sig['titre'] . " — " . $sig['adresse'];
+                        $body = "<p>Bonjour " . htmlspecialchars($collab['nom']) . ",</p>"
+                            . "<p>Un signalement vous a été attribué :</p>"
+                            . "<ul>"
+                            . "<li><strong>Référence :</strong> " . htmlspecialchars($sig['reference']) . "</li>"
+                            . "<li><strong>Titre :</strong> " . htmlspecialchars($sig['titre']) . "</li>"
+                            . "<li><strong>Priorité :</strong> " . htmlspecialchars($sig['priorite']) . "</li>"
+                            . "<li><strong>Adresse :</strong> " . htmlspecialchars($sig['adresse']) . "</li>"
+                            . "<li><strong>Description :</strong> " . nl2br(htmlspecialchars($sig['description'])) . "</li>"
+                            . "</ul>"
+                            . "<p><a href=\"" . htmlspecialchars($signalementUrl) . "\">Voir la mission interne</a></p>";
+                        $sent = sendEmail($collab['email'], $subject, $body, null, true, false, null, null, false,
+                            ['contexte' => "signalement_attribution;sig_id=$id"]);
+                        if (!$sent) {
+                            $errors[] = 'Avertissement : l\'email à ' . htmlspecialchars($collab['nom']) . ' n\'a pas pu être envoyé.';
                         }
-                        $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/$twilioSid/Messages.json");
-                        curl_setopt($ch, CURLOPT_POST, true);
-                        curl_setopt($ch, CURLOPT_USERPWD, "$twilioSid:$twilioToken");
-                        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-                            'From' => 'whatsapp:' . $twilioFrom,
-                            'To'   => 'whatsapp:' . $toNum,
-                            'Body' => $waMessage,
-                        ]));
-                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-                        $waResponse = curl_exec($ch);
-                        $waHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                        curl_close($ch);
-                        if ($waHttpCode < 200 || $waHttpCode >= 300) {
-                            error_log("Twilio WhatsApp error: HTTP $waHttpCode — $waResponse");
-                            $errors[] = "Avertissement : le message WhatsApp n'a pas pu être envoyé via Twilio (HTTP $waHttpCode).";
+                    }
+
+                    // Envoyer WhatsApp via Twilio si mode whatsapp ou les_deux
+                    if (in_array($modeNotif, ['whatsapp', 'les_deux']) && !empty($collab['tel'])) {
+                        $twilioSid    = getParameter('twilio_account_sid', '');
+                        $twilioToken  = getParameter('twilio_auth_token', '');
+                        $twilioFrom   = getParameter('twilio_whatsapp_from', '');
+                        if (!empty($twilioSid) && !empty($twilioToken) && !empty($twilioFrom)) {
+                            $waMessage = "[Signalement {$sig['priorite']}] {$sig['titre']}\n"
+                                . "Adresse : {$sig['adresse']}\n"
+                                . "Priorité : {$sig['priorite']}\n"
+                                . "Description : " . mb_substr($sig['description'], 0, 200) . "...\n"
+                                . "Lien mission : $signalementUrl";
+                            $toNum = preg_replace('/\s+/', '', $collab['tel']);
+                            if (substr($toNum, 0, 1) !== '+') {
+                                $toNum = '+' . $toNum;
+                            }
+                            $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/$twilioSid/Messages.json");
+                            curl_setopt($ch, CURLOPT_POST, true);
+                            curl_setopt($ch, CURLOPT_USERPWD, "$twilioSid:$twilioToken");
+                            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                                'From' => 'whatsapp:' . $twilioFrom,
+                                'To'   => 'whatsapp:' . $toNum,
+                                'Body' => $waMessage,
+                            ]));
+                            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                            $waResponse = curl_exec($ch);
+                            $waHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            curl_close($ch);
+                            if ($waHttpCode < 200 || $waHttpCode >= 300) {
+                                error_log("Twilio WhatsApp error: HTTP $waHttpCode — $waResponse");
+                                $errors[] = "Avertissement : le message WhatsApp à " . htmlspecialchars($collab['nom']) . " n'a pas pu être envoyé (HTTP $waHttpCode).";
+                            }
                         }
                     }
                 }
@@ -375,7 +421,21 @@ $contratsListStmt = $pdo->query("
 ");
 $contratsList = $contratsListStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$csrfToken = generateCsrfToken();
+// Charger la liste des collaborateurs attribués (table multi-collaborateurs)
+$assignedCollabs = [];
+try {
+    $stmtAC = $pdo->prepare("
+        SELECT sc.*, c.metier
+        FROM signalements_collaborateurs sc
+        LEFT JOIN collaborateurs c ON sc.collaborateur_id = c.id
+        WHERE sc.signalement_id = ?
+        ORDER BY sc.attribue_le ASC
+    ");
+    $stmtAC->execute([$id]);
+    $assignedCollabs = $stmtAC->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Table absente si migration 089 non appliquée
+}
 
 $statutLabels = [
     'nouveau'    => ['label' => 'Nouveau',     'class' => 'bg-primary'],
@@ -490,6 +550,11 @@ if ($successParam) {
                 <div class="section-card">
                     <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Détails du signalement</h5>
                     <dl class="row mb-0">
+                        <dt class="col-sm-4">Référence</dt>
+                        <dd class="col-sm-8">
+                            <span class="font-monospace fw-bold fs-5 text-primary"><?php echo htmlspecialchars($sig['reference']); ?></span>
+                        </dd>
+
                         <dt class="col-sm-4">Locataire</dt>
                         <dd class="col-sm-8">
                             <?php echo htmlspecialchars($sig['locataire_nom'] ?? '—'); ?>
@@ -547,7 +612,29 @@ if ($successParam) {
                             <?php endif; ?>
                         </dd>
 
-                        <?php if ($sig['collaborateur_nom']): ?>
+                        <?php if (!empty($assignedCollabs)): ?>
+                        <dt class="col-sm-4">Collaborateur(s)</dt>
+                        <dd class="col-sm-8">
+                            <?php foreach ($assignedCollabs as $ac): ?>
+                            <div class="mb-1">
+                                <strong><?php echo htmlspecialchars($ac['collaborateur_nom']); ?></strong>
+                                <?php if (!empty($ac['metier'])): ?>
+                                    <small class="text-muted">(<?php echo htmlspecialchars($ac['metier']); ?>)</small>
+                                <?php endif; ?>
+                                <?php if (!empty($ac['collaborateur_email'])): ?>
+                                    — <a href="mailto:<?php echo htmlspecialchars($ac['collaborateur_email']); ?>" class="small">
+                                        <?php echo htmlspecialchars($ac['collaborateur_email']); ?>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!empty($ac['collaborateur_telephone'])): ?>
+                                    — <span class="small"><?php echo htmlspecialchars($ac['collaborateur_telephone']); ?></span>
+                                <?php endif; ?>
+                                <small class="text-muted d-block">Attribué le <?php echo date('d/m/Y', strtotime($ac['attribue_le'])); ?>
+                                    <?php if (!empty($ac['attribue_par'])): ?> par <?php echo htmlspecialchars($ac['attribue_par']); ?><?php endif; ?></small>
+                            </div>
+                            <?php endforeach; ?>
+                        </dd>
+                        <?php elseif ($sig['collaborateur_nom']): ?>
                         <dt class="col-sm-4">Collaborateur</dt>
                         <dd class="col-sm-8">
                             <?php echo htmlspecialchars($sig['collaborateur_nom']); ?>
@@ -801,54 +888,56 @@ if ($successParam) {
                 <!-- Transférer à un collaborateur -->
                 <div class="section-card">
                     <h6 class="fw-semibold mb-3">
-                        <i class="bi bi-person-check me-2"></i>Transférer à un collaborateur
+                        <i class="bi bi-people me-2"></i>Transférer à des collaborateurs
                     </h6>
                     <form method="POST" id="attribuer-form">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="attribuer">
 
                         <?php if (!empty($collabList)): ?>
-                        <div class="mb-2">
-                            <label class="form-label small fw-semibold">Sélectionner un collaborateur</label>
-                            <select class="form-select form-select-sm" id="collab-select" name="collab_select_id">
-                                <option value="">— Sélectionner —</option>
-                                <?php foreach ($collabList as $cl): ?>
-                                <option value="<?php echo $cl['id']; ?>"
-                                    data-nom="<?php echo htmlspecialchars($cl['nom']); ?>"
-                                    data-email="<?php echo htmlspecialchars($cl['email'] ?? ''); ?>"
-                                    data-tel="<?php echo htmlspecialchars($cl['telephone'] ?? ''); ?>"
-                                    <?php echo ((int)($sig['collaborateur_id'] ?? 0) === (int)$cl['id']) ? 'selected' : ''; ?>>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Sélectionner un ou plusieurs collaborateurs</label>
+                            <?php
+                            $assignedCollabIds = array_column($assignedCollabs, 'collaborateur_id');
+                            foreach ($collabList as $cl):
+                                $isAssigned = in_array((int)$cl['id'], array_map('intval', $assignedCollabIds));
+                            ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="collab_ids[]"
+                                       id="collab-<?php echo (int)$cl['id']; ?>"
+                                       value="<?php echo (int)$cl['id']; ?>"
+                                       <?php echo $isAssigned ? 'checked' : ''; ?>>
+                                <label class="form-check-label small" for="collab-<?php echo (int)$cl['id']; ?>">
                                     <?php echo htmlspecialchars($cl['nom']); ?>
-                                    <?php if ($cl['metier']): ?>(<?php echo htmlspecialchars($cl['metier']); ?>)<?php endif; ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
+                                    <?php if ($cl['metier']): ?><span class="text-muted">(<?php echo htmlspecialchars($cl['metier']); ?>)</span><?php endif; ?>
+                                    <?php if (!empty($cl['email'])): ?>— <span class="text-muted"><?php echo htmlspecialchars($cl['email']); ?></span><?php endif; ?>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
                         </div>
                         <div class="mb-1">
                             <a href="collaborateurs.php" class="small text-muted">
                                 <i class="bi bi-gear me-1"></i>Gérer les collaborateurs
                             </a>
                         </div>
-                        <?php endif; ?>
-
+                        <?php else: ?>
                         <div class="mb-2">
                             <input type="text" class="form-control form-control-sm" name="collaborateur_nom" id="collab-nom"
                                    placeholder="Nom du collaborateur *"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_nom'] ?? ''); ?>"
-                                   <?php echo !empty($collabList) ? 'readonly' : ''; ?> required>
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_nom'] ?? ''); ?>" required>
                         </div>
                         <div class="mb-2">
                             <input type="email" class="form-control form-control-sm" name="collaborateur_email" id="collab-email"
                                    placeholder="Email"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_email'] ?? ''); ?>"
-                                   <?php echo !empty($collabList) ? 'readonly' : ''; ?>>
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_email'] ?? ''); ?>">
                         </div>
                         <div class="mb-2">
                             <input type="tel" class="form-control form-control-sm" name="collaborateur_telephone" id="collab-tel"
                                    placeholder="Téléphone / WhatsApp"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_telephone'] ?? ''); ?>"
-                                   <?php echo !empty($collabList) ? 'readonly' : ''; ?>>
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_telephone'] ?? ''); ?>">
                         </div>
+                        <?php endif; ?>
+
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">Mode d'envoi</label>
                             <div>
@@ -874,19 +963,5 @@ if ($successParam) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-    // Auto-remplissage depuis la liste des collaborateurs
-    var collabSelect = document.getElementById('collab-select');
-    if (collabSelect) {
-        collabSelect.addEventListener('change', function() {
-            var opt = this.options[this.selectedIndex];
-            if (opt.value) {
-                document.getElementById('collab-nom').value   = opt.dataset.nom   || '';
-                document.getElementById('collab-email').value = opt.dataset.email || '';
-                document.getElementById('collab-tel').value   = opt.dataset.tel   || '';
-            }
-        });
-    }
-    </script>
 </body>
 </html>
