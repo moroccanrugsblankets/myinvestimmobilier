@@ -150,7 +150,7 @@ $csrfToken = generateCsrfToken();
                                     <button type="submit" class="btn btn-primary btn-lg">
                                         🚪 Confirmer la demande de départ
                                     </button>
-                                    <a href="#" onclick="history.back(); return false;" class="btn btn-outline-secondary">
+                                    <a href="/index.php" class="btn btn-outline-secondary">
                                         Annuler
                                     </a>
                                 </div>

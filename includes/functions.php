@@ -992,6 +992,25 @@ function getAdminEmail() {
 }
 
 /**
+ * Get the email address of the collaborateur designated as Service Technique
+ * @return string|null Email address or null if not configured
+ */
+function getServiceTechniqueEmail() {
+    global $pdo;
+    if (!$pdo) return null;
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT email FROM collaborateurs WHERE service_technique = 1 AND actif = 1 AND email IS NOT NULL AND email <> '' LIMIT 1"
+        );
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? $row['email'] : null;
+    } catch (Exception $e) {
+        return null; // Column may not exist yet if migration not applied
+    }
+}
+
+/**
  * Get equipment quantity with backward compatibility
  * Supports new simplified structure and old entry/exit structure
  * 
