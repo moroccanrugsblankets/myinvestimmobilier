@@ -402,6 +402,7 @@ $actionsStmt->execute([$id]);
 $actions = $actionsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Charger la liste des collaborateurs actifs
+$serviceTechniqueMetier = 'service technique';
 try {
     $collabListStmt = $pdo->query("SELECT id, nom, metier, email, telephone FROM collaborateurs WHERE actif = 1 ORDER BY nom ASC");
     $collabList = $collabListStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -454,6 +455,8 @@ $actionIcons = [
     'cloture'         => 'bi-lock-fill text-secondary',
     'contrat_change'  => 'bi-file-earmark-text text-primary',
 ];
+
+$csrfToken = generateCsrfToken();
 
 $successParam = $_GET['success'] ?? '';
 if ($successParam) {
@@ -909,7 +912,13 @@ if ($successParam) {
                                        <?php echo $isAssigned ? 'checked' : ''; ?>>
                                 <label class="form-check-label small" for="collab-<?php echo (int)$cl['id']; ?>">
                                     <?php echo htmlspecialchars($cl['nom']); ?>
-                                    <?php if ($cl['metier']): ?><span class="text-muted">(<?php echo htmlspecialchars($cl['metier']); ?>)</span><?php endif; ?>
+                                    <?php if ($cl['metier']): ?>
+                                        <?php if (strtolower(trim($cl['metier'])) === $serviceTechniqueMetier): ?>
+                                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-tools me-1"></i>Service Technique</span>
+                                        <?php else: ?>
+                                            <span class="text-muted">(<?php echo htmlspecialchars($cl['metier']); ?>)</span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
                                     <?php if (!empty($cl['email'])): ?>— <span class="text-muted"><?php echo htmlspecialchars($cl['email']); ?></span><?php endif; ?>
                                 </label>
                             </div>
@@ -963,5 +972,17 @@ if ($successParam) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Stop video playback when modal is closed
+    document.querySelectorAll('.modal').forEach(function(modal) {
+        modal.addEventListener('hidden.bs.modal', function() {
+            var video = this.querySelector('video');
+            if (video) {
+                video.pause();
+                video.currentTime = 0;
+            }
+        });
+    });
+    </script>
 </body>
 </html>
