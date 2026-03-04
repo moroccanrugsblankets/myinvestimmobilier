@@ -108,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             } else {
                 // Récupérer les infos du nouveau contrat
                 $stmtNewContrat = $pdo->prepare("
-                    SELECT c.id, c.logement_id, l.adresse, l.reference as logement_ref,
+                    SELECT c.id, c._id, l.adresse, l.reference as _ref,
                            c.reference_unique as contrat_ref
                     FROM contrats c
-                    INNER JOIN logements l ON c.logement_id = l.id
+                    INNER JOIN s l ON c._id = l.id
                     WHERE c.id = ? AND c.statut = 'valide'
                     LIMIT 1
                 ");
@@ -124,9 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $oldContratRef = $sig['contrat_ref'];
                     $pdo->prepare("
                         UPDATE signalements
-                        SET contrat_id = ?, logement_id = ?, updated_at = NOW()
+                        SET contrat_id = ?, _id = ?, updated_at = NOW()
                         WHERE id = ?
-                    ")->execute([$newContratId, $newContrat['logement_id'], $id]);
+                    ")->execute([$newContratId, $newContrat['_id'], $id]);
 
                     $pdo->prepare("
                         INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ancienne_valeur, nouvelle_valeur, ip_address)
@@ -412,11 +412,11 @@ try {
 
 // Charger la liste des contrats actifs pour le changement de contrat
 $contratsListStmt = $pdo->query("
-    SELECT c.id, c.reference_unique, l.adresse, l.reference as logement_ref,
+    SELECT c.id, c.reference_unique, l.adresse, l.reference as _ref,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
             FROM locataires WHERE contrat_id = c.id) as locataires
     FROM contrats c
-    INNER JOIN logements l ON c.logement_id = l.id
+    INNER JOIN s l ON c._id = l.id
     WHERE c.statut = 'valide'
     ORDER BY l.adresse
 ");
@@ -571,10 +571,10 @@ if ($successParam) {
 
                         <dt class="col-sm-4">Logement</dt>
                         <dd class="col-sm-8">
-                            <?php echo htmlspecialchars($sig['adresse']); ?>
                             <?php if (!empty($sig['logement_ref'])): ?>
-                                <br><small class="text-muted font-monospace"><?php echo htmlspecialchars($sig['logement_ref']); ?></small>
+                                <?php echo htmlspecialchars($sig['logement_ref']); ?>
                             <?php endif; ?>
+                            <br><small class="text-muted font-monospace"><?php echo htmlspecialchars($sig['adresse']); ?></small>
                         </dd>
 
                         <dt class="col-sm-4">Contrat</dt>
