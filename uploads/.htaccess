@@ -1,10 +1,10 @@
 # Protection du dossier uploads
-# Autoriser uniquement les images et PDF
+# Autoriser uniquement les images, vidéos et PDF
 
 Order Deny,Allow
 Deny from all
 
-<FilesMatch "\.(jpg|jpeg|png|pdf)$">
+<FilesMatch "\.(jpg|jpeg|png|webp|gif|pdf|mp4|mov|avi|webm)$">
     Allow from all
 </FilesMatch>
 

@@ -301,7 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 ")->execute([$id,
                     "Attribué à $nomsList (mode : $modeNotif)",
                     $adminName,
-                    json_encode(array_map(fn($c) => ['nom' => $c['nom'], 'email' => $c['email'], 'tel' => $c['tel'], 'mode' => $modeNotif], $toAttribuer)),
+                    json_encode(array_map(function($c) use ($modeNotif) { return ['nom' => $c['nom'], 'email' => $c['email'], 'tel' => $c['tel'], 'mode' => $modeNotif]; }, $toAttribuer)),
                     $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                 ]);
 
