@@ -269,5 +269,20 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Auto-dismiss alerts after 5 seconds
+    setTimeout(function() {
+        document.querySelectorAll('.alert-success, .alert-danger, .alert-warning, .alert-info').forEach(function(alert) {
+            // Use Bootstrap's dismiss method if available, otherwise fade out manually
+            if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                var bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                bsAlert.close();
+            } else {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(function() { alert.remove(); }, 500);
+            }
+        });
+    }, 5000);
 });
 </script>
