@@ -353,12 +353,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         if (!empty($collabToken)) {
                             $siteUrlBase = rtrim($config['SITE_URL'], '/');
                             $baseActionUrl = $siteUrlBase . '/signalement/collab-action.php?token=' . urlencode($collabToken);
+                            $termineUrl    = $siteUrlBase . '/signalement/intervention-terminee.php?token=' . urlencode($collabToken);
                             $actionButtonsHtml = '<div style="margin: 25px 0; text-align: center;">'
                                 . '<p style="font-weight: bold; margin-bottom: 15px;">Actions rapides :</p>'
                                 . '<div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">'
                                 . '<a href="' . $baseActionUrl . '&amp;action=pris_en_charge" style="display:inline-block;background:#3498db;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🔵 Pris en charge</a>'
                                 . '<a href="' . $baseActionUrl . '&amp;action=sur_place" style="display:inline-block;background:#e67e22;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🟠 Sur place</a>'
-                                . '<a href="' . $baseActionUrl . '&amp;action=termine" style="display:inline-block;background:#27ae60;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🟢 Intervention terminée</a>'
+                                . '<a href="' . $termineUrl . '" style="display:inline-block;background:#27ae60;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🟢 Intervention terminée</a>'
                                 . '<a href="' . $baseActionUrl . '&amp;action=impossible" style="display:inline-block;background:#e74c3c;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🔴 Impossible / Report</a>'
                                 . '</div></div>';
                         }
