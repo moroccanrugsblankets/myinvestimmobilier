@@ -190,9 +190,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         ? 'confirmation_responsabilite_proprietaire'
                         : 'confirmation_responsabilite_locataire';
 
-                    // For locataire responsibility: include acceptance link with pricing info
-                    if ($responsabilite === 'locataire' && !empty($sig['token_signalement'])) {
-                        $lienAcceptation = $siteUrl . '/signalement/accepter-intervention.php?sig=' . $id . '&token=' . urlencode($sig['token_signalement']);
+                    // For locataire responsibility: build acceptance link
+                    if ($responsabilite === 'locataire') {
+                        $tenantToken = $sig['token_signalement'] ?? '';
+                        // Generate and persist token if missing
+                        if (empty($tenantToken)) {
+                            $tenantToken = bin2hex(random_bytes(32));
+                            $pdo->prepare("UPDATE locataires SET token_signalement = ? WHERE id = ?")
+                                ->execute([$tenantToken, $sig['locataire_id']]);
+                        }
+                        $lienAcceptation = $siteUrl . '/signalement/accepter-intervention.php?sig=' . $id . '&token=' . urlencode($tenantToken);
                         $emailVars['lien_acceptation'] = $lienAcceptation;
                     }
 
@@ -206,19 +213,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         true, // addAdminBcc
                         ['contexte' => 'responsabilite_' . $responsabilite . ';sig_id=' . $id]
                     );
-                    // Also notify service technique
-                    $stEmail = getServiceTechniqueEmail();
-                    if ($stEmail && strtolower($stEmail) !== strtolower($sig['locataire_email'])) {
-                        sendTemplatedEmail(
-                            $templateId,
-                            $stEmail,
-                            $emailVars,
-                            null,
-                            false,
-                            false,
-                            ['contexte' => 'responsabilite_' . $responsabilite . '_st;sig_id=' . $id]
-                        );
+
+                    // For proprietaire: notify service technique with 4 action buttons
+                    if ($responsabilite === 'proprietaire') {
+                        $stEmail = getServiceTechniqueEmail();
+                        if ($stEmail) {
+                            $stToken = getOrCreateServiceTechniqueToken($id);
+                            $actionButtonsHtml = '';
+                            if ($stToken) {
+                                $siteUrlBase   = rtrim($config['SITE_URL'], '/');
+                                $baseActionUrl = $siteUrlBase . '/signalement/collab-action.php?token=' . urlencode($stToken);
+                                $termineUrl    = $siteUrlBase . '/signalement/intervention-terminee.php?token=' . urlencode($stToken);
+                                $actionButtonsHtml = buildSignalementActionButtonsHtml($baseActionUrl, $termineUrl);
+                            }
+                            sendTemplatedEmail(
+                                'responsabilite_proprietaire_service_technique',
+                                $stEmail,
+                                [
+                                    'reference'           => $sig['reference'],
+                                    'titre'               => $sig['titre'],
+                                    'adresse'             => $sig['adresse'],
+                                    'locataire_nom'       => $sig['locataire_nom'] ?? '',
+                                    'locataire_telephone' => $sig['locataire_telephone'] ?? '',
+                                    'action_buttons_html' => $actionButtonsHtml,
+                                ],
+                                null,
+                                false,
+                                false,
+                                ['contexte' => 'responsabilite_proprietaire_st;sig_id=' . $id]
+                            );
+                        }
                     }
+                    // For locataire: service technique does not receive a notification at this stage
                 }
 
                 header("Location: signalement-detail.php?id=$id&success=responsabilite");
