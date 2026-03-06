@@ -284,19 +284,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $adminVars['motif_html'] = $motif ? '<p style="margin:5px 0;"><strong>Motif :</strong> ' . htmlspecialchars($motif) . '</p>' : '';
             }
 
-            $adminEmail = $config['ADMIN_EMAIL'] ?? '';
-            if ($adminEmail) {
-                sendTemplatedEmail(
-                    $templateAdminMap[$postAction],
-                    $adminEmail,
-                    $adminVars,
-                    null, false, false,
-                    ['contexte' => 'collab_action_' . $postAction . ';sig_id=' . $sigId]
-                );
+            // Collect all admin emails (DB administrateurs table + config)
+            $allAdminEmails = [];
+            try {
+                $stmtAdm = $pdo->query("SELECT email FROM administrateurs WHERE actif = 1 AND email IS NOT NULL AND email != ''");
+                $allAdminEmails = $stmtAdm->fetchAll(PDO::FETCH_COLUMN);
+            } catch (Exception $e) {
+                error_log('collab-action: could not fetch admin emails: ' . $e->getMessage());
             }
-            // Notify service technique as well
+            $configAdminEmail = getAdminEmail();
+            if (!empty($configAdminEmail) && !in_array(strtolower($configAdminEmail), array_map('strtolower', $allAdminEmails))) {
+                array_unshift($allAdminEmails, $configAdminEmail);
+            }
+            foreach (array_unique($allAdminEmails) as $aEmail) {
+                if (!empty($aEmail) && filter_var($aEmail, FILTER_VALIDATE_EMAIL)) {
+                    sendTemplatedEmail(
+                        $templateAdminMap[$postAction],
+                        $aEmail,
+                        $adminVars,
+                        null, false, false,
+                        ['contexte' => 'collab_action_' . $postAction . ';sig_id=' . $sigId]
+                    );
+                }
+            }
+            // Notify service technique as well (if not already in admin list)
             $stEmail = getServiceTechniqueEmail();
-            if ($stEmail && $stEmail !== $adminEmail && $stEmail !== $row['collaborateur_email']) {
+            $allAdminEmailsLower = array_map('strtolower', $allAdminEmails);
+            if ($stEmail && !in_array(strtolower($stEmail), $allAdminEmailsLower) && strtolower($stEmail) !== strtolower($row['collaborateur_email'] ?? '')) {
                 sendTemplatedEmail(
                     $templateAdminMap[$postAction],
                     $stEmail,
