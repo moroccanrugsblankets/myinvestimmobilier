@@ -218,14 +218,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $ph['uploaded_by'], $row['collaborateur_id'],
                     ]);
                 } catch (Exception $e) {
-                    // Fallback without new columns
+                    // Fallback sans collaborateur_id mais avec photo_type
                     try {
                         $pdo->prepare("
-                            INSERT INTO signalements_photos (signalement_id, filename, original_name, mime_type, taille)
-                            VALUES (?, ?, ?, ?, ?)
-                        ")->execute([$sigId, $ph['filename'], $ph['original_name'], $ph['mime_type'], $ph['taille']]);
+                            INSERT INTO signalements_photos
+                                (signalement_id, filename, original_name, mime_type, taille, photo_type, uploaded_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ")->execute([$sigId, $ph['filename'], $ph['original_name'], $ph['mime_type'], $ph['taille'], $ph['photo_type'], $ph['uploaded_by']]);
                     } catch (Exception $e2) {
-                        error_log('collab-action INSERT photo error: ' . $e2->getMessage());
+                        // Fallback minimal sans colonnes optionnelles
+                        try {
+                            $pdo->prepare("
+                                INSERT INTO signalements_photos (signalement_id, filename, original_name, mime_type, taille)
+                                VALUES (?, ?, ?, ?, ?)
+                            ")->execute([$sigId, $ph['filename'], $ph['original_name'], $ph['mime_type'], $ph['taille']]);
+                        } catch (Exception $e3) {
+                            error_log('collab-action INSERT photo error: ' . $e3->getMessage());
+                        }
                     }
                 }
             }
@@ -296,13 +305,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($configAdminEmail) && !in_array(strtolower($configAdminEmail), array_map('strtolower', $allAdminEmails))) {
                 array_unshift($allAdminEmails, $configAdminEmail);
             }
+
+            // Build attachment list from uploaded photos (for sur_place and termine actions)
+            $attachmentsForEmail = [];
+            if (in_array($postAction, ['sur_place', 'termine'], true)) {
+                foreach ($uploadedPhotos as $ph) {
+                    $fPath = __DIR__ . '/../uploads/signalements/' . $ph['filename'];
+                    if (file_exists($fPath)) {
+                        $attachmentsForEmail[] = ['path' => $fPath, 'name' => $ph['original_name']];
+                    }
+                }
+            }
+            $emailAttachments = !empty($attachmentsForEmail) ? $attachmentsForEmail : null;
+
             foreach (array_unique($allAdminEmails) as $aEmail) {
                 if (!empty($aEmail) && filter_var($aEmail, FILTER_VALIDATE_EMAIL)) {
                     sendTemplatedEmail(
                         $templateAdminMap[$postAction],
                         $aEmail,
                         $adminVars,
-                        null, false, false,
+                        $emailAttachments, false, false,
                         ['contexte' => 'collab_action_' . $postAction . ';sig_id=' . $sigId]
                     );
                 }
@@ -315,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $templateAdminMap[$postAction],
                     $stEmail,
                     $adminVars,
-                    null, false, false,
+                    $emailAttachments, false, false,
                     ['contexte' => 'collab_action_' . $postAction . '_st;sig_id=' . $sigId]
                 );
             }

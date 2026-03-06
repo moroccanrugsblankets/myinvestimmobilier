@@ -39,6 +39,7 @@ if ($decompteId > 0) {
                    sig.nb_heures    AS sig_nb_heures,
                    sig.cout_materiaux AS sig_cout_materiaux,
                    l.adresse,
+                   l.reference      AS logement_reference,
                    c.reference_unique AS contrat_ref,
                    CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                    loc.email AS locataire_email,
@@ -200,6 +201,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $notes = trim($_POST['notes'] ?? '');
                     $pdo->prepare("UPDATE signalements_decomptes SET montant_total = ?, notes = ?, updated_at = NOW() WHERE id = ?")
                         ->execute([$total, $notes ?: null, $decompteId]);
+
+                    // ── Traiter les nouvelles pièces jointes (upload intégré) ──────────
+                    if (!empty($_FILES['new_fichiers']['name'][0])) {
+                        $uploadDir = __DIR__ . '/../uploads/decomptes/';
+                        if (!is_dir($uploadDir)) {
+                            mkdir($uploadDir, 0755, true);
+                        }
+                        $allowedMime = [
+                            'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                            'video/mp4', 'video/quicktime', 'video/mpeg',
+                        ];
+                        $fileCount = count($_FILES['new_fichiers']['name']);
+                        for ($fi = 0; $fi < $fileCount; $fi++) {
+                            if (empty($_FILES['new_fichiers']['tmp_name'][$fi])
+                                || $_FILES['new_fichiers']['error'][$fi] !== UPLOAD_ERR_OK) {
+                                continue;
+                            }
+                            $origName = basename($_FILES['new_fichiers']['name'][$fi]);
+                            $mimeType = mime_content_type($_FILES['new_fichiers']['tmp_name'][$fi]) ?: 'application/octet-stream';
+                            if (!in_array($mimeType, $allowedMime, true)) continue;
+                            if ($_FILES['new_fichiers']['size'][$fi] > 50 * 1024 * 1024) continue;
+                            $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+                            $filename = 'dec_' . $decompteId . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                            if (move_uploaded_file($_FILES['new_fichiers']['tmp_name'][$fi], $uploadDir . $filename)) {
+                                try {
+                                    $pdo->prepare("
+                                        INSERT INTO signalements_decomptes_fichiers
+                                            (decompte_id, filename, original_name, mime_type, taille, uploaded_by)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    ")->execute([$decompteId, $filename, $origName, $mimeType,
+                                        (int)$_FILES['new_fichiers']['size'][$fi], $adminName]);
+                                } catch (Exception $eF) {
+                                    error_log('save_lignes upload fichier error: ' . $eF->getMessage());
+                                }
+                            }
+                        }
+                    }
 
                     header("Location: decompte-detail.php?id=$decompteId&success=saved");
                     exit;
@@ -419,6 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         'reference_sig'      => $decompte['sig_reference'],
                         'titre'              => $decompte['sig_titre'],
                         'adresse'            => $decompte['adresse'],
+                        'logement_reference' => $decompte['logement_reference'] ?? '',
                         'montant_total'      => number_format((float)$decompte['montant_total'], 2, ',', ' '),
                         'lignes_html'        => $lignesTableHtml,
                         'date_facture'       => date('d/m/Y'),
@@ -461,6 +500,7 @@ if ($decompteId > 0) {
                    sig.nb_heures    AS sig_nb_heures,
                    sig.cout_materiaux AS sig_cout_materiaux,
                    l.adresse,
+                   l.reference      AS logement_reference,
                    c.reference_unique AS contrat_ref,
                    CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                    loc.email AS locataire_email,
@@ -504,12 +544,15 @@ $isEditable  = $decompte && in_array($decompte['statut'], ['brouillon', 'valide'
 $isValide    = $decompte && $decompte['statut'] === 'valide';
 $siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
 
-// Helper: Build invoice HTML for sending
+// Helper: Build invoice HTML for sending (fallback if no DB template found)
 function buildFactureHtml(array $vars, array $fichiers = []): string {
     $lignesHtml = $vars['lignes_html'] ?? '';
+    $logRef = !empty($vars['logement_reference'])
+        ? '<p style="margin:5px 0;"><strong>Réf. logement :</strong> <code>' . htmlspecialchars($vars['logement_reference']) . '</code></p>'
+        : '';
     return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Facture</title></head>
 <body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:640px;margin:0 auto;padding:20px;">
-<div style="background:linear-gradient(135deg,#2c3e50 0%,#3498db 100%);color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+<div style="background:#2c3e50;color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0;">
 <h1 style="margin:0;">📄 Facture d\'Intervention</h1>
 <p style="margin:10px 0 0;">' . htmlspecialchars($vars['company']) . '</p>
 </div>
@@ -520,6 +563,7 @@ function buildFactureHtml(array $vars, array $fichiers = []): string {
 <p style="margin:5px 0;"><strong>N° Facture :</strong> <code>' . htmlspecialchars($vars['reference']) . '</code></p>
 <p style="margin:5px 0;"><strong>Signalement :</strong> ' . htmlspecialchars($vars['reference_sig']) . ' — ' . htmlspecialchars($vars['titre']) . '</p>
 <p style="margin:5px 0;"><strong>Logement :</strong> ' . htmlspecialchars($vars['adresse']) . '</p>
+' . $logRef . '
 <p style="margin:5px 0;"><strong>Date :</strong> ' . htmlspecialchars($vars['date_facture']) . '</p>
 </div>
 ' . $lignesHtml . '
@@ -539,22 +583,34 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
             $attachments[] = ['path' => $path, 'name' => $f['original_name']];
         }
     }
+    $emailAttachments = !empty($attachments) ? $attachments : null;
 
+    // Use template if it exists in the DB
+    if (getEmailTemplate('facture_intervention')) {
+        return (bool)sendTemplatedEmail(
+            'facture_intervention',
+            $to,
+            $vars,
+            $emailAttachments,
+            false, // isAdminEmail
+            true,  // addAdminBcc – admins receive BCC hidden from locataire
+            ['contexte' => 'facture_intervention;dec_id=' . $decompteId]
+        );
+    }
+
+    // Fallback: build inline HTML when template not yet created in DB
     $factureHtml = buildFactureHtml($vars, $fichiers);
     $subject     = 'Facture d\'intervention — ' . ($vars['reference'] ?? '');
-
-    // Use the standard sendEmail function which properly loads SMTP config from DB
-    // addAdminBcc=true ensures admins receive a hidden copy
     return sendEmail(
         $to,
         $subject,
         $factureHtml,
-        !empty($attachments) ? $attachments : null,
-        true,   // isHtml
-        false,  // isAdminEmail
-        null,   // replyTo
-        null,   // replyToName
-        true,   // addAdminBcc – admins receive BCC hidden from locataire
+        $emailAttachments,
+        true,  // isHtml
+        false, // isAdminEmail
+        null,  // replyTo
+        null,  // replyToName
+        true,  // addAdminBcc
         ['contexte' => 'facture_intervention;dec_id=' . $decompteId]
     );
 }
@@ -575,6 +631,32 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
         .total-row { background: #f8f9fa; font-weight: bold; }
         .btn-delete-ligne { color: #dc3545; }
         .btn-delete-ligne:hover { background: #dc3545; color: #fff; }
+        /* Drop zone for new files */
+        .drop-zone-dec {
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            padding: 18px 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            background: #fafafa;
+        }
+        .drop-zone-dec.drag-over { border-color: #0d6efd; background: #f0f4ff; }
+        .new-file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            background: #fff;
+            font-size: .875rem;
+        }
+        .new-file-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .new-file-size { color: #6c757d; font-size: .75rem; white-space: nowrap; }
+        .btn-remove-new-file { flex-shrink: 0; background: none; border: none; color: #dc3545; padding: 2px 6px; cursor: pointer; border-radius: 4px; line-height: 1; }
+        .btn-remove-new-file:hover { background: #f8d7da; }
     </style>
 </head>
 <body>
@@ -672,7 +754,7 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                     </div>
 
                     <?php if ($isEditable): ?>
-                    <form method="POST" id="form-lignes">
+                    <form method="POST" id="form-lignes" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="save_lignes">
 
@@ -733,9 +815,71 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                                       placeholder="Observations, remarques..."><?php echo htmlspecialchars($decompte['notes'] ?? ''); ?></textarea>
                         </div>
 
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save me-1"></i>Sauvegarder
-                        </button>
+                        <!-- ── Pièces jointes (intégrées au formulaire) ── -->
+                        <hr class="my-3">
+                        <h6 class="fw-semibold mb-3"><i class="bi bi-paperclip me-2"></i>Pièces jointes</h6>
+
+                        <!-- Fichiers déjà sauvegardés -->
+                        <ul class="list-group mb-3" id="fichiers-list">
+                            <?php if (!empty($fichiers)): ?>
+                            <?php foreach ($fichiers as $f): ?>
+                            <?php
+                            $isImg = strpos($f['mime_type'], 'image/') === 0;
+                            $isPdf = $f['mime_type'] === 'application/pdf';
+                            $isVid = strpos($f['mime_type'], 'video/') === 0;
+                            $icon  = $isPdf ? 'bi-file-earmark-pdf text-danger' : ($isImg ? 'bi-file-image text-primary' : ($isVid ? 'bi-camera-video text-info' : 'bi-file-earmark'));
+                            ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center" data-fichier-id="<?php echo (int)$f['id']; ?>">
+                                <div>
+                                    <i class="bi <?php echo $icon; ?> me-2"></i>
+                                    <a href="<?php echo htmlspecialchars($siteUrl . '/uploads/decomptes/' . $f['filename']); ?>"
+                                       target="_blank">
+                                        <?php echo htmlspecialchars($f['original_name']); ?>
+                                    </a>
+                                    <small class="text-muted ms-2">
+                                        <?php echo $f['taille'] ? round($f['taille'] / 1024) . ' Ko' : ''; ?>
+                                    </small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-delete-fichier"
+                                        data-fichier-id="<?php echo (int)$f['id']; ?>"
+                                        data-csrf="<?php echo htmlspecialchars($csrfToken); ?>"
+                                        title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </li>
+                            <?php endforeach; ?>
+                            <?php else: ?>
+                            <li class="list-group-item text-muted small" id="no-fichiers-msg">Aucune pièce jointe.</li>
+                            <?php endif; ?>
+                        </ul>
+
+                        <!-- Sélection de nouveaux fichiers (drag & drop) -->
+                        <div class="drop-zone-dec" id="dropZoneDec">
+                            <input type="file" id="newFichiersInput" name="new_fichiers[]" multiple
+                                   accept=".pdf,image/*,video/*" style="display:none;">
+                            <i class="bi bi-cloud-upload fs-4 text-muted d-block mb-1"></i>
+                            <p class="mb-1 small fw-semibold">Glissez vos fichiers ici</p>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnBrowseDec">
+                                <i class="bi bi-folder2-open me-1"></i>Parcourir
+                            </button>
+                            <p class="mt-1 mb-0 text-muted" style="font-size:.75rem;">PDF, images, vidéos. Max 50 Mo par fichier.</p>
+                        </div>
+
+                        <div id="new-fichiers-wrapper" class="mt-2" style="display:none;">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-semibold">Nouveaux fichiers (<span id="newFichiersCount">0</span>)</span>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="btnClearDec">
+                                    <i class="bi bi-trash me-1"></i>Tout supprimer
+                                </button>
+                            </div>
+                            <ul class="list-unstyled mb-0" id="newFichiersPreview"></ul>
+                        </div>
+
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary" id="btn-save-lignes">
+                                <i class="bi bi-save me-1"></i>Sauvegarder
+                            </button>
+                        </div>
                     </form>
                     <?php else: ?>
                     <!-- Mode lecture seule -->
@@ -766,14 +910,11 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                     <?php if (!empty($decompte['notes'])): ?>
                     <div class="p-3 bg-light rounded small"><?php echo nl2br(htmlspecialchars($decompte['notes'])); ?></div>
                     <?php endif; ?>
-                    <?php endif; ?>
-                </div>
 
-                <!-- Pièces jointes -->
-                <div class="section-card">
-                    <h5 class="mb-3"><i class="bi bi-paperclip me-2"></i>Pièces jointes</h5>
-
-                    <ul class="list-group mb-3" id="fichiers-list">
+                    <!-- Pièces jointes (lecture seule) -->
+                    <hr class="my-3">
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-paperclip me-2"></i>Pièces jointes</h6>
+                    <ul class="list-group mb-0" id="fichiers-list">
                         <?php if (!empty($fichiers)): ?>
                         <?php foreach ($fichiers as $f): ?>
                         <?php
@@ -793,34 +934,13 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                                     <?php echo $f['taille'] ? round($f['taille'] / 1024) . ' Ko' : ''; ?>
                                 </small>
                             </div>
-                            <?php if ($isEditable): ?>
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-fichier"
-                                    data-fichier-id="<?php echo (int)$f['id']; ?>"
-                                    data-csrf="<?php echo htmlspecialchars($csrfToken); ?>"
-                                    title="Supprimer">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                            <?php endif; ?>
                         </li>
                         <?php endforeach; ?>
                         <?php else: ?>
-                        <li class="list-group-item text-muted small" id="no-fichiers-msg">Aucune pièce jointe.</li>
+                        <li class="list-group-item text-muted small">Aucune pièce jointe.</li>
                         <?php endif; ?>
                     </ul>
-
-                    <form id="upload-fichier-form" enctype="multipart/form-data">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="upload_fichier">
-                        <div class="input-group">
-                            <input type="file" class="form-control" name="fichier" id="upload-fichier-input"
-                                   accept=".pdf,image/*,video/*" required>
-                            <button type="submit" class="btn btn-outline-primary" id="upload-fichier-btn">
-                                <i class="bi bi-upload me-1"></i>Ajouter
-                            </button>
-                        </div>
-                        <div class="form-text">PDF, images, vidéos. Max 50 Mo.</div>
-                        <div id="upload-status" class="mt-2 d-none"></div>
-                    </form>
+                    <?php endif; ?>
                 </div>
 
             </div>
@@ -957,91 +1077,143 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
         tr.querySelector('input[type=text]').focus();
     });
 
-    // ── AJAX upload de pièce jointe ───────────────────────────────────────────
+    // ── Gestion multi-fichiers intégrée au formulaire ─────────────────────────
     (function() {
-        var form    = document.getElementById('upload-fichier-form');
-        var input   = document.getElementById('upload-fichier-input');
-        var btn     = document.getElementById('upload-fichier-btn');
-        var status  = document.getElementById('upload-status');
-        var list    = document.getElementById('fichiers-list');
-        var siteUrl = <?php echo json_encode(rtrim($config['SITE_URL'] ?? '', '/')); ?>;
-        var decompteId = <?php echo (int)($decompteId ?? 0); ?>;
-        var csrfToken  = <?php echo json_encode($csrfToken); ?>;
-        var isEditable = <?php echo $isEditable ? 'true' : 'false'; ?>;
+        var dropZone    = document.getElementById('dropZoneDec');
+        var fileInput   = document.getElementById('newFichiersInput');
+        var btnBrowse   = document.getElementById('btnBrowseDec');
+        var btnClear    = document.getElementById('btnClearDec');
+        var preview     = document.getElementById('newFichiersPreview');
+        var wrapper     = document.getElementById('new-fichiers-wrapper');
+        var countEl     = document.getElementById('newFichiersCount');
+        var saveBtn     = document.getElementById('btn-save-lignes');
+        var form        = document.getElementById('form-lignes');
 
-        if (!form) return;
+        if (!dropZone) return;
 
-        function mimeIcon(mime) {
-            if (mime === 'application/pdf') return 'bi-file-earmark-pdf text-danger';
-            if (mime.startsWith('image/'))  return 'bi-file-image text-primary';
-            if (mime.startsWith('video/'))  return 'bi-camera-video text-info';
-            return 'bi-file-earmark';
+        var fileDt      = new DataTransfer();
+        var ignoreChg   = false;
+        var MAX_SIZE    = 50 * 1024 * 1024;
+
+        function formatBytes(b) {
+            if (b < 1024) return b + ' o';
+            if (b < 1048576) return (b / 1024).toFixed(1) + ' Ko';
+            return (b / 1048576).toFixed(1) + ' Mo';
         }
 
-        function showStatus(msg, isError) {
-            status.className = 'mt-2 alert alert-' + (isError ? 'danger' : 'success') + ' py-1 small';
-            status.textContent = msg;
-            setTimeout(function() { status.className = 'd-none'; }, 4000);
+        function escapeHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (!input.files || !input.files[0]) return;
+        function refreshPreview() {
+            var n = fileDt.files.length;
+            if (countEl) countEl.textContent = n;
+            if (wrapper) wrapper.style.display = n > 0 ? '' : 'none';
+        }
 
-            var fd = new FormData(form);
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Envoi...';
+        function addFiles(files) {
+            // Build a Set of existing file identifiers for O(1) duplicate lookup
+            var existing = new Set();
+            for (var j = 0; j < fileDt.files.length; j++) {
+                existing.add(fileDt.files[j].name + '|' + fileDt.files[j].size);
+            }
+            for (var i = 0; i < files.length; i++) {
+                var f = files[i];
+                if (f.size > MAX_SIZE) { alert('Fichier trop volumineux (max 50 Mo) : ' + f.name); continue; }
+                var key = f.name + '|' + f.size;
+                if (existing.has(key)) continue;
 
-            fetch(window.location.pathname + '?id=' + decompteId, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: fd
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-upload me-1"></i>Ajouter';
-                if (data.success) {
-                    // Remove "no files" placeholder if present
-                    var noMsg = document.getElementById('no-fichiers-msg');
-                    if (noMsg) noMsg.remove();
+                fileDt.items.add(f);
+                existing.add(key);
+                var li = document.createElement('li');
+                li.className = 'new-file-item';
+                li.dataset.idx = fileDt.files.length - 1;
+                li.innerHTML = '<i class="bi bi-paperclip text-muted"></i>'
+                    + '<span class="new-file-name">' + escapeHtml(f.name) + '</span>'
+                    + '<span class="new-file-size">' + formatBytes(f.size) + '</span>'
+                    + '<button type="button" class="btn-remove-new-file" data-idx="' + (fileDt.files.length - 1) + '" title="Retirer"><i class="bi bi-x-lg"></i></button>';
+                preview.appendChild(li);
+            }
+            refreshPreview();
+        }
 
-                    // Build new list item
-                    var li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                    li.dataset.fichierId = data.id;
-                    var href = siteUrl + '/uploads/decomptes/' + encodeURIComponent(data.filename);
-                    var inner = '<div>'
-                        + '<i class="bi ' + mimeIcon(data.mime_type) + ' me-2"></i>'
-                        + '<a href="' + href + '" target="_blank">' + data.original_name + '</a>'
-                        + '<small class="text-muted ms-2">' + (data.taille ? Math.round(data.taille / 1024) + ' Ko' : '') + '</small>'
-                        + '</div>';
-                    if (isEditable) {
-                        inner += '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-fichier"'
-                            + ' data-fichier-id="' + data.id + '" data-csrf="' + csrfToken + '" title="Supprimer">'
-                            + '<i class="bi bi-trash"></i></button>';
-                    }
-                    li.innerHTML = inner;
-                    list.appendChild(li);
-
-                    // Attach delete handler
-                    var delBtn = li.querySelector('.btn-delete-fichier');
-                    if (delBtn) attachDeleteHandler(delBtn);
-
-                    input.value = '';
-                    showStatus('Pièce jointe ajoutée.', false);
-                } else {
-                    showStatus(data.error || 'Erreur lors de l\'upload.', true);
-                }
-            })
-            .catch(function() {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-upload me-1"></i>Ajouter';
-                showStatus('Erreur réseau lors de l\'upload.', true);
+        function rebuildIdx() {
+            preview.querySelectorAll('.new-file-item').forEach(function(li, i) {
+                li.dataset.idx = i;
+                var btn = li.querySelector('.btn-remove-new-file');
+                if (btn) btn.dataset.idx = i;
             });
+        }
+
+        // Browse button
+        btnBrowse?.addEventListener('click', function() { fileInput.click(); });
+        dropZone.addEventListener('click', function(e) { if (e.target === dropZone) fileInput.click(); });
+
+        // File input change
+        fileInput?.addEventListener('change', function() {
+            if (ignoreChg) return;
+            if (fileInput.files.length > 0) {
+                addFiles(fileInput.files);
+                ignoreChg = true;
+                fileInput.value = '';
+                ignoreChg = false;
+            }
         });
 
-        // ── Suppression AJAX ──────────────────────────────────────────────────
+        // Drag & drop
+        dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('drag-over'); });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+        });
+
+        // Remove individual file
+        preview?.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-remove-new-file');
+            if (!btn) return;
+            var idx = parseInt(btn.dataset.idx, 10);
+            var newDt = new DataTransfer();
+            for (var i = 0; i < fileDt.files.length; i++) {
+                if (i !== idx) newDt.items.add(fileDt.files[i]);
+            }
+            fileDt = newDt;
+            var li = btn.closest('.new-file-item');
+            if (li) li.remove();
+            rebuildIdx();
+            refreshPreview();
+        });
+
+        // Clear all new files
+        btnClear?.addEventListener('click', function() {
+            fileDt = new DataTransfer();
+            preview.innerHTML = '';
+            refreshPreview();
+        });
+
+        // On form submit: sync DataTransfer to the file input
+        form?.addEventListener('submit', function() {
+            try {
+                ignoreChg = true;
+                fileInput.files = fileDt.files;
+                ignoreChg = false;
+            } catch(ex) { ignoreChg = false; }
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sauvegarde…';
+            }
+        });
+    })();
+
+    // ── Suppression AJAX des pièces jointes déjà sauvegardées ────────────────
+    (function() {
+        var list       = document.getElementById('fichiers-list');
+        var decompteId = <?php echo (int)($decompteId ?? 0); ?>;
+        var csrfToken  = <?php echo json_encode($csrfToken); ?>;
+
+        if (!list) return;
+
         function attachDeleteHandler(delBtn) {
             delBtn.addEventListener('click', function() {
                 if (!confirm('Supprimer cette pièce jointe ?')) return;
@@ -1061,7 +1233,7 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                     if (data.success) {
                         var li = list.querySelector('[data-fichier-id="' + fid + '"]');
                         if (li) li.remove();
-                        if (list.querySelectorAll('li').length === 0) {
+                        if (list.querySelectorAll('li[data-fichier-id]').length === 0) {
                             var emptyLi = document.createElement('li');
                             emptyLi.id = 'no-fichiers-msg';
                             emptyLi.className = 'list-group-item text-muted small';

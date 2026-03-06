@@ -167,18 +167,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $f['uploaded_by'], $row['collaborateur_id'],
                     ]);
                 } catch (Exception $e) {
-                    // Fallback sans colonnes optionnelles
+                    // Fallback sans collaborateur_id mais avec photo_type
                     try {
                         $pdo->prepare("
                             INSERT INTO signalements_photos
-                                (signalement_id, filename, original_name, mime_type, taille)
-                            VALUES (?, ?, ?, ?, ?)
+                                (signalement_id, filename, original_name, mime_type, taille,
+                                 photo_type, uploaded_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                         ")->execute([
                             $sigId, $f['filename'], $f['original_name'],
-                            $f['mime_type'], $f['taille'],
+                            $f['mime_type'], $f['taille'], $f['photo_type'],
+                            $f['uploaded_by'],
                         ]);
                     } catch (Exception $e2) {
-                        error_log('intervention-terminee INSERT photo error: ' . $e2->getMessage());
+                        // Fallback minimal sans colonnes optionnelles
+                        try {
+                            $pdo->prepare("
+                                INSERT INTO signalements_photos
+                                    (signalement_id, filename, original_name, mime_type, taille)
+                                VALUES (?, ?, ?, ?, ?)
+                            ")->execute([
+                                $sigId, $f['filename'], $f['original_name'],
+                                $f['mime_type'], $f['taille'],
+                            ]);
+                        } catch (Exception $e3) {
+                            error_log('intervention-terminee INSERT photo error: ' . $e3->getMessage());
+                        }
                     }
                 }
             }
@@ -533,7 +547,7 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 (function () {
     'use strict';
 
-    // DataTransfer used to rebuild the native file input
+    // DataTransfer used to manage selected files (source of truth)
     var fileDataTransfer = new DataTransfer();
 
     var dropZone    = document.getElementById('dropZone');
@@ -549,6 +563,9 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 
     var MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 
+    // Flag to suppress the change event when we programmatically clear fileInput.value
+    var ignoreChange = false;
+
     // ── Helpers ──────────────────────────────────────────────────
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' o';
@@ -557,8 +574,8 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
     }
 
     function refreshInput() {
-        // Rebuild fileInput.files from dt
-        fileInput.files = fileDataTransfer.files;
+        // Only update the visual counter and wrapper visibility.
+        // Do NOT touch fileInput.files here to avoid triggering change events.
         var n = fileDataTransfer.files.length;
         fileCountEl.textContent = n;
         fileListWrapper.style.display = n > 0 ? '' : 'none';
@@ -656,10 +673,13 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 
     // ── Event: file input change ──────────────────────────────────
     fileInput.addEventListener('change', function () {
+        if (ignoreChange) return;
         if (fileInput.files.length > 0) {
             addFilesToPreview(fileInput.files);
-            // Reset native input (we manage files via dt)
+            // Reset native input (allow re-selecting same file later)
+            ignoreChange = true;
             fileInput.value = '';
+            ignoreChange = false;
         }
     });
 
@@ -711,6 +731,18 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
     var form = document.getElementById('formIntervention');
     if (form) {
         form.addEventListener('submit', function () {
+            // Sync managed files to the native input right before submission.
+            // This is done here (not in refreshInput) to avoid accidentally
+            // triggering a 'change' event during file management.
+            try {
+                ignoreChange = true;
+                fileInput.files = fileDataTransfer.files;
+                ignoreChange = false;
+            } catch (ex) {
+                // Fallback: browsers that don't support setting input.files
+                // should not reach here in 2024+ but handle gracefully.
+                ignoreChange = false;
+            }
             if (btnSubmit) {
                 btnSubmit.disabled = true;
                 btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Envoi en cours…';
