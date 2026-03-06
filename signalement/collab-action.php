@@ -16,10 +16,6 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/mail-templates.php';
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 $token  = trim($_GET['token'] ?? '');
 $action = trim($_GET['action'] ?? '');
 
@@ -338,13 +334,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $done = true;
-            $successMsg = match ($postAction) {
-                'pris_en_charge' => 'Prise en charge confirmée. Les administrateurs ont été notifiés.',
-                'sur_place'      => 'Présence sur place confirmée. Les administrateurs ont été notifiés.',
-                'termine'        => 'Intervention marquée comme terminée. Les administrateurs et le locataire ont été notifiés.',
-                'impossible'     => 'Rapport d\'impossibilité envoyé. Les administrateurs ont été notifiés.',
-                default          => 'Action enregistrée.',
-            };
+            switch ($postAction) {
+                case 'pris_en_charge':
+                    $successMsg = 'Prise en charge confirmée. Les administrateurs ont été notifiés.';
+                    break;
+                case 'sur_place':
+                    $successMsg = 'Présence sur place confirmée. Les administrateurs ont été notifiés.';
+                    break;
+                case 'termine':
+                    $successMsg = 'Intervention marquée comme terminée. Les administrateurs et le locataire ont été notifiés.';
+                    break;
+                case 'impossible':
+                    $successMsg = 'Rapport d\'impossibilité envoyé. Les administrateurs ont été notifiés.';
+                    break;
+                default:
+                    $successMsg = 'Action enregistrée.';
+                    break;
+            }
         }
     }
 }
