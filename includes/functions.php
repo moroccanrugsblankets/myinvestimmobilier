@@ -1012,6 +1012,75 @@ function getServiceTechniqueEmail() {
 }
 
 /**
+ * Get or create a signalements_collaborateurs entry for the Service Technique collaborateur.
+ * Returns the action_token that can be used in email action buttons.
+ *
+ * @param int $signalementId
+ * @return string|null The action token, or null if ST not configured or DB error
+ */
+function getOrCreateServiceTechniqueToken($signalementId) {
+    global $pdo;
+    if (!$pdo) return null;
+    try {
+        // Get the ST collaborateur
+        $stStmt = $pdo->prepare(
+            "SELECT id, nom, email FROM collaborateurs WHERE service_technique = 1 AND actif = 1 AND email IS NOT NULL AND email <> '' LIMIT 1"
+        );
+        $stStmt->execute();
+        $st = $stStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$st || empty($st['email'])) return null;
+
+        // Check if entry already exists for this signalement + ST email
+        $existsStmt = $pdo->prepare(
+            "SELECT id, action_token FROM signalements_collaborateurs WHERE signalement_id = ? AND collaborateur_email = ? ORDER BY id DESC LIMIT 1"
+        );
+        $existsStmt->execute([$signalementId, $st['email']]);
+        $existing = $existsStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            if (!empty($existing['action_token'])) {
+                return $existing['action_token'];
+            }
+            // Entry exists but has no token — generate and store one
+            $token = bin2hex(random_bytes(32));
+            $pdo->prepare("UPDATE signalements_collaborateurs SET action_token = ? WHERE id = ?")
+                ->execute([$token, $existing['id']]);
+            return $token;
+        }
+
+        // Create new entry
+        $token = bin2hex(random_bytes(32));
+        $pdo->prepare("
+            INSERT INTO signalements_collaborateurs
+                (signalement_id, collaborateur_id, collaborateur_nom, collaborateur_email, mode_notification, attribue_par, action_token)
+            VALUES (?, ?, ?, ?, 'email', 'system', ?)
+        ")->execute([$signalementId, $st['id'], $st['nom'], $st['email'], $token]);
+        return $token;
+    } catch (Exception $e) {
+        error_log('getOrCreateServiceTechniqueToken error: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Build the HTML block containing the 4 action buttons for service technique emails.
+ *
+ * @param string $baseActionUrl  Base URL for collab-action.php (with ?token=…)
+ * @param string $termineUrl     URL for intervention-terminee.php (with ?token=…)
+ * @return string HTML snippet
+ */
+function buildSignalementActionButtonsHtml($baseActionUrl, $termineUrl) {
+    return '<div style="margin: 25px 0; text-align: center;">'
+        . '<p style="font-weight: bold; margin-bottom: 15px;">Actions rapides :</p>'
+        . '<div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">'
+        . '<a href="' . $baseActionUrl . '&amp;action=pris_en_charge" style="display:inline-block;background:#3498db;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🔵 Pris en charge</a>'
+        . '<a href="' . $baseActionUrl . '&amp;action=sur_place" style="display:inline-block;background:#e67e22;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🟠 Sur place</a>'
+        . '<a href="' . $termineUrl . '" style="display:inline-block;background:#27ae60;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🟢 Terminé</a>'
+        . '<a href="' . $baseActionUrl . '&amp;action=impossible" style="display:inline-block;background:#e74c3c;color:white;padding:12px 18px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">🔴 Impossible</a>'
+        . '</div></div>';
+}
+
+/**
  * Get equipment quantity with backward compatibility
  * Supports new simplified structure and old entry/exit structure
  * 

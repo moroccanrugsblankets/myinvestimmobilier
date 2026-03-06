@@ -23,8 +23,12 @@ if ($sigId <= 0 || empty($token)) {
 // Charger le signalement et valider le token locataire
 $stmt = $pdo->prepare("
     SELECT sig.id, sig.reference, sig.titre, sig.statut, sig.responsabilite,
+           sig.description,
            l.adresse,
            loc.token_signalement,
+           loc.email AS locataire_email,
+           loc.telephone AS locataire_telephone,
+           loc.prenom AS locataire_prenom,
            CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom
     FROM signalements sig
     INNER JOIN logements l ON sig.logement_id = l.id
@@ -40,17 +44,79 @@ if (!$sig) {
     die('Lien invalide ou expiré.');
 }
 
-$alreadyAccepted = ($sig['statut'] === 'clos');
-$accepted        = false;
+// Check if already accepted via the action log
+$alreadyAccepted = false;
+try {
+    $checkStmt = $pdo->prepare("SELECT id FROM signalements_actions WHERE signalement_id = ? AND type_action = 'acceptation_locataire' LIMIT 1");
+    $checkStmt->execute([$sigId]);
+    $alreadyAccepted = (bool)$checkStmt->fetch();
+} catch (Exception $e) {
+    $alreadyAccepted = ($sig['statut'] === 'clos');
+}
+
+$accepted = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyAccepted) {
-    // Le locataire accepte l'intervention facturable — clore le signalement
-    $pdo->prepare("UPDATE signalements SET statut = 'clos', date_cloture = COALESCE(date_cloture, NOW()), updated_at = NOW() WHERE id = ?")
+    // Le locataire accepte l'intervention facturable — passer en cours pour que le ST puisse intervenir
+    $pdo->prepare("UPDATE signalements SET statut = 'en_cours', date_intervention = COALESCE(date_intervention, NOW()), updated_at = NOW() WHERE id = ?")
         ->execute([$sigId]);
     $pdo->prepare("
         INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ip_address)
-        VALUES (?, 'cloture', 'Intervention acceptée par le locataire (intervention facturable) — dossier clos', ?, ?)
+        VALUES (?, 'acceptation_locataire', 'Intervention acceptée par le locataire (intervention facturable) — en attente de planification', ?, ?)
     ")->execute([$sigId, $sig['locataire_nom'], $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+
+    $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+    $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
+    $tenantEmailVars = [
+        'prenom'    => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+        'nom'       => $sig['locataire_nom'],
+        'reference' => $sig['reference'],
+        'titre'     => $sig['titre'],
+        'adresse'   => $sig['adresse'],
+        'company'   => $companyName,
+    ];
+
+    // Send confirmation to tenant + admin BCC
+    if (!empty($sig['locataire_email'])) {
+        sendTemplatedEmail(
+            'acceptation_intervention_locataire',
+            $sig['locataire_email'],
+            $tenantEmailVars,
+            null,
+            false,
+            true, // addAdminBcc
+            ['contexte' => 'acceptation_locataire;sig_id=' . $sigId]
+        );
+    }
+
+    // Notify service technique with 4 action buttons
+    $stEmail = getServiceTechniqueEmail();
+    if ($stEmail) {
+        $stToken = getOrCreateServiceTechniqueToken($sigId);
+        $actionButtonsHtml = '';
+        if ($stToken) {
+            $baseActionUrl = $siteUrl . '/signalement/collab-action.php?token=' . urlencode($stToken);
+            $termineUrl    = $siteUrl . '/signalement/intervention-terminee.php?token=' . urlencode($stToken);
+            $actionButtonsHtml = buildSignalementActionButtonsHtml($baseActionUrl, $termineUrl);
+        }
+        sendTemplatedEmail(
+            'acceptation_intervention_service_technique',
+            $stEmail,
+            [
+                'reference'           => $sig['reference'],
+                'titre'               => $sig['titre'],
+                'adresse'             => $sig['adresse'],
+                'locataire_nom'       => $sig['locataire_nom'] ?? '',
+                'locataire_telephone' => $sig['locataire_telephone'] ?? '',
+                'action_buttons_html' => $actionButtonsHtml,
+            ],
+            null,
+            false,
+            false,
+            ['contexte' => 'acceptation_locataire_st;sig_id=' . $sigId]
+        );
+    }
+
     $accepted = true;
 }
 
