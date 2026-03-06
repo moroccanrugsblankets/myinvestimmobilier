@@ -25,6 +25,7 @@ $stmt = $pdo->prepare("
     SELECT sig.id, sig.reference, sig.titre, sig.statut, sig.responsabilite,
            sig.description,
            l.adresse,
+           l.reference as logement_reference,
            loc.token_signalement,
            loc.email AS locataire_email,
            loc.telephone AS locataire_telephone,
@@ -68,12 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyAccepted) {
     $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
     $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
     $tenantEmailVars = [
-        'prenom'    => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
-        'nom'       => $sig['locataire_nom'],
-        'reference' => $sig['reference'],
-        'titre'     => $sig['titre'],
-        'adresse'   => $sig['adresse'],
-        'company'   => $companyName,
+        'prenom'             => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+        'nom'                => $sig['locataire_nom'],
+        'reference'          => $sig['reference'],
+        'titre'              => $sig['titre'],
+        'adresse'            => $sig['adresse'],
+        'logement_reference' => $sig['logement_reference'] ?? '',
+        'company'            => $companyName,
     ];
 
     // Send confirmation to tenant + admin BCC
@@ -106,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyAccepted) {
                 'reference'           => $sig['reference'],
                 'titre'               => $sig['titre'],
                 'adresse'             => $sig['adresse'],
+                'logement_reference'  => $sig['logement_reference'] ?? '',
                 'locataire_nom'       => $sig['locataire_nom'] ?? '',
                 'locataire_telephone' => $sig['locataire_telephone'] ?? '',
                 'action_buttons_html' => $actionButtonsHtml,
@@ -167,6 +170,9 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                 <br>
                 <small class="text-muted d-block mt-2">Logement</small>
                 <?php echo htmlspecialchars($sig['adresse']); ?>
+                <?php if (!empty($sig['logement_reference'])): ?>
+                    &nbsp;<span class="badge bg-secondary font-monospace"><?php echo htmlspecialchars($sig['logement_reference']); ?></span>
+                <?php endif; ?>
             </div>
 
             <?php if ($accepted || $alreadyAccepted): ?>

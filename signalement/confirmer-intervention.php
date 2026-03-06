@@ -21,6 +21,7 @@ if ($sigId <= 0 || empty($token)) {
 $stmt = $pdo->prepare("
     SELECT sig.id, sig.reference, sig.titre, sig.statut,
            l.adresse,
+           l.reference as logement_reference,
            loc.token_signalement,
            CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom
     FROM signalements sig
@@ -83,6 +84,9 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                 <br>
                 <small class="text-muted d-block mt-2">Logement</small>
                 <?php echo htmlspecialchars($sig['adresse']); ?>
+                <?php if (!empty($sig['logement_reference'])): ?>
+                    &nbsp;<span class="badge bg-secondary font-monospace"><?php echo htmlspecialchars($sig['logement_reference']); ?></span>
+                <?php endif; ?>
             </div>
 
             <?php if ($confirmed || $alreadyConfirmed): ?>
