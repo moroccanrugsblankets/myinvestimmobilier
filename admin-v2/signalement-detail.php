@@ -785,6 +785,87 @@ if ($successParam) {
                     </dl>
                 </div>
 
+                <!-- Rapport d'intervention du collaborateur -->
+                <?php
+                $apresPhotos = array_values(array_filter($photos, function($p) {
+                    return ($p['photo_type'] ?? 'signalement') === 'apres_travaux';
+                }));
+                $hasRapport = !empty($sig['notes_intervention']) || !empty($apresPhotos);
+                ?>
+                <?php if ($hasRapport || in_array($sig['statut'], ['resolu', 'clos'])): ?>
+                <div class="section-card border border-success">
+                    <h5 class="mb-3 text-success"><i class="bi bi-clipboard-check me-2"></i>Rapport d'intervention du collaborateur</h5>
+                    <?php if (!empty($sig['notes_intervention'])): ?>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-muted"><i class="bi bi-chat-left-text me-1"></i>Notes d'intervention</label>
+                        <div class="p-3 bg-light rounded" style="white-space:pre-wrap;"><?php echo htmlspecialchars($sig['notes_intervention']); ?></div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($apresPhotos)): ?>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold small text-muted"><i class="bi bi-camera-fill me-1"></i>Photos après travaux (<?php echo count($apresPhotos); ?>)</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach ($apresPhotos as $idx => $photo): ?>
+                            <?php
+                            $mediaUrl = rtrim($config['SITE_URL'], '/') . '/uploads/signalements/' . urlencode($photo['filename']);
+                            $isVideo  = strpos($photo['mime_type'] ?? '', 'video/') === 0;
+                            $modalId  = 'rapport-modal-' . ($photo['id'] ?? $idx);
+                            ?>
+                            <?php if ($isVideo): ?>
+                            <div class="position-relative" style="width:120px;height:90px;cursor:pointer;"
+                                 data-bs-toggle="modal" data-bs-target="#<?php echo $modalId; ?>"
+                                 title="<?php echo htmlspecialchars($photo['original_name']); ?>">
+                                <div class="d-flex align-items-center justify-content-center bg-dark rounded h-100 w-100"
+                                     style="border:1px solid #dee2e6;">
+                                    <i class="bi bi-play-circle-fill text-white" style="font-size:2.5rem;"></i>
+                                </div>
+                                <small class="position-absolute bottom-0 start-0 end-0 text-center text-white bg-dark bg-opacity-75 rounded-bottom"
+                                       style="font-size:10px;padding:2px;"><?php echo htmlspecialchars($photo['original_name']); ?></small>
+                            </div>
+                            <?php else: ?>
+                            <img src="<?php echo htmlspecialchars($mediaUrl); ?>"
+                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
+                                 class="photo-thumb"
+                                 data-bs-toggle="modal" data-bs-target="#<?php echo $modalId; ?>"
+                                 title="<?php echo htmlspecialchars($photo['original_name']); ?>">
+                            <?php endif; ?>
+                            <div class="modal fade" id="<?php echo $modalId; ?>" tabindex="-1">
+                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <span class="modal-title small text-truncate"><?php echo htmlspecialchars($photo['original_name']); ?></span>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center p-2">
+                                            <?php if ($isVideo): ?>
+                                            <video controls class="w-100" style="max-height:70vh;">
+                                                <source src="<?php echo htmlspecialchars($mediaUrl); ?>" type="<?php echo htmlspecialchars($photo['mime_type']); ?>">
+                                            </video>
+                                            <?php else: ?>
+                                            <img src="<?php echo htmlspecialchars($mediaUrl); ?>"
+                                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
+                                                 class="img-fluid" style="max-height:70vh;">
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="modal-footer py-2">
+                                            <a href="<?php echo htmlspecialchars($mediaUrl); ?>" class="btn btn-sm btn-outline-secondary" download>
+                                                <i class="bi bi-download me-1"></i>Télécharger
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!$hasRapport): ?>
+                    <p class="text-muted small mb-0"><i class="bi bi-hourglass me-1"></i>Le rapport du collaborateur n'a pas encore été soumis.</p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
                 <!-- Décompte d'intervention -->
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3">

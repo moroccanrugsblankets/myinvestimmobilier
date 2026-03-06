@@ -8,6 +8,7 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/mail-templates.php';
 
 $sigId = (int)($_GET['sig'] ?? 0);
 $token = trim($_GET['token'] ?? '');
@@ -50,6 +51,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyConfirmed) {
         VALUES (?, 'cloture', 'Intervention confirmée par le locataire — dossier clos', ?, ?)
     ")->execute([$sigId, $sig['locataire_nom'], $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
     $confirmed = true;
+
+    // ── Notifier les admins et le service technique ────────────────────────
+    $siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
+    $lienAdmin   = $siteUrl . '/admin-v2/signalement-detail.php?id=' . $sigId;
+    $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+
+    $notifVars = [
+        'reference'       => $sig['reference'],
+        'titre'           => $sig['titre'],
+        'adresse'         => $sig['adresse'],
+        'locataire_nom'   => $sig['locataire_nom'],
+        'date_confirmation' => date('d/m/Y à H:i'),
+        'lien_admin'      => $lienAdmin,
+        'company'         => $companyName,
+    ];
+
+    // Send to all admins (isAdminEmail=true adds all admins as BCC automatically)
+    $allAdminEmails = [];
+    try {
+        $stmtAdm = $pdo->query("SELECT email FROM administrateurs WHERE actif = 1 AND email IS NOT NULL AND email != ''");
+        $allAdminEmails = $stmtAdm->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        error_log('confirmer-intervention: could not fetch admin emails: ' . $e->getMessage());
+    }
+    $configAdminEmail = $config['ADMIN_EMAIL'] ?? '';
+    if (!empty($configAdminEmail) && !in_array(strtolower($configAdminEmail), array_map('strtolower', $allAdminEmails))) {
+        array_unshift($allAdminEmails, $configAdminEmail);
+    }
+
+    if (!empty($allAdminEmails)) {
+        $primaryAdmin = $allAdminEmails[0];
+        if (filter_var($primaryAdmin, FILTER_VALIDATE_EMAIL)) {
+            sendTemplatedEmail(
+                'signalement_intervention_confirmee_admin',
+                $primaryAdmin,
+                $notifVars,
+                null, true, false,
+                ['contexte' => 'intervention_confirmee_locataire;sig_id=' . $sigId]
+            );
+        }
+    }
+
+    // Notify service technique separately
+    $stEmail = getServiceTechniqueEmail();
+    $allAdminEmailsLower = array_map('strtolower', $allAdminEmails);
+    if ($stEmail && filter_var($stEmail, FILTER_VALIDATE_EMAIL)
+        && !in_array(strtolower($stEmail), $allAdminEmailsLower)) {
+        sendTemplatedEmail(
+            'signalement_intervention_confirmee_admin',
+            $stEmail,
+            $notifVars,
+            null, false, false,
+            ['contexte' => 'intervention_confirmee_locataire_st;sig_id=' . $sigId]
+        );
+    }
 }
 
 $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';

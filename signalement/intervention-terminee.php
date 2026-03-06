@@ -233,6 +233,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes_intervention_html' => $notesHtml,
             ];
 
+            // Build attachment list from uploaded files for admin emails
+            $attachmentsForEmail = [];
+            foreach ($uploadedFiles as $f) {
+                $fPath = __DIR__ . '/../uploads/signalements/' . $f['filename'];
+                if (file_exists($fPath)) {
+                    $attachmentsForEmail[] = ['path' => $fPath, 'name' => $f['original_name']];
+                }
+            }
+
             // Collect all admin emails (DB administrateurs table + config)
             $allAdminEmails = [];
             try {
@@ -245,13 +254,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($configAdminEmail) && !in_array(strtolower($configAdminEmail), array_map('strtolower', $allAdminEmails))) {
                 array_unshift($allAdminEmails, $configAdminEmail);
             }
+            $emailAttachments = !empty($attachmentsForEmail) ? $attachmentsForEmail : null;
             foreach (array_unique($allAdminEmails) as $aEmail) {
                 if (!empty($aEmail) && filter_var($aEmail, FILTER_VALIDATE_EMAIL)) {
                     sendTemplatedEmail(
                         'signalement_intervention_terminee_admin',
                         $aEmail,
                         $adminVars,
-                        null, false, false,
+                        $emailAttachments, false, false,
                         ['contexte' => 'intervention_terminee_rapport;sig_id=' . $sigId]
                     );
                 }
@@ -263,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'signalement_intervention_terminee_admin',
                     $stEmail,
                     $adminVars,
-                    null, false, false,
+                    $emailAttachments, false, false,
                     ['contexte' => 'intervention_terminee_rapport_st;sig_id=' . $sigId]
                 );
             }

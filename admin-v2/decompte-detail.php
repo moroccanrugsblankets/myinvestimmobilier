@@ -172,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         // ── Sauvegarder les lignes ─────────────────────────────────────────────
         if ($postAction === 'save_lignes' && $decompte) {
-            $isEditable = in_array($decompte['statut'], ['brouillon'], true);
+            $isEditable = in_array($decompte['statut'], ['brouillon', 'valide'], true);
             if (!$isEditable) {
                 $errors[] = 'Ce décompte ne peut plus être modifié (statut : ' . $decompte['statut'] . ').';
             } else {
@@ -211,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         // ── Upload de pièce jointe ─────────────────────────────────────────────
         if ($postAction === 'upload_fichier' && $decompte) {
+            $isAjax = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
             if (!empty($_FILES['fichier']['tmp_name']) && $_FILES['fichier']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = __DIR__ . '/../uploads/decomptes/';
                 if (!is_dir($uploadDir)) {
@@ -223,9 +224,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     'video/mp4', 'video/quicktime', 'video/mpeg',
                 ];
                 if (!in_array($mimeType, $allowedMime, true)) {
-                    $errors[] = 'Type de fichier non autorisé.';
+                    $uploadError = 'Type de fichier non autorisé.';
                 } elseif ($_FILES['fichier']['size'] > 50 * 1024 * 1024) {
-                    $errors[] = 'Fichier trop volumineux (max 50 Mo).';
+                    $uploadError = 'Fichier trop volumineux (max 50 Mo).';
                 } else {
                     $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
                     $filename = 'dec_' . $decompteId . '_' . uniqid() . '.' . $ext;
@@ -236,23 +237,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                                     (decompte_id, filename, original_name, mime_type, taille, uploaded_by)
                                 VALUES (?, ?, ?, ?, ?, ?)
                             ")->execute([$decompteId, $filename, $origName, $mimeType, (int)$_FILES['fichier']['size'], $adminName]);
+                            $newFileId = (int)$pdo->lastInsertId();
+                            if ($isAjax) {
+                                header('Content-Type: application/json');
+                                echo json_encode([
+                                    'success' => true,
+                                    'id'      => $newFileId,
+                                    'filename'=> $filename,
+                                    'original_name' => $origName,
+                                    'mime_type'     => $mimeType,
+                                    'taille'        => (int)$_FILES['fichier']['size'],
+                                ]);
+                                exit;
+                            }
                             header("Location: decompte-detail.php?id=$decompteId&success=upload");
                             exit;
                         } catch (Exception $e) {
-                            $errors[] = 'Erreur BD : ' . $e->getMessage();
+                            $uploadError = 'Erreur BD : ' . $e->getMessage();
                         }
                     } else {
-                        $errors[] = 'Impossible d\'enregistrer le fichier.';
+                        $uploadError = 'Impossible d\'enregistrer le fichier.';
                     }
                 }
             } else {
-                $errors[] = 'Aucun fichier reçu.';
+                $uploadError = 'Aucun fichier reçu.';
             }
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $uploadError ?? 'Erreur inconnue.']);
+                exit;
+            }
+            $errors[] = $uploadError ?? 'Erreur inconnue.';
         }
 
         // ── Supprimer une pièce jointe ─────────────────────────────────────────
         if ($postAction === 'delete_fichier' && $decompte) {
             $fichierId = (int)($_POST['fichier_id'] ?? 0);
+            $isAjax    = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
             if ($fichierId > 0) {
                 try {
                     $fStmt = $pdo->prepare("SELECT filename FROM signalements_decomptes_fichiers WHERE id = ? AND decompte_id = ?");
@@ -266,9 +287,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $pdo->prepare("DELETE FROM signalements_decomptes_fichiers WHERE id = ? AND decompte_id = ?")
                             ->execute([$fichierId, $decompteId]);
                     }
+                    if ($isAjax) {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => true]);
+                        exit;
+                    }
                     header("Location: decompte-detail.php?id=$decompteId&success=deleted");
                     exit;
                 } catch (Exception $e) {
+                    if ($isAjax) {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                        exit;
+                    }
                     $errors[] = 'Erreur : ' . $e->getMessage();
                 }
             }
@@ -469,7 +500,7 @@ if ($successParam && isset($successMessages[$successParam])) {
 }
 
 $csrfToken   = generateCsrfToken();
-$isEditable  = $decompte && $decompte['statut'] === 'brouillon';
+$isEditable  = $decompte && in_array($decompte['statut'], ['brouillon', 'valide'], true);
 $isValide    = $decompte && $decompte['statut'] === 'valide';
 $siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
 
@@ -500,8 +531,6 @@ function buildFactureHtml(array $vars, array $fichiers = []): string {
 }
 
 function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompteId): bool {
-    global $pdo, $config;
-
     // Build attachment list from uploaded files
     $attachments = [];
     foreach ($fichiers as $f) {
@@ -512,62 +541,22 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
     }
 
     $factureHtml = buildFactureHtml($vars, $fichiers);
+    $subject     = 'Facture d\'intervention — ' . ($vars['reference'] ?? '');
 
-    // Use PHPMailer via sendTemplatedEmail structure but inject our custom HTML
-    // We'll store a temporary template ID and send using sendTemplatedEmail
-    // Actually, let's use a direct approach via the mailer
-    try {
-        $params = getParameter('smtp_host', '') ? [
-            'host'     => getParameter('smtp_host', ''),
-            'port'     => (int)getParameter('smtp_port', 587),
-            'username' => getParameter('smtp_username', ''),
-            'password' => getParameter('smtp_password', ''),
-            'from'     => getParameter('smtp_from_email', $config['ADMIN_EMAIL'] ?? ''),
-            'from_name'=> $config['COMPANY_NAME'] ?? 'My Invest Immobilier',
-        ] : null;
-
-        if (!$params || empty($params['host'])) {
-            // Fallback: use PHP mail()
-            $headers  = 'MIME-Version: 1.0' . "\r\n";
-            $headers .= 'Content-type: text/html; charset=UTF-8' . "\r\n";
-            $headers .= 'From: ' . ($config['COMPANY_NAME'] ?? 'My Invest') . ' <' . ($config['ADMIN_EMAIL'] ?? '') . '>' . "\r\n";
-            return mail($to, 'Facture d\'intervention — ' . $vars['reference'], $factureHtml, $headers);
-        }
-
-        require_once __DIR__ . '/../vendor/autoload.php';
-        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host       = $params['host'];
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $params['username'];
-        $mail->Password   = $params['password'];
-        $mail->SMTPSecure = $params['port'] == 465 ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = $params['port'];
-        $mail->CharSet    = 'UTF-8';
-
-        $mail->setFrom($params['from'], $params['from_name']);
-        $mail->addAddress($to);
-
-        // BCC admin
-        $adminEmail = $config['ADMIN_EMAIL'] ?? '';
-        if ($adminEmail && $adminEmail !== $to) {
-            $mail->addBCC($adminEmail);
-        }
-
-        foreach ($attachments as $att) {
-            $mail->addAttachment($att['path'], $att['name']);
-        }
-
-        $mail->isHTML(true);
-        $mail->Subject = 'Facture d\'intervention — ' . $vars['reference'];
-        $mail->Body    = $factureHtml;
-
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log('sendFactureEmail error: ' . $e->getMessage());
-        return false;
-    }
+    // Use the standard sendEmail function which properly loads SMTP config from DB
+    // addAdminBcc=true ensures admins receive a hidden copy
+    return sendEmail(
+        $to,
+        $subject,
+        $factureHtml,
+        !empty($attachments) ? $attachments : null,
+        true,   // isHtml
+        false,  // isAdminEmail
+        null,   // replyTo
+        null,   // replyToName
+        true,   // addAdminBcc – admins receive BCC hidden from locataire
+        ['contexte' => 'facture_intervention;dec_id=' . $decompteId]
+    );
 }
 
 ?>
@@ -784,17 +773,17 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                 <div class="section-card">
                     <h5 class="mb-3"><i class="bi bi-paperclip me-2"></i>Pièces jointes</h5>
 
-                    <?php if (!empty($fichiers)): ?>
-                    <ul class="list-group mb-3">
+                    <ul class="list-group mb-3" id="fichiers-list">
+                        <?php if (!empty($fichiers)): ?>
                         <?php foreach ($fichiers as $f): ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <?php
+                        $isImg = strpos($f['mime_type'], 'image/') === 0;
+                        $isPdf = $f['mime_type'] === 'application/pdf';
+                        $isVid = strpos($f['mime_type'], 'video/') === 0;
+                        $icon  = $isPdf ? 'bi-file-earmark-pdf text-danger' : ($isImg ? 'bi-file-image text-primary' : ($isVid ? 'bi-camera-video text-info' : 'bi-file-earmark'));
+                        ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center" data-fichier-id="<?php echo (int)$f['id']; ?>">
                             <div>
-                                <?php
-                                $isImg = strpos($f['mime_type'], 'image/') === 0;
-                                $isPdf = $f['mime_type'] === 'application/pdf';
-                                $isVid = strpos($f['mime_type'], 'video/') === 0;
-                                $icon  = $isPdf ? 'bi-file-earmark-pdf text-danger' : ($isImg ? 'bi-file-image text-primary' : ($isVid ? 'bi-camera-video text-info' : 'bi-file-earmark'));
-                                ?>
                                 <i class="bi <?php echo $icon; ?> me-2"></i>
                                 <a href="<?php echo htmlspecialchars($siteUrl . '/uploads/decomptes/' . $f['filename']); ?>"
                                    target="_blank">
@@ -805,33 +794,32 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                                 </small>
                             </div>
                             <?php if ($isEditable): ?>
-                            <form method="POST" style="margin:0;" onsubmit="return confirm('Supprimer cette pièce jointe ?');">
-                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                                <input type="hidden" name="action" value="delete_fichier">
-                                <input type="hidden" name="fichier_id" value="<?php echo (int)$f['id']; ?>">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-fichier"
+                                    data-fichier-id="<?php echo (int)$f['id']; ?>"
+                                    data-csrf="<?php echo htmlspecialchars($csrfToken); ?>"
+                                    title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
                             <?php endif; ?>
                         </li>
                         <?php endforeach; ?>
+                        <?php else: ?>
+                        <li class="list-group-item text-muted small" id="no-fichiers-msg">Aucune pièce jointe.</li>
+                        <?php endif; ?>
                     </ul>
-                    <?php else: ?>
-                        <p class="text-muted small mb-3">Aucune pièce jointe.</p>
-                    <?php endif; ?>
 
-                    <form method="POST" enctype="multipart/form-data">
+                    <form id="upload-fichier-form" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="upload_fichier">
                         <div class="input-group">
-                            <input type="file" class="form-control" name="fichier"
+                            <input type="file" class="form-control" name="fichier" id="upload-fichier-input"
                                    accept=".pdf,image/*,video/*" required>
-                            <button type="submit" class="btn btn-outline-primary">
+                            <button type="submit" class="btn btn-outline-primary" id="upload-fichier-btn">
                                 <i class="bi bi-upload me-1"></i>Ajouter
                             </button>
                         </div>
                         <div class="form-text">PDF, images, vidéos. Max 50 Mo.</div>
+                        <div id="upload-status" class="mt-2 d-none"></div>
                     </form>
                 </div>
 
@@ -873,11 +861,11 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                 </div>
 
                 <!-- Actions -->
-                <?php if ($isEditable): ?>
+                <?php if ($decompte && $decompte['statut'] === 'brouillon'): ?>
                 <div class="section-card border border-success">
                     <h6 class="fw-semibold mb-3"><i class="bi bi-check-circle me-2 text-success"></i>Valider le décompte</h6>
-                    <p class="text-muted small">Une fois validé, le décompte ne pourra plus être modifié et les collaborateurs seront notifiés par email.</p>
-                    <form method="POST" onsubmit="return confirm('Valider ce décompte ? Cette action est irréversible.');">
+                    <p class="text-muted small">Après validation, les collaborateurs sont notifiés par email. Vous pourrez encore modifier les lignes et pièces jointes.</p>
+                    <form method="POST" onsubmit="return confirm('Valider ce décompte ?');">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="valider">
                         <button type="submit" class="btn btn-success w-100">
@@ -968,6 +956,129 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
         tbody.appendChild(tr);
         tr.querySelector('input[type=text]').focus();
     });
+
+    // ── AJAX upload de pièce jointe ───────────────────────────────────────────
+    (function() {
+        var form    = document.getElementById('upload-fichier-form');
+        var input   = document.getElementById('upload-fichier-input');
+        var btn     = document.getElementById('upload-fichier-btn');
+        var status  = document.getElementById('upload-status');
+        var list    = document.getElementById('fichiers-list');
+        var siteUrl = <?php echo json_encode(rtrim($config['SITE_URL'] ?? '', '/')); ?>;
+        var decompteId = <?php echo (int)($decompteId ?? 0); ?>;
+        var csrfToken  = <?php echo json_encode($csrfToken); ?>;
+        var isEditable = <?php echo $isEditable ? 'true' : 'false'; ?>;
+
+        if (!form) return;
+
+        function mimeIcon(mime) {
+            if (mime === 'application/pdf') return 'bi-file-earmark-pdf text-danger';
+            if (mime.startsWith('image/'))  return 'bi-file-image text-primary';
+            if (mime.startsWith('video/'))  return 'bi-camera-video text-info';
+            return 'bi-file-earmark';
+        }
+
+        function showStatus(msg, isError) {
+            status.className = 'mt-2 alert alert-' + (isError ? 'danger' : 'success') + ' py-1 small';
+            status.textContent = msg;
+            setTimeout(function() { status.className = 'd-none'; }, 4000);
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!input.files || !input.files[0]) return;
+
+            var fd = new FormData(form);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Envoi...';
+
+            fetch(window.location.pathname + '?id=' + decompteId, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-upload me-1"></i>Ajouter';
+                if (data.success) {
+                    // Remove "no files" placeholder if present
+                    var noMsg = document.getElementById('no-fichiers-msg');
+                    if (noMsg) noMsg.remove();
+
+                    // Build new list item
+                    var li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.dataset.fichierId = data.id;
+                    var href = siteUrl + '/uploads/decomptes/' + encodeURIComponent(data.filename);
+                    var inner = '<div>'
+                        + '<i class="bi ' + mimeIcon(data.mime_type) + ' me-2"></i>'
+                        + '<a href="' + href + '" target="_blank">' + data.original_name + '</a>'
+                        + '<small class="text-muted ms-2">' + (data.taille ? Math.round(data.taille / 1024) + ' Ko' : '') + '</small>'
+                        + '</div>';
+                    if (isEditable) {
+                        inner += '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-fichier"'
+                            + ' data-fichier-id="' + data.id + '" data-csrf="' + csrfToken + '" title="Supprimer">'
+                            + '<i class="bi bi-trash"></i></button>';
+                    }
+                    li.innerHTML = inner;
+                    list.appendChild(li);
+
+                    // Attach delete handler
+                    var delBtn = li.querySelector('.btn-delete-fichier');
+                    if (delBtn) attachDeleteHandler(delBtn);
+
+                    input.value = '';
+                    showStatus('Pièce jointe ajoutée.', false);
+                } else {
+                    showStatus(data.error || 'Erreur lors de l\'upload.', true);
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-upload me-1"></i>Ajouter';
+                showStatus('Erreur réseau lors de l\'upload.', true);
+            });
+        });
+
+        // ── Suppression AJAX ──────────────────────────────────────────────────
+        function attachDeleteHandler(delBtn) {
+            delBtn.addEventListener('click', function() {
+                if (!confirm('Supprimer cette pièce jointe ?')) return;
+                var fid = delBtn.dataset.fichierId;
+                var fd  = new FormData();
+                fd.append('csrf_token', delBtn.dataset.csrf || csrfToken);
+                fd.append('action', 'delete_fichier');
+                fd.append('fichier_id', fid);
+
+                fetch(window.location.pathname + '?id=' + decompteId, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        var li = list.querySelector('[data-fichier-id="' + fid + '"]');
+                        if (li) li.remove();
+                        if (list.querySelectorAll('li').length === 0) {
+                            var emptyLi = document.createElement('li');
+                            emptyLi.id = 'no-fichiers-msg';
+                            emptyLi.className = 'list-group-item text-muted small';
+                            emptyLi.textContent = 'Aucune pièce jointe.';
+                            list.appendChild(emptyLi);
+                        }
+                    } else {
+                        alert('Erreur : ' + (data.error || 'Impossible de supprimer.'));
+                    }
+                })
+                .catch(function() { alert('Erreur réseau.'); });
+            });
+        }
+
+        // Attach handlers to existing delete buttons
+        document.querySelectorAll('.btn-delete-fichier').forEach(attachDeleteHandler);
+    })();
     </script>
 </body>
 </html>
