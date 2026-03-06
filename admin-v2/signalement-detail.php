@@ -178,13 +178,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                     $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                     $emailVars = [
-                        'prenom'         => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
-                        'nom'            => $sig['locataire_nom'],
-                        'reference'      => $sig['reference'],
-                        'titre'          => $sig['titre'],
-                        'adresse'        => $sig['adresse'],
-                        'company'        => $companyName,
-                        'responsabilite' => ['locataire' => 'Locataire', 'proprietaire' => 'Propriétaire', 'non_determine' => 'Non déterminée'][$responsabilite] ?? $responsabilite,
+                        'prenom'             => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+                        'nom'                => $sig['locataire_nom'],
+                        'reference'          => $sig['reference'],
+                        'titre'              => $sig['titre'],
+                        'adresse'            => $sig['adresse'],
+                        'logement_reference' => $sig['logement_ref'] ?? '',
+                        'company'            => $companyName,
+                        'responsabilite'     => ['locataire' => 'Locataire', 'proprietaire' => 'Propriétaire', 'non_determine' => 'Non déterminée'][$responsabilite] ?? $responsabilite,
                     ];
                     $templateId = ($responsabilite === 'proprietaire')
                         ? 'confirmation_responsabilite_proprietaire'
@@ -233,6 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                                     'reference'           => $sig['reference'],
                                     'titre'               => $sig['titre'],
                                     'adresse'             => $sig['adresse'],
+                                    'logement_reference'  => $sig['logement_ref'] ?? '',
                                     'locataire_nom'       => $sig['locataire_nom'] ?? '',
                                     'locataire_telephone' => $sig['locataire_telephone'] ?? '',
                                     'action_buttons_html' => $actionButtonsHtml,
@@ -397,6 +399,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             'titre'               => $sig['titre'],
                             'priorite'            => ucfirst($sig['priorite']),
                             'adresse'             => $sig['adresse'],
+                            'logement_reference'  => $sig['logement_ref'] ?? '',
                             'locataire_nom'       => $sig['locataire_nom'] ?? '',
                             'locataire_telephone' => $sig['locataire_telephone'] ?? '',
                             'locataire_email'     => $sig['locataire_email'] ?? '',

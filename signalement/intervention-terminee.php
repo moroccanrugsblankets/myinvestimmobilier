@@ -34,6 +34,7 @@ try {
                sig.description  AS sig_description,
                sig.locataire_id AS sig_locataire_id,
                l.adresse        AS sig_adresse,
+               l.reference      AS logement_reference,
                CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                loc.prenom       AS locataire_prenom,
                loc.email        AS locataire_email,
@@ -48,8 +49,9 @@ try {
     $stmt->execute([$token]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    http_response_code(500);
-    die('Erreur technique. Veuillez contacter l\'administrateur.');
+    error_log('intervention-terminee DB error: ' . $e->getMessage());
+    http_response_code(400);
+    die('Lien invalide ou expiré.');
 }
 
 if (!$row) {
@@ -221,6 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'reference'               => $row['sig_reference'],
                 'titre'                   => $row['sig_titre'],
                 'adresse'                 => $row['sig_adresse'],
+                'logement_reference'      => $row['logement_reference'] ?? '',
                 'collab_nom'              => $row['collaborateur_nom'],
                 'date_action'             => date('d/m/Y à H:i'),
                 'lien_admin'              => $lienAdmin,
@@ -262,13 +265,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'signalement_intervention_terminee_locataire',
                     $row['locataire_email'],
                     [
-                        'prenom'            => $row['locataire_prenom'] ?? '',
-                        'nom'               => $row['locataire_nom'] ?? '',
-                        'reference'         => $row['sig_reference'],
-                        'titre'             => $row['sig_titre'],
-                        'adresse'           => $row['sig_adresse'],
-                        'lien_confirmation' => $lienConfirmation,
-                        'company'           => $companyName,
+                        'prenom'             => $row['locataire_prenom'] ?? '',
+                        'nom'                => $row['locataire_nom'] ?? '',
+                        'reference'          => $row['sig_reference'],
+                        'titre'              => $row['sig_titre'],
+                        'adresse'            => $row['sig_adresse'],
+                        'logement_reference' => $row['logement_reference'] ?? '',
+                        'lien_confirmation'  => $lienConfirmation,
+                        'company'            => $companyName,
                     ],
                     null, false, true,
                     ['contexte' => 'intervention_terminee_rapport_locataire;sig_id=' . $sigId]
@@ -423,6 +427,9 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                 <div class="col-sm-6">
                     <small class="text-muted d-block">Logement</small>
                     <span><?php echo htmlspecialchars($row['sig_adresse']); ?></span>
+                    <?php if (!empty($row['logement_reference'])): ?>
+                        <br><span class="badge bg-secondary font-monospace"><?php echo htmlspecialchars($row['logement_reference']); ?></span>
+                    <?php endif; ?>
                 </div>
                 <div class="col-12">
                     <small class="text-muted d-block">Titre</small>
