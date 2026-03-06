@@ -233,18 +233,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes_intervention_html' => $notesHtml,
             ];
 
-            $adminEmail = $config['ADMIN_EMAIL'] ?? '';
-            if ($adminEmail) {
-                sendTemplatedEmail(
-                    'signalement_intervention_terminee_admin',
-                    $adminEmail,
-                    $adminVars,
-                    null, false, false,
-                    ['contexte' => 'intervention_terminee_rapport;sig_id=' . $sigId]
-                );
+            // Collect all admin emails (DB administrateurs table + config)
+            $allAdminEmails = [];
+            try {
+                $stmtAdm = $pdo->query("SELECT email FROM administrateurs WHERE actif = 1 AND email IS NOT NULL AND email != ''");
+                $allAdminEmails = $stmtAdm->fetchAll(PDO::FETCH_COLUMN);
+            } catch (Exception $e) {
+                error_log('intervention-terminee: could not fetch admin emails: ' . $e->getMessage());
+            }
+            $configAdminEmail = getAdminEmail();
+            if (!empty($configAdminEmail) && !in_array(strtolower($configAdminEmail), array_map('strtolower', $allAdminEmails))) {
+                array_unshift($allAdminEmails, $configAdminEmail);
+            }
+            foreach (array_unique($allAdminEmails) as $aEmail) {
+                if (!empty($aEmail) && filter_var($aEmail, FILTER_VALIDATE_EMAIL)) {
+                    sendTemplatedEmail(
+                        'signalement_intervention_terminee_admin',
+                        $aEmail,
+                        $adminVars,
+                        null, false, false,
+                        ['contexte' => 'intervention_terminee_rapport;sig_id=' . $sigId]
+                    );
+                }
             }
             $stEmail = getServiceTechniqueEmail();
-            if ($stEmail && $stEmail !== $adminEmail && $stEmail !== $row['collaborateur_email']) {
+            $allAdminEmailsLower = array_map('strtolower', $allAdminEmails);
+            if ($stEmail && !in_array(strtolower($stEmail), $allAdminEmailsLower) && strtolower($stEmail) !== strtolower($row['collaborateur_email'] ?? '')) {
                 sendTemplatedEmail(
                     'signalement_intervention_terminee_admin',
                     $stEmail,
