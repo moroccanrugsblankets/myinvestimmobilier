@@ -1101,7 +1101,7 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
             return (b / 1048576).toFixed(1) + ' Mo';
         }
 
-        function escHtml(s) {
+        function escapeHtml(s) {
             return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
@@ -1112,22 +1112,24 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
         }
 
         function addFiles(files) {
+            // Build a Set of existing file identifiers for O(1) duplicate lookup
+            var existing = new Set();
+            for (var j = 0; j < fileDt.files.length; j++) {
+                existing.add(fileDt.files[j].name + '|' + fileDt.files[j].size);
+            }
             for (var i = 0; i < files.length; i++) {
                 var f = files[i];
                 if (f.size > MAX_SIZE) { alert('Fichier trop volumineux (max 50 Mo) : ' + f.name); continue; }
-                // Avoid duplicates
-                var dup = false;
-                for (var j = 0; j < fileDt.files.length; j++) {
-                    if (fileDt.files[j].name === f.name && fileDt.files[j].size === f.size) { dup = true; break; }
-                }
-                if (dup) continue;
+                var key = f.name + '|' + f.size;
+                if (existing.has(key)) continue;
 
                 fileDt.items.add(f);
+                existing.add(key);
                 var li = document.createElement('li');
                 li.className = 'new-file-item';
                 li.dataset.idx = fileDt.files.length - 1;
                 li.innerHTML = '<i class="bi bi-paperclip text-muted"></i>'
-                    + '<span class="new-file-name">' + escHtml(f.name) + '</span>'
+                    + '<span class="new-file-name">' + escapeHtml(f.name) + '</span>'
                     + '<span class="new-file-size">' + formatBytes(f.size) + '</span>'
                     + '<button type="button" class="btn-remove-new-file" data-idx="' + (fileDt.files.length - 1) + '" title="Retirer"><i class="bi bi-x-lg"></i></button>';
                 preview.appendChild(li);
