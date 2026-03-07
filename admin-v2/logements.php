@@ -453,7 +453,16 @@ $stats = [
                                             data-bs-target="#editLogementModal">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-outline-info defaults-btn" 
+                                    <a href="logement-detail.php?id=<?php echo $logement['id']; ?>"
+                                       class="btn btn-outline-primary btn-sm"
+                                       title="Fiche complète du logement">
+                                        <i class="bi bi-building"></i>
+                                    </a>
+                                    <button class="btn btn-outline-secondary btn-sm copy-candidature-btn"
+                                            data-url="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/candidature/?ref=' . md5($logement['reference'])); ?>"
+                                            title="Copier le lien de candidature">
+                                        <i class="bi bi-person-plus"></i>
+                                    </button> 
                                             data-id="<?php echo $logement['id']; ?>"
                                             data-reference="<?php echo htmlspecialchars($logement['reference']); ?>"
                                             data-default-cles-appartement="<?php echo $logement['default_cles_appartement']; ?>"
@@ -789,7 +798,28 @@ $stats = [
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Store default textarea values on page load to avoid duplication
+        // Copy candidature link button
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.copy-candidature-btn');
+            if (!btn) return;
+            var url = btn.dataset.url;
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(function() {
+                var icon = btn.querySelector('i');
+                if (icon) {
+                    var prev = icon.className;
+                    icon.className = 'bi bi-check-lg text-success';
+                    btn.title = 'Lien copié !';
+                    setTimeout(function() {
+                        icon.className = prev;
+                        btn.title = 'Copier le lien de candidature';
+                    }, 2000);
+                }
+            }).catch(function() {
+                prompt('Copiez ce lien :', url);
+            });
+        });
+
         const textareaDefaults = {
             piecePrincipale: document.getElementById('defaults_etat_piece_principale')?.value.trim() || '',
             cuisine: document.getElementById('defaults_etat_cuisine')?.value.trim() || '',

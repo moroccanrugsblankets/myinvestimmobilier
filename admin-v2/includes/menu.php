@@ -46,6 +46,7 @@ $page_to_menu_map = [
     'view-etat-lieux.php' => 'etats-lieux.php',
     'finalize-etat-lieux.php' => 'etats-lieux.php',
     'manage-inventory-equipements.php' => 'logements.php',
+    'logement-detail.php' => 'logements.php',
     'create-inventaire.php' => 'inventaires.php',
     'inventaire-configuration.php' => 'inventaires.php',
     'edit-inventaire.php' => 'inventaires.php',
