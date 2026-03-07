@@ -421,6 +421,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
         }
 
+        // ── Générer le lien de paiement Stripe ────────────────────────────────
+        if ($postAction === 'generer_lien_paiement' && $decompte && $decompte['statut'] === 'facture_envoyee') {
+            try {
+                // Générer un token sécurisé de 64 caractères hexadécimaux
+                $token = bin2hex(random_bytes(32));
+                // Expiration dans 30 jours
+                $expiration = date('Y-m-d H:i:s', strtotime('+30 days'));
+
+                // Note : on efface l'ancienne stripe_session_id — si elle était encore ouverte,
+                // Stripe l'expirera automatiquement après 24h. Une nouvelle session sera créée
+                // lors du prochain accès au lien de paiement.
+
+                $pdo->prepare("
+                    UPDATE signalements_decomptes
+                    SET token_paiement = ?,
+                        token_paiement_expiration = ?,
+                        statut_paiement = 'en_attente',
+                        stripe_session_id = NULL,
+                        updated_at = NOW()
+                    WHERE id = ?
+                ")->execute([$token, $expiration, $decompteId]);
+
+                header("Location: decompte-detail.php?id=$decompteId&success=lien_paiement");
+                exit;
+            } catch (Exception $e) {
+                $errors[] = 'Erreur lors de la génération du lien : ' . $e->getMessage();
+            }
+        }
+
         // ── Envoyer la facture au locataire ────────────────────────────────────
         if ($postAction === 'envoyer_facture' && $decompte && $decompte['statut'] === 'valide') {
             $locataireEmail = $decompte['locataire_email'] ?? '';
@@ -529,22 +558,30 @@ if ($decompteId > 0) {
 
 $successParam = $_GET['success'] ?? '';
 $successMessages = [
-    'created' => 'Décompte créé avec succès. Les lignes standards ont été pré-remplies.',
-    'saved'   => 'Lignes sauvegardées avec succès.',
-    'upload'  => 'Pièce jointe ajoutée.',
-    'deleted' => 'Pièce jointe supprimée.',
-    'valide'  => 'Décompte validé. Les collaborateurs ont été notifiés.',
-    'facture' => 'Facture envoyée au locataire.',
+    'created'       => 'Décompte créé avec succès. Les lignes standards ont été pré-remplies.',
+    'saved'         => 'Lignes sauvegardées avec succès.',
+    'upload'        => 'Pièce jointe ajoutée.',
+    'deleted'       => 'Pièce jointe supprimée.',
+    'valide'        => 'Décompte validé. Les collaborateurs ont été notifiés.',
+    'facture'       => 'Facture envoyée au locataire.',
+    'lien_paiement' => 'Lien de paiement Stripe généré avec succès.',
 ];
 if ($successParam && isset($successMessages[$successParam])) {
     $successMsg = $successMessages[$successParam];
 }
 
-$csrfToken   = generateCsrfToken();
-$isEditable  = $decompte && in_array($decompte['statut'], ['brouillon', 'valide'], true);
-$isValide    = $decompte && $decompte['statut'] === 'valide';
-$siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
+$csrfToken        = generateCsrfToken();
+$isEditable       = $decompte && in_array($decompte['statut'], ['brouillon', 'valide'], true);
+$isValide         = $decompte && $decompte['statut'] === 'valide';
+$isFactureEnvoyee = $decompte && $decompte['statut'] === 'facture_envoyee';
+$siteUrl          = rtrim($config['SITE_URL'] ?? '', '/');
 
+// Build public payment URL if token exists
+$lienPaiement = null;
+if (!empty($decompte['token_paiement'])) {
+    $lienPaiement = $siteUrl . '/payment/pay-decompte.php?token=' . urlencode($decompte['token_paiement']);
+}
+$paiementStatut = $decompte['statut_paiement'] ?? 'non_genere';
 // Helper: Build invoice HTML for sending (fallback if no DB template found)
 function buildFactureHtml(array $vars, array $fichiers = []): string {
     $lignesHtml = $vars['lignes_html'] ?? '';
@@ -973,6 +1010,22 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                             <span class="badge bg-<?php echo $sl[1]; ?>"><?php echo $sl[0]; ?></span>
                         </dd>
 
+                        <?php if ($isFactureEnvoyee): ?>
+                        <dt class="col-5">Paiement</dt>
+                        <dd class="col-7">
+                            <?php
+                            $pLabels = [
+                                'non_genere' => ['Non généré', 'secondary'],
+                                'en_attente' => ['En attente', 'warning'],
+                                'paye'       => ['Payé', 'success'],
+                                'annule'     => ['Annulé', 'danger'],
+                            ];
+                            $pl = $pLabels[$paiementStatut] ?? [$paiementStatut, 'secondary'];
+                            ?>
+                            <span class="badge bg-<?php echo $pl[1]; ?>"><?php echo $pl[0]; ?></span>
+                        </dd>
+                        <?php endif; ?>
+
                         <dt class="col-5">Montant total</dt>
                         <dd class="col-7 fw-bold"><?php echo number_format((float)$decompte['montant_total'], 2, ',', ' '); ?> €</dd>
 
@@ -1028,6 +1081,76 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                 </div>
                 <?php endif; ?>
 
+                <?php if ($isFactureEnvoyee): ?>
+                <!-- ── Paiement Stripe ──────────────────────────────────────────── -->
+                <div class="section-card border border-<?php echo $paiementStatut === 'paye' ? 'success' : 'warning'; ?>">
+                    <h6 class="fw-semibold mb-3">
+                        <i class="bi bi-credit-card me-2 text-<?php echo $paiementStatut === 'paye' ? 'success' : 'warning'; ?>"></i>
+                        Paiement Stripe
+                    </h6>
+
+                    <?php if ($paiementStatut === 'paye'): ?>
+                    <!-- Déjà payé -->
+                    <div class="alert alert-success small mb-2">
+                        <i class="bi bi-check-circle me-1"></i>
+                        <strong>Décompte réglé</strong>
+                        <?php if (!empty($decompte['date_paiement'])): ?>
+                        — le <?php echo date('d/m/Y', strtotime($decompte['date_paiement'])); ?>
+                        <?php endif; ?>
+                    </div>
+                    <?php else: ?>
+
+                    <?php
+                    $statutPaiementLabels = [
+                        'non_genere' => ['Lien non généré',    'secondary'],
+                        'en_attente' => ['En attente',         'warning'],
+                        'annule'     => ['Annulé',             'danger'],
+                    ];
+                    $spLabel = $statutPaiementLabels[$paiementStatut] ?? [$paiementStatut, 'secondary'];
+                    ?>
+                    <p class="small mb-2">
+                        Statut :
+                        <span class="badge bg-<?php echo $spLabel[1]; ?>"><?php echo $spLabel[0]; ?></span>
+                    </p>
+
+                    <?php if ($lienPaiement): ?>
+                    <!-- Lien existant -->
+                    <div class="input-group input-group-sm mb-2">
+                        <input type="text" id="lienPaiementInput" class="form-control font-monospace"
+                               value="<?php echo htmlspecialchars($lienPaiement); ?>" readonly>
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="copyLienPaiement()" title="Copier le lien">
+                            <i class="bi bi-clipboard" id="copyIcon"></i>
+                        </button>
+                    </div>
+                    <?php if (!empty($decompte['token_paiement_expiration'])): ?>
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-clock me-1"></i>
+                        Expire le <?php echo date('d/m/Y', strtotime($decompte['token_paiement_expiration'])); ?>
+                    </p>
+                    <?php endif; ?>
+                    <form method="POST" class="mb-1" onsubmit="return confirm('Régénérer un nouveau lien de paiement ?');">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="generer_lien_paiement">
+                        <button type="submit" class="btn btn-outline-warning btn-sm w-100">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Régénérer le lien
+                        </button>
+                    </form>
+                    <?php else: ?>
+                    <!-- Générer le premier lien -->
+                    <p class="text-muted small mb-2">Aucun lien de paiement généré.</p>
+                    <form method="POST" onsubmit="return confirm('Générer un lien de paiement Stripe pour ce décompte ?');">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="generer_lien_paiement">
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="bi bi-credit-card me-1"></i>Générer le lien Stripe
+                        </button>
+                    </form>
+                    <?php endif; ?>
+                    <?php endif; /* not paid */ ?>
+                </div>
+                <?php endif; /* facture_envoyee */ ?>
+
                 <!-- Lien vers le signalement -->
                 <div class="section-card">
                     <h6 class="fw-semibold mb-2"><i class="bi bi-link-45deg me-2"></i>Signalement associé</h6>
@@ -1056,6 +1179,22 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    // ── Copier le lien de paiement Stripe ─────────────────────────────────────
+    function copyLienPaiement() {
+        var input = document.getElementById('lienPaiementInput');
+        if (!input) return;
+        navigator.clipboard.writeText(input.value).then(function() {
+            var icon = document.getElementById('copyIcon');
+            if (icon) {
+                icon.className = 'bi bi-check-lg text-success';
+                setTimeout(function() { icon.className = 'bi bi-clipboard'; }, 2000);
+            }
+        }).catch(function() {
+            input.select();
+            document.execCommand('copy');
+        });
+    }
+
     // ── Gestion dynamique des lignes ──────────────────────────────────────────
     function updateTotal() {
         var total = 0;

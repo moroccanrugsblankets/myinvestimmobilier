@@ -1,0 +1,460 @@
+<?php
+/**
+ * Page publique d'un logement — Front Office
+ * My Invest Immobilier
+ *
+ * Affiche les informations d'un logement : description, équipements, prix, adresse.
+ * Intègre le lien de candidature.
+ *
+ * URL: /logement.php?ref=REFERENCE
+ */
+
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/db.php';
+
+$ref = isset($_GET['ref']) ? trim($_GET['ref']) : '';
+
+if (empty($ref) || strlen($ref) > 100) {
+    http_response_code(404);
+    die('Logement introuvable.');
+}
+
+// Récupérer le logement
+try {
+    $stmt = $pdo->prepare("
+        SELECT l.*
+        FROM logements l
+        WHERE l.reference = ? AND l.deleted_at IS NULL
+        LIMIT 1
+    ");
+    $stmt->execute([$ref]);
+    $logement = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('logement.php DB error: ' . $e->getMessage());
+    http_response_code(500);
+    die('Erreur interne. Veuillez réessayer plus tard.');
+}
+
+if (!$logement) {
+    http_response_code(404);
+    die('Logement introuvable.');
+}
+
+// Récupérer les équipements inventoriés
+try {
+    $stmtEq = $pdo->prepare("
+        SELECT e.nom, e.quantite, ic.nom AS categorie_nom
+        FROM inventaire_equipements e
+        LEFT JOIN inventaire_categories ic ON e.categorie_id = ic.id
+        WHERE e.logement_id = ? AND e.deleted_at IS NULL
+        ORDER BY ic.ordre ASC, e.ordre ASC, e.nom ASC
+    ");
+    $stmtEq->execute([$logement['id']]);
+    $equipements = $stmtEq->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $equipements = [];
+}
+
+// Grouper par catégorie
+$equipByCategory = [];
+foreach ($equipements as $eq) {
+    $cat = $eq['categorie_nom'] ?: 'Équipements';
+    if (!isset($equipByCategory[$cat])) {
+        $equipByCategory[$cat] = [];
+    }
+    $equipByCategory[$cat][] = $eq;
+}
+
+// Construire les liens
+$siteUrl          = rtrim($config['SITE_URL'], '/');
+$lienCandidature  = $siteUrl . '/candidature/?ref=' . md5($logement['reference']);
+$companyName      = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+
+// Labels de statut
+$statutLabels = [
+    'disponible'   => ['Disponible',          'success'],
+    'en_location'  => ['Déjà loué',           'secondary'],
+    'maintenance'  => ['Indisponible',         'danger'],
+    'indisponible' => ['Indisponible',         'secondary'],
+];
+$statutLabel = $statutLabels[$logement['statut']] ?? [$logement['statut'], 'secondary'];
+$isDisponible = ($logement['statut'] === 'disponible');
+
+$totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($logement['reference']); ?> — <?php echo htmlspecialchars($logement['adresse']); ?> | <?php echo htmlspecialchars($companyName); ?></title>
+    <meta name="description" content="<?php echo htmlspecialchars(mb_substr(strip_tags($logement['description'] ?? ''), 0, 155)); ?>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #1a56db;
+            --primary-light: #e8f0fe;
+        }
+        body {
+            background: #f5f7fa;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #1a1a2e;
+        }
+        /* Header */
+        .site-header {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 0;
+        }
+        .site-header .brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        /* Hero */
+        .hero-card {
+            background: linear-gradient(135deg, #1a56db 0%, #0e3a8a 100%);
+            border-radius: 18px;
+            padding: 2.5rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-card::before {
+            content: '';
+            position: absolute;
+            top: -50px; right: -50px;
+            width: 200px; height: 200px;
+            background: rgba(255,255,255,.07);
+            border-radius: 50%;
+        }
+        .hero-price {
+            font-size: 2.4rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .hero-charges {
+            font-size: 1rem;
+            opacity: .85;
+        }
+        /* Section cards */
+        .section-card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.06);
+            padding: 1.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .section-title {
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+        /* Equipment badges */
+        .equip-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 6px;
+            padding: .35em .75em;
+            font-size: .825rem;
+            font-weight: 500;
+            margin: .2rem;
+        }
+        /* CTA */
+        .cta-card {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            border-radius: 14px;
+            padding: 2rem;
+            color: white;
+            text-align: center;
+        }
+        .btn-cta {
+            background: #fff;
+            color: #047857;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: .85rem 2rem;
+            border-radius: 10px;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform .15s, box-shadow .15s;
+        }
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.2);
+            color: #047857;
+        }
+        /* Info grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: .75rem;
+        }
+        .info-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: .9rem;
+            text-align: center;
+        }
+        .info-item .info-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .info-item .info-label {
+            font-size: .75rem;
+            color: #6b7280;
+            margin-top: .2rem;
+        }
+        /* Footer */
+        .site-footer {
+            background: #fff;
+            border-top: 1px solid #e5e7eb;
+            padding: 1.5rem 0;
+            font-size: .85rem;
+            color: #6b7280;
+        }
+        @media (max-width: 768px) {
+            .hero-card { padding: 1.5rem; }
+            .hero-price { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between">
+            <span class="brand">
+                <i class="bi bi-building me-1"></i><?php echo htmlspecialchars($companyName); ?>
+            </span>
+            <?php if ($isDisponible): ?>
+            <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn btn-sm btn-primary">
+                <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
+            </a>
+            <?php endif; ?>
+        </div>
+    </div>
+</header>
+
+<main class="container py-4">
+    <div class="row g-4">
+
+        <!-- Left / Main column -->
+        <div class="col-lg-8">
+
+            <!-- Hero card -->
+            <div class="hero-card mb-4">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <span class="badge bg-<?php echo $statutLabel[1]; ?> mb-2"><?php echo $statutLabel[0]; ?></span>
+                        <h1 class="h3 fw-bold mb-1"><?php echo htmlspecialchars($logement['adresse']); ?></h1>
+                        <p class="mb-0 opacity-75">
+                            <?php if ($logement['type']): ?>
+                            <i class="bi bi-house me-1"></i><?php echo htmlspecialchars($logement['type']); ?>
+                            <?php endif; ?>
+                            <?php if ($logement['surface']): ?>
+                            &nbsp;·&nbsp;<i class="bi bi-rulers me-1"></i><?php echo htmlspecialchars($logement['surface']); ?> m²
+                            <?php endif; ?>
+                            <?php if ($logement['parking'] !== 'Aucun'): ?>
+                            &nbsp;·&nbsp;<i class="bi bi-p-square me-1"></i><?php echo htmlspecialchars($logement['parking']); ?>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <div class="hero-price"><?php echo number_format((float)$logement['loyer'], 0, ',', ' '); ?> €<span style="font-size:1rem;font-weight:400;">/mois</span></div>
+                        <?php if ((float)$logement['charges'] > 0): ?>
+                        <div class="hero-charges">+ <?php echo number_format((float)$logement['charges'], 0, ',', ' '); ?> € charges</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infos clés -->
+            <div class="section-card">
+                <div class="section-title">Informations clés</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-value"><?php echo number_format((float)$logement['loyer'], 0, ',', ' '); ?> €</div>
+                        <div class="info-label">Loyer/mois</div>
+                    </div>
+                    <?php if ((float)$logement['charges'] > 0): ?>
+                    <div class="info-item">
+                        <div class="info-value"><?php echo number_format((float)$logement['charges'], 0, ',', ' '); ?> €</div>
+                        <div class="info-label">Charges/mois</div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="info-item">
+                        <div class="info-value"><?php echo number_format($totalMensuel, 0, ',', ' '); ?> €</div>
+                        <div class="info-label">Total mensuel</div>
+                    </div>
+                    <?php if ((float)$logement['depot_garantie'] > 0): ?>
+                    <div class="info-item">
+                        <div class="info-value"><?php echo number_format((float)$logement['depot_garantie'], 0, ',', ' '); ?> €</div>
+                        <div class="info-label">Dépôt garantie</div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($logement['surface']): ?>
+                    <div class="info-item">
+                        <div class="info-value"><?php echo htmlspecialchars($logement['surface']); ?> m²</div>
+                        <div class="info-label">Surface</div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($logement['date_disponibilite'] && $isDisponible): ?>
+                    <div class="info-item">
+                        <div class="info-value" style="font-size:.95rem;"><?php echo date('d/m/Y', strtotime($logement['date_disponibilite'])); ?></div>
+                        <div class="info-label">Disponible dès</div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <?php if (!empty($logement['description'])): ?>
+            <div class="section-card">
+                <div class="section-title">Description</div>
+                <div style="line-height: 1.7; white-space: pre-line;"><?php echo htmlspecialchars($logement['description']); ?></div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Équipements inventoriés -->
+            <?php if (!empty($equipByCategory)): ?>
+            <div class="section-card">
+                <div class="section-title">Équipements</div>
+                <?php foreach ($equipByCategory as $catNom => $items): ?>
+                <div class="mb-3">
+                    <h6 class="fw-semibold mb-2"><?php echo htmlspecialchars($catNom); ?></h6>
+                    <div>
+                        <?php foreach ($items as $item): ?>
+                        <span class="equip-badge">
+                            <i class="bi bi-check2"></i>
+                            <?php echo htmlspecialchars($item['nom']); ?>
+                            <?php if ((int)$item['quantite'] > 1): ?>
+                            <small class="opacity-75">×<?php echo (int)$item['quantite']; ?></small>
+                            <?php endif; ?>
+                        </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php elseif (!empty($logement['equipements'])): ?>
+            <!-- Equipements résumé libre -->
+            <div class="section-card">
+                <div class="section-title">Équipements</div>
+                <div style="line-height: 1.7; white-space: pre-line;"><?php echo htmlspecialchars($logement['equipements']); ?></div>
+            </div>
+            <?php endif; ?>
+
+        </div><!-- /col-lg-8 -->
+
+        <!-- Right Column: CTA & Infos -->
+        <div class="col-lg-4">
+
+            <!-- CTA Candidature -->
+            <?php if ($isDisponible): ?>
+            <div class="cta-card mb-4">
+                <i class="bi bi-person-check-fill mb-2" style="font-size:2.5rem;"></i>
+                <h4 class="fw-bold mb-2">Ce logement vous intéresse ?</h4>
+                <p class="opacity-90 mb-3 small">Déposez votre candidature en quelques minutes. Dossier simple et rapide.</p>
+                <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn-cta">
+                    <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
+                </a>
+            </div>
+            <?php else: ?>
+            <div class="section-card text-center mb-4">
+                <i class="bi bi-clock-history text-muted" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 text-muted">Ce logement n'est pas disponible actuellement.</p>
+            </div>
+            <?php endif; ?>
+
+            <!-- Résumé prix -->
+            <div class="section-card">
+                <div class="section-title">Récapitulatif financier</div>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">Loyer</span>
+                    <strong><?php echo number_format((float)$logement['loyer'], 2, ',', ' '); ?> €/mois</strong>
+                </div>
+                <?php if ((float)$logement['charges'] > 0): ?>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">Charges</span>
+                    <strong><?php echo number_format((float)$logement['charges'], 2, ',', ' '); ?> €/mois</strong>
+                </div>
+                <?php endif; ?>
+                <div class="d-flex justify-content-between py-2 border-bottom fw-bold">
+                    <span>Total mensuel</span>
+                    <span class="text-primary"><?php echo number_format($totalMensuel, 2, ',', ' '); ?> €/mois</span>
+                </div>
+                <?php if ((float)$logement['depot_garantie'] > 0): ?>
+                <div class="d-flex justify-content-between py-2">
+                    <span class="text-muted">Dépôt de garantie</span>
+                    <strong><?php echo number_format((float)$logement['depot_garantie'], 2, ',', ' '); ?> €</strong>
+                </div>
+                <?php endif; ?>
+                <p class="text-muted small mt-2 mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Revenus recommandés : <strong><?php echo number_format($totalMensuel * 3, 0, ',', ' '); ?> €/mois</strong> (3× le loyer).
+                </p>
+            </div>
+
+            <!-- Informations logement -->
+            <div class="section-card">
+                <div class="section-title">Caractéristiques</div>
+                <ul class="list-unstyled mb-0 small">
+                    <?php if ($logement['type']): ?>
+                    <li class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted"><i class="bi bi-house me-1"></i>Type</span>
+                        <strong><?php echo htmlspecialchars($logement['type']); ?></strong>
+                    </li>
+                    <?php endif; ?>
+                    <?php if ($logement['surface']): ?>
+                    <li class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted"><i class="bi bi-rulers me-1"></i>Surface</span>
+                        <strong><?php echo htmlspecialchars($logement['surface']); ?> m²</strong>
+                    </li>
+                    <?php endif; ?>
+                    <li class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted"><i class="bi bi-p-square me-1"></i>Parking</span>
+                        <strong><?php echo htmlspecialchars($logement['parking']); ?></strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span class="text-muted"><i class="bi bi-circle-fill me-1" style="font-size:.5rem;"></i>Statut</span>
+                        <span class="badge bg-<?php echo $statutLabel[1]; ?>"><?php echo $statutLabel[0]; ?></span>
+                    </li>
+                </ul>
+            </div>
+
+            <?php if (!empty($logement['lien_externe'])): ?>
+            <div class="section-card">
+                <div class="section-title">Liens utiles</div>
+                <a href="<?php echo htmlspecialchars($logement['lien_externe']); ?>" target="_blank" rel="noopener noreferrer"
+                   class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Voir l'annonce officielle
+                </a>
+            </div>
+            <?php endif; ?>
+
+        </div><!-- /col-lg-4 -->
+    </div><!-- /row -->
+</main>
+
+<!-- Footer -->
+<footer class="site-footer">
+    <div class="container text-center">
+        <p class="mb-0">&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
