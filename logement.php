@@ -3,10 +3,10 @@
  * Page publique d'un logement — Front Office
  * My Invest Immobilier
  *
- * Affiche les informations d'un logement : description, équipements, prix, adresse.
+ * Affiche les informations d'un logement : description, équipements, photos, prix, adresse.
  * Intègre le lien de candidature.
  *
- * URL: /logement.php?ref=REFERENCE
+ * URL: /logement.php?ref=MD5_REFERENCE
  */
 
 require_once __DIR__ . '/includes/config.php';
@@ -14,17 +14,18 @@ require_once __DIR__ . '/includes/db.php';
 
 $ref = isset($_GET['ref']) ? trim($_GET['ref']) : '';
 
+// Accept both plain reference (legacy) and MD5 hash (new format)
 if (empty($ref) || strlen($ref) > 100) {
     http_response_code(404);
     die('Logement introuvable.');
 }
 
-// Récupérer le logement
+// Récupérer le logement — lookup by MD5(reference) for the encrypted URL format
 try {
     $stmt = $pdo->prepare("
         SELECT l.*
         FROM logements l
-        WHERE l.reference = ? AND l.deleted_at IS NULL
+        WHERE MD5(l.reference) = ? AND l.deleted_at IS NULL
         LIMIT 1
     ");
     $stmt->execute([$ref]);
@@ -63,6 +64,20 @@ foreach ($equipements as $eq) {
         $equipByCategory[$cat] = [];
     }
     $equipByCategory[$cat][] = $eq;
+}
+
+// Récupérer les photos/vidéos du logement
+try {
+    $stmtPhotos = $pdo->prepare("
+        SELECT id, filename, original_name, mime_type
+        FROM logements_photos
+        WHERE logement_id = ?
+        ORDER BY ordre ASC, id ASC
+    ");
+    $stmtPhotos->execute([$logement['id']]);
+    $photos = $stmtPhotos->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $photos = [];
 }
 
 // Construire les liens
@@ -223,10 +238,123 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             font-size: .85rem;
             color: #6b7280;
         }
+        /* Photo slider */
+        .photo-slider {
+            position: relative;
+            background: #111;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 1.25rem;
+        }
+        .slider-main {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 ratio */
+            overflow: hidden;
+        }
+        .slider-main img,
+        .slider-main video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .slider-main .slide-item {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        .slider-main .slide-item.active {
+            display: block;
+        }
+        .slider-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,.5);
+            color: #fff;
+            border: none;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: background .2s;
+        }
+        .slider-nav:hover { background: rgba(0,0,0,.8); }
+        .slider-nav.prev { left: 12px; }
+        .slider-nav.next { right: 12px; }
+        .slider-counter {
+            position: absolute;
+            bottom: 12px;
+            right: 16px;
+            background: rgba(0,0,0,.55);
+            color: #fff;
+            font-size: .75rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+        /* Thumbnails */
+        .slider-thumbs {
+            display: flex;
+            gap: 6px;
+            padding: 8px;
+            overflow-x: auto;
+            background: #1a1a1a;
+            scrollbar-width: thin;
+            scrollbar-color: #555 #1a1a1a;
+        }
+        .slider-thumbs::-webkit-scrollbar { height: 4px; }
+        .slider-thumbs::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+        .thumb-item {
+            flex-shrink: 0;
+            width: 70px; height: 52px;
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color .2s;
+            position: relative;
+        }
+        .thumb-item.active { border-color: #1a56db; }
+        .thumb-item img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .thumb-video-icon {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,.5);
+            color: #fff; font-size: 1.2rem;
+        }
+        /* Video embed */
+        .video-embed-wrapper {
+            position: relative;
+            padding-top: 56.25%;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 1.25rem;
+        }
+        .video-embed-wrapper iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 0;
+        }
         @media (max-width: 768px) {
             .hero-card { padding: 1.5rem; }
             .hero-price { font-size: 1.8rem; }
         }
+        /* TinyMCE HTML content */
+        .logement-html-content {
+            line-height: 1.7;
+        }
+        .logement-html-content p { margin-bottom: .75rem; }
+        .logement-html-content ul,
+        .logement-html-content ol { padding-left: 1.4rem; margin-bottom: .75rem; }
+        .logement-html-content h1,.logement-html-content h2,.logement-html-content h3 { font-size: 1.1rem; font-weight: 700; margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -280,6 +408,75 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
                 </div>
             </div>
 
+            <!-- Photo slider -->
+            <?php if (!empty($photos)): ?>
+            <div class="photo-slider" id="photoSlider">
+                <div class="slider-main" id="sliderMain">
+                    <?php foreach ($photos as $idx => $photo): ?>
+                    <?php $isVideo = strpos($photo['mime_type'], 'video/') === 0; ?>
+                    <div class="slide-item <?php echo $idx === 0 ? 'active' : ''; ?>" data-index="<?php echo $idx; ?>">
+                        <?php if ($isVideo): ?>
+                        <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                               controls preload="none" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;"></video>
+                        <?php else: ?>
+                        <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                             alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
+                             loading="<?php echo $idx === 0 ? 'eager' : 'lazy'; ?>">
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+
+                    <?php if (count($photos) > 1): ?>
+                    <button class="slider-nav prev" id="sliderPrev" aria-label="Photo précédente">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="slider-nav next" id="sliderNext" aria-label="Photo suivante">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <div class="slider-counter"><span id="sliderCurrent">1</span> / <?php echo count($photos); ?></div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (count($photos) > 1): ?>
+                <div class="slider-thumbs" id="sliderThumbs">
+                    <?php foreach ($photos as $idx => $photo): ?>
+                    <?php $isVideo = strpos($photo['mime_type'], 'video/') === 0; ?>
+                    <div class="thumb-item <?php echo $idx === 0 ? 'active' : ''; ?>" data-index="<?php echo $idx; ?>" role="button" aria-label="Miniature <?php echo $idx + 1; ?>">
+                        <?php if ($isVideo): ?>
+                        <div style="width:100%;height:100%;background:#222;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-play-circle text-white"></i>
+                        </div>
+                        <?php else: ?>
+                        <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                             alt="" loading="lazy">
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- YouTube video -->
+            <?php if (!empty($logement['video_youtube'])): ?>
+            <?php
+            $ytUrl = $logement['video_youtube'];
+            $ytId  = '';
+            if (preg_match('/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/', $ytUrl, $ytMatch)) {
+                $ytId = $ytMatch[1];
+            }
+            ?>
+            <?php if ($ytId): ?>
+            <div class="video-embed-wrapper mb-4">
+                <iframe src="https://www.youtube-nocookie.com/embed/<?php echo htmlspecialchars($ytId); ?>?rel=0"
+                        title="Vidéo du logement"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen
+                        loading="lazy"></iframe>
+            </div>
+            <?php endif; ?>
+            <?php endif; ?>
+
             <!-- Infos clés -->
             <div class="section-card">
                 <div class="section-title">Informations clés</div>
@@ -323,7 +520,7 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             <?php if (!empty($logement['description'])): ?>
             <div class="section-card">
                 <div class="section-title">Description</div>
-                <div style="line-height: 1.7; white-space: pre-line;"><?php echo htmlspecialchars($logement['description']); ?></div>
+                <div class="logement-html-content"><?php echo $logement['description']; ?></div>
             </div>
             <?php endif; ?>
 
@@ -351,8 +548,31 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             <?php elseif (!empty($logement['equipements'])): ?>
             <!-- Equipements résumé libre -->
             <div class="section-card">
-                <div class="section-title">Équipements</div>
-                <div style="line-height: 1.7; white-space: pre-line;"><?php echo htmlspecialchars($logement['equipements']); ?></div>
+                <div class="section-title">Équipements inclus</div>
+                <div class="logement-html-content"><?php echo $logement['equipements']; ?></div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Commodités à proximité -->
+            <?php if (!empty($logement['commodites'])): ?>
+            <div class="section-card">
+                <div class="section-title">Commodités à proximité</div>
+                <div class="logement-html-content"><?php echo $logement['commodites']; ?></div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Conditions de visite et de candidature -->
+            <?php if (!empty($logement['conditions_visite'])): ?>
+            <div class="section-card">
+                <div class="section-title">Conditions de visite et de candidature</div>
+                <div class="logement-html-content"><?php echo $logement['conditions_visite']; ?></div>
+                <?php if ($isDisponible): ?>
+                <div class="mt-3 text-center">
+                    <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn btn-primary">
+                        <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
@@ -434,16 +654,6 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
                 </ul>
             </div>
 
-            <?php if (!empty($logement['lien_externe'])): ?>
-            <div class="section-card">
-                <div class="section-title">Liens utiles</div>
-                <a href="<?php echo htmlspecialchars($logement['lien_externe']); ?>" target="_blank" rel="noopener noreferrer"
-                   class="btn btn-outline-secondary btn-sm w-100">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>Voir l'annonce officielle
-                </a>
-            </div>
-            <?php endif; ?>
-
         </div><!-- /col-lg-4 -->
     </div><!-- /row -->
 </main>
@@ -456,5 +666,46 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php if (!empty($photos) && count($photos) > 1): ?>
+<script>
+(function () {
+    'use strict';
+    var slides      = document.querySelectorAll('#sliderMain .slide-item');
+    var thumbs      = document.querySelectorAll('#sliderThumbs .thumb-item');
+    var btnPrev     = document.getElementById('sliderPrev');
+    var btnNext     = document.getElementById('sliderNext');
+    var counterEl   = document.getElementById('sliderCurrent');
+    var total       = slides.length;
+    var current     = 0;
+
+    function goTo(idx) {
+        slides[current].classList.remove('active');
+        if (thumbs[current]) thumbs[current].classList.remove('active');
+        current = (idx + total) % total;
+        slides[current].classList.add('active');
+        if (thumbs[current]) {
+            thumbs[current].classList.add('active');
+            thumbs[current].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+        if (counterEl) counterEl.textContent = current + 1;
+    }
+
+    if (btnPrev) btnPrev.addEventListener('click', function () { goTo(current - 1); });
+    if (btnNext) btnNext.addEventListener('click', function () { goTo(current + 1); });
+
+    thumbs.forEach(function (thumb) {
+        thumb.addEventListener('click', function () {
+            goTo(parseInt(this.dataset.index, 10));
+        });
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowLeft')  goTo(current - 1);
+        if (e.key === 'ArrowRight') goTo(current + 1);
+    });
+}());
+</script>
+<?php endif; ?>
 </body>
 </html>

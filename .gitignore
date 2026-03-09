@@ -7,6 +7,9 @@ uploads/signatures/*
 !uploads/decomptes/
 uploads/decomptes/*
 !uploads/decomptes/.gitkeep
+!uploads/logements/
+uploads/logements/*
+!uploads/logements/.gitkeep
 
 # PDF générés (contiennent des données personnelles)
 pdf/*

@@ -458,11 +458,19 @@ $stats = [
                                        title="Fiche complète du logement">
                                         <i class="bi bi-building"></i>
                                     </a>
+                                    <a href="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . md5($logement['reference'])); ?>"
+                                       class="btn btn-outline-info btn-sm"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       title="Voir la page publique">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
                                     <button class="btn btn-outline-secondary btn-sm copy-candidature-btn"
                                             data-url="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/candidature/?ref=' . md5($logement['reference'])); ?>"
                                             title="Copier le lien de candidature">
                                         <i class="bi bi-person-plus"></i>
-                                    </button> 
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm"
                                             data-id="<?php echo $logement['id']; ?>"
                                             data-reference="<?php echo htmlspecialchars($logement['reference']); ?>"
                                             data-default-cles-appartement="<?php echo $logement['default_cles_appartement']; ?>"
@@ -470,7 +478,7 @@ $stats = [
                                             data-default-etat-piece-principale="<?php echo htmlspecialchars($logement['default_etat_piece_principale'] ?? ''); ?>"
                                             data-default-etat-cuisine="<?php echo htmlspecialchars($logement['default_etat_cuisine'] ?? ''); ?>"
                                             data-default-etat-salle-eau="<?php echo htmlspecialchars($logement['default_etat_salle_eau'] ?? ''); ?>"
-                                            data-bs-toggle="modal" 
+                                            data-bs-toggle="modal"
                                             data-bs-target="#setDefaultsModal"
                                             title="Définir les valeurs par défaut">
                                         <i class="bi bi-gear"></i>
@@ -485,15 +493,6 @@ $stats = [
                                            class="btn btn-outline-warning btn-sm"
                                            title="Gestion du loyer">
                                             <i class="bi bi-cash-stack"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if (!empty($logement['lien_externe'])): ?>
-                                        <a href="<?php echo htmlspecialchars($logement['lien_externe']); ?>"
-                                           class="btn btn-outline-secondary btn-sm"
-                                           target="_blank"
-                                           rel="noopener noreferrer"
-                                           title="Voir l'annonce">
-                                            <i class="bi bi-box-arrow-up-right"></i>
                                         </a>
                                     <?php endif; ?>
                                     <button class="btn btn-outline-danger delete-btn"

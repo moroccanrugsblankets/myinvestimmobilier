@@ -47,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     date_disponibilite  = ?,
                     description         = ?,
                     equipements         = ?,
+                    commodites          = ?,
+                    conditions_visite   = ?,
+                    video_youtube       = ?,
                     lien_externe        = ?,
                     updated_at          = NOW()
                 WHERE id = ?
@@ -62,8 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['parking'],
                 $_POST['statut'],
                 !empty($_POST['date_disponibilite']) ? $_POST['date_disponibilite'] : null,
-                trim($_POST['description']),
-                trim($_POST['equipements']),
+                $_POST['description'] ?? '',
+                $_POST['equipements'] ?? '',
+                $_POST['commodites'] ?? '',
+                $_POST['conditions_visite'] ?? '',
+                !empty($_POST['video_youtube']) ? trim($_POST['video_youtube']) : null,
                 !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
                 $logement_id,
             ]);
@@ -74,6 +80,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $_SESSION['error'] = 'Erreur lors de la mise à jour.';
                 error_log('logement-detail update: ' . $e->getMessage());
+            }
+        }
+        header("Location: logement-detail.php?id=$logement_id");
+        exit;
+    }
+
+    if ($action === 'upload_photos') {
+        $uploadDir = __DIR__ . '/../uploads/logements/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        // Map MIME types to safe extensions to prevent extension spoofing
+        $mimeToExt = [
+            'image/jpeg'     => 'jpg',
+            'image/png'      => 'png',
+            'image/gif'      => 'gif',
+            'image/webp'     => 'webp',
+            'video/mp4'      => 'mp4',
+            'video/quicktime'=> 'mov',
+            'video/mpeg'     => 'mpg',
+        ];
+        $errors = [];
+        $uploaded = 0;
+        if (!empty($_FILES['photos']['name'][0])) {
+            $fileCount = count($_FILES['photos']['name']);
+            for ($i = 0; $i < $fileCount; $i++) {
+                if (empty($_FILES['photos']['tmp_name'][$i]) || $_FILES['photos']['error'][$i] !== UPLOAD_ERR_OK) {
+                    continue;
+                }
+                $origName = basename($_FILES['photos']['name'][$i]);
+                $tmpName  = $_FILES['photos']['tmp_name'][$i];
+                $mimeType = mime_content_type($tmpName) ?: 'application/octet-stream';
+                if (!isset($mimeToExt[$mimeType])) {
+                    $errors[] = 'Type non autorisé : ' . htmlspecialchars($origName);
+                    continue;
+                }
+                if ($_FILES['photos']['size'][$i] > 50 * 1024 * 1024) {
+                    $errors[] = 'Fichier trop volumineux : ' . htmlspecialchars($origName);
+                    continue;
+                }
+                // Use extension derived from actual MIME type, not user-supplied filename
+                $ext      = $mimeToExt[$mimeType];
+                $filename = 'log_' . $logement_id . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                if (move_uploaded_file($tmpName, $uploadDir . $filename)) {
+                    $pdo->prepare("INSERT INTO logements_photos (logement_id, filename, original_name, mime_type, taille) VALUES (?, ?, ?, ?, ?)")
+                        ->execute([$logement_id, $filename, $origName, $mimeType, (int)$_FILES['photos']['size'][$i]]);
+                    $uploaded++;
+                }
+            }
+        }
+        if ($uploaded > 0) {
+            $_SESSION['success'] = $uploaded . ' photo(s)/vidéo(s) ajoutée(s).';
+        }
+        if (!empty($errors)) {
+            $_SESSION['error'] = implode(' | ', $errors);
+        }
+        header("Location: logement-detail.php?id=$logement_id");
+        exit;
+    }
+
+    if ($action === 'delete_photo') {
+        $photoId = (int)($_POST['photo_id'] ?? 0);
+        if ($photoId > 0) {
+            $row = $pdo->prepare("SELECT filename FROM logements_photos WHERE id = ? AND logement_id = ?");
+            $row->execute([$photoId, $logement_id]);
+            $photo = $row->fetch(PDO::FETCH_ASSOC);
+            if ($photo) {
+                $filePath = __DIR__ . '/../uploads/logements/' . $photo['filename'];
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+                $pdo->prepare("DELETE FROM logements_photos WHERE id = ? AND logement_id = ?")
+                    ->execute([$photoId, $logement_id]);
+                $_SESSION['success'] = 'Photo supprimée.';
+            }
+        }
+        header("Location: logement-detail.php?id=$logement_id");
+        exit;
+    }
+
+    if ($action === 'reorder_photos') {
+        $order = json_decode($_POST['order'] ?? '[]', true);
+        if (is_array($order)) {
+            foreach ($order as $pos => $pid) {
+                $pdo->prepare("UPDATE logements_photos SET ordre = ? WHERE id = ? AND logement_id = ?")
+                    ->execute([(int)$pos, (int)$pid, $logement_id]);
             }
         }
         header("Location: logement-detail.php?id=$logement_id");
@@ -107,8 +199,8 @@ if (!$logement) {
 
 // Build candidature link (md5 of reference, same as candidature/index.php)
 $lienCandidature = rtrim($config['SITE_URL'], '/') . '/candidature/?ref=' . md5($logement['reference']);
-// Build front office public link
-$lienPublic = rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . urlencode($logement['reference']);
+// Build front office public link with MD5-encrypted reference
+$lienPublic = rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . md5($logement['reference']);
 
 // Status labels
 $statutLabels = [
@@ -142,6 +234,15 @@ foreach ($equipements as $eq) {
         $equipByCategory[$cat] = [];
     }
     $equipByCategory[$cat][] = $eq;
+}
+
+// Load logement photos
+try {
+    $stmtPhotos = $pdo->prepare("SELECT * FROM logements_photos WHERE logement_id = ? ORDER BY ordre ASC, id ASC");
+    $stmtPhotos->execute([$logement_id]);
+    $logementPhotos = $stmtPhotos->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $logementPhotos = [];
 }
 
 $successMsg = $_SESSION['success'] ?? null;
@@ -183,6 +284,54 @@ unset($_SESSION['success'], $_SESSION['error']);
             font-size: 1.8rem;
             font-weight: 700;
         }
+        /* Photo upload area */
+        .drop-zone {
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            background: #fafafa;
+        }
+        .drop-zone.drag-over { border-color: #0d6efd; background: #f0f4ff; }
+        .drop-zone input[type=file] { display: none; }
+        /* Photo gallery grid */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+        }
+        .photo-thumb {
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            aspect-ratio: 4/3;
+            background: #000;
+        }
+        .photo-thumb img,
+        .photo-thumb video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .photo-thumb .thumb-actions {
+            position: absolute;
+            top: 4px; right: 4px;
+            display: flex; gap: 4px;
+            opacity: 0;
+            transition: opacity .2s;
+        }
+        .photo-thumb:hover .thumb-actions { opacity: 1; }
+        .thumb-del-btn {
+            background: rgba(220,53,69,.85);
+            color: #fff; border: none;
+            border-radius: 4px;
+            width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: .75rem;
+        }
+        .thumb-del-btn:hover { background: #dc3545; }
     </style>
 </head>
 <body>
@@ -321,17 +470,38 @@ unset($_SESSION['success'], $_SESSION['error']);
                                 <h6 class="text-muted small text-uppercase mb-3">Présentation</h6>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">Description</label>
-                                <textarea name="description" class="form-control" rows="5"
+                                <label class="form-label fw-semibold">Description du logement</label>
+                                <textarea name="description" id="editor_description" class="form-control tinymce-editor" rows="6"
                                           placeholder="Décrivez le logement : emplacement, luminosité, travaux récents, atouts…"><?php echo htmlspecialchars($logement['description'] ?? ''); ?></textarea>
                                 <div class="form-text">Visible sur la page publique du logement.</div>
                             </div>
 
                             <div class="col-12">
-                                <label class="form-label fw-semibold">Équipements (résumé)</label>
-                                <textarea name="equipements" class="form-control" rows="3"
+                                <label class="form-label fw-semibold">Équipements inclus</label>
+                                <textarea name="equipements" id="editor_equipements" class="form-control tinymce-editor" rows="4"
                                           placeholder="Cuisine équipée, parquet, double vitrage, digicode…"><?php echo htmlspecialchars($logement['equipements'] ?? ''); ?></textarea>
                                 <div class="form-text">Résumé libre des équipements. Pour la liste détaillée, utilisez <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement_id; ?>">l'inventaire</a>.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Commodités à proximité</label>
+                                <textarea name="commodites" id="editor_commodites" class="form-control tinymce-editor" rows="4"
+                                          placeholder="Transports, commerces, écoles, parcs…"><?php echo htmlspecialchars($logement['commodites'] ?? ''); ?></textarea>
+                                <div class="form-text">Informations sur le quartier et les commodités proches.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Conditions de visite et de candidature</label>
+                                <textarea name="conditions_visite" id="editor_conditions_visite" class="form-control tinymce-editor" rows="4"
+                                          placeholder="Comment organiser une visite, documents requis pour candidater…"><?php echo htmlspecialchars($logement['conditions_visite'] ?? ''); ?></textarea>
+                                <div class="form-text">Affiché sur la page publique avec le bouton de candidature.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold"><i class="bi bi-youtube text-danger me-1"></i>Vidéo YouTube</label>
+                                <input type="url" name="video_youtube" class="form-control" placeholder="https://www.youtube.com/watch?v=..."
+                                       value="<?php echo htmlspecialchars($logement['video_youtube'] ?? ''); ?>">
+                                <div class="form-text">URL de la vidéo YouTube à afficher sur la page publique (facultatif).</div>
                             </div>
 
                             <div class="col-12 d-flex justify-content-end gap-2">
@@ -340,6 +510,64 @@ unset($_SESSION['success'], $_SESSION['error']);
                                     <i class="bi bi-save me-1"></i>Enregistrer
                                 </button>
                             </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Photos & Vidéos -->
+                <div class="section-card">
+                    <h5 class="fw-semibold mb-3"><i class="bi bi-images me-2 text-primary"></i>Photos et Vidéos</h5>
+
+                    <?php if (!empty($logementPhotos)): ?>
+                    <div class="photo-grid mb-3" id="photoGrid">
+                        <?php foreach ($logementPhotos as $photo): ?>
+                        <?php $isVid = strpos($photo['mime_type'], 'video/') === 0; ?>
+                        <div class="photo-thumb" data-photo-id="<?php echo $photo['id']; ?>">
+                            <?php if ($isVid): ?>
+                            <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                                   preload="none" muted></video>
+                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);color:#fff;pointer-events:none;">
+                                <i class="bi bi-play-circle-fill" style="font-size:1.5rem;"></i>
+                            </div>
+                            <?php else: ?>
+                            <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>" loading="lazy">
+                            <?php endif; ?>
+                            <div class="thumb-actions">
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette photo ?');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                                    <input type="hidden" name="action" value="delete_photo">
+                                    <input type="hidden" name="photo_id" value="<?php echo $photo['id']; ?>">
+                                    <button type="submit" class="thumb-del-btn" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <form method="POST" enctype="multipart/form-data" id="formPhotos">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="upload_photos">
+                        <div class="drop-zone" id="photoDropZone">
+                            <input type="file" id="photoFileInput" name="photos[]" multiple accept="image/*,video/mp4,video/quicktime">
+                            <i class="bi bi-cloud-upload fs-3 text-muted d-block mb-1"></i>
+                            <p class="mb-1 fw-semibold small">Glissez vos photos/vidéos ici</p>
+                            <p class="mb-2 text-muted" style="font-size:.75rem;">ou</p>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="photoBtnBrowse">
+                                <i class="bi bi-folder2-open me-1"></i>Parcourir
+                            </button>
+                            <p class="mt-2 mb-0 text-muted" style="font-size:.7rem;">JPEG, PNG, GIF, WEBP, MP4, MOV — Max 50 Mo</p>
+                        </div>
+                        <div id="photoListWrapper" class="mt-2" style="display:none;">
+                            <p class="small text-muted mb-1">Fichiers sélectionnés : <span id="photoFileCount">0</span></p>
+                        </div>
+                        <div class="mt-2">
+                            <button type="submit" class="btn btn-primary btn-sm" id="photoBtnUpload" disabled>
+                                <i class="bi bi-upload me-1"></i>Téléverser
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -501,6 +729,24 @@ unset($_SESSION['success'], $_SESSION['error']);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- TinyMCE Cloud - API key is public and domain-restricted -->
+<script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+tinymce.init({
+    selector: '.tinymce-editor',
+    language: 'fr_FR',
+    menubar: false,
+    plugins: 'lists link autolink',
+    toolbar: 'bold italic underline | bullist numlist | link | removeformat',
+    branding: false,
+    height: 200,
+    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
+    setup: function (editor) {
+        // Sync TinyMCE content back to textarea before form submit
+        editor.on('change', function () { editor.save(); });
+    }
+});
+</script>
 <script>
 function copyLink(inputId, btn) {
     var input = document.getElementById(inputId);
@@ -517,6 +763,39 @@ function copyLink(inputId, btn) {
         document.execCommand('copy');
     });
 }
+
+// Photo upload drop zone
+(function () {
+    var dropZone    = document.getElementById('photoDropZone');
+    var fileInput   = document.getElementById('photoFileInput');
+    var btnBrowse   = document.getElementById('photoBtnBrowse');
+    var btnUpload   = document.getElementById('photoBtnUpload');
+    var fileCount   = document.getElementById('photoFileCount');
+    var listWrapper = document.getElementById('photoListWrapper');
+    if (!dropZone) return;
+
+    btnBrowse.addEventListener('click', function () { fileInput.click(); });
+
+    dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('drag-over'); });
+    dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        fileInput.files = e.dataTransfer.files;
+        updateCount();
+    });
+    fileInput.addEventListener('change', updateCount);
+
+    function updateCount() {
+        var n = fileInput.files.length;
+        if (fileCount) fileCount.textContent = n;
+        if (listWrapper) listWrapper.style.display = n > 0 ? '' : 'none';
+        if (btnUpload) btnUpload.disabled = n === 0;
+    }
+}());
 </script>
 </body>
 </html>
