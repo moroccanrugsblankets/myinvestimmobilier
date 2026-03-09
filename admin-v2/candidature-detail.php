@@ -14,6 +14,34 @@ if (!$id || $id < 1) {
     exit;
 }
 
+// Handle POST: change logement
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_logement') {
+    $newLogementId = (int)($_POST['new_logement_id'] ?? 0);
+    if ($newLogementId > 0) {
+        try {
+            $pdo->prepare("UPDATE candidatures SET logement_id = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$newLogementId, $id]);
+            $_SESSION['success_cd'] = 'Logement demandé mis à jour.';
+        } catch (Exception $e) {
+            $_SESSION['error_cd'] = 'Erreur lors de la mise à jour du logement.';
+        }
+    }
+    header("Location: candidature-detail.php?id=$id");
+    exit;
+}
+
+$successMsg = $_SESSION['success_cd'] ?? null;
+$errorMsg   = $_SESSION['error_cd']   ?? null;
+unset($_SESSION['success_cd'], $_SESSION['error_cd']);
+
+// Load available logements for the change-logement modal
+try {
+    $stmtLog = $pdo->query("SELECT id, reference, adresse, type, loyer FROM logements WHERE deleted_at IS NULL ORDER BY reference ASC");
+    $allLogements = $stmtLog->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $allLogements = [];
+}
+
 // Fetch application details with logement information
 $stmt = $pdo->prepare("
     SELECT c.*, l.reference as logement_reference, l.adresse as logement_adresse, 
@@ -227,13 +255,31 @@ function getStatusBadge($status) {
             </div>
         </div>
 
+        <?php if ($successMsg): ?>
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($successMsg); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        <?php if ($errorMsg): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($errorMsg); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+
         <div class="row">
             <!-- Left Column -->
             <div class="col-lg-8">
                 <!-- Logement Information -->
-                <?php if ($candidature['logement_id']): ?>
                 <div class="info-card">
-                    <h5 class="mb-3"><i class="bi bi-building"></i> Logement Demandé</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0"><i class="bi bi-building"></i> Logement Demandé</h5>
+                        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#changeLogementModal">
+                            <i class="bi bi-pencil me-1"></i>Changer
+                        </button>
+                    </div>
+                    <?php if ($candidature['logement_id']): ?>
                     <div class="info-row">
                         <div class="info-label">Référence:</div>
                         <div class="info-value"><strong><?php echo htmlspecialchars($candidature['logement_reference'] ?? 'N/A'); ?></strong></div>
@@ -261,8 +307,10 @@ function getStatusBadge($status) {
                             ?>
                         </div>
                     </div>
+                    <?php else: ?>
+                    <p class="text-muted small mb-0">Aucun logement sélectionné.</p>
+                    <?php endif; ?>
                 </div>
-                <?php endif; ?>
 
                 <!-- Personal Information -->
                 <div class="info-card">
@@ -636,6 +684,44 @@ function getStatusBadge($status) {
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Logement Modal -->
+    <div class="modal fade" id="changeLogementModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-building me-2"></i>Changer le Logement Demandé</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="candidature-detail.php?id=<?php echo $id; ?>">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="change_logement">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Logement :</label>
+                            <select name="new_logement_id" class="form-select" required>
+                                <option value="">-- Sélectionnez un logement --</option>
+                                <?php foreach ($allLogements as $lg): ?>
+                                <option value="<?php echo (int)$lg['id']; ?>"
+                                    <?php echo ($candidature['logement_id'] == $lg['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($lg['reference']); ?>
+                                    — <?php echo htmlspecialchars($lg['adresse']); ?>
+                                    <?php if ($lg['type']): ?>(<?php echo htmlspecialchars($lg['type']); ?>)<?php endif; ?>
+                                    — <?php echo number_format((float)$lg['loyer'], 0, ',', ' '); ?> €/mois
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Enregistrer
                         </button>
                     </div>
                 </form>

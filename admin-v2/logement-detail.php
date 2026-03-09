@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'update_infos') {
+        $uploadErrors = [];
         try {
             $stmt = $pdo->prepare("
                 UPDATE logements SET
@@ -73,25 +74,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
                 $logement_id,
             ]);
-            $_SESSION['success'] = 'Informations du logement mises à jour.';
         } catch (PDOException $e) {
             if ($e->getCode() === '23000') {
                 $_SESSION['error'] = 'Cette référence est déjà utilisée par un autre logement.';
+                header("Location: logement-detail.php?id=$logement_id");
+                exit;
             } else {
                 $_SESSION['error'] = 'Erreur lors de la mise à jour.';
                 error_log('logement-detail update: ' . $e->getMessage());
+                header("Location: logement-detail.php?id=$logement_id");
+                exit;
             }
         }
-        header("Location: logement-detail.php?id=$logement_id");
-        exit;
-    }
 
-    if ($action === 'upload_photos') {
-        $uploadDir = __DIR__ . '/../uploads/logements/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        // Handle photo deletions submitted via hidden inputs
+        $deleteIds = $_POST['delete_photo_ids'] ?? [];
+        if (is_array($deleteIds)) {
+            foreach ($deleteIds as $pid) {
+                $pid = (int)$pid;
+                if ($pid <= 0) continue;
+                $row = $pdo->prepare("SELECT filename FROM logements_photos WHERE id = ? AND logement_id = ?");
+                $row->execute([$pid, $logement_id]);
+                $photo = $row->fetch(PDO::FETCH_ASSOC);
+                if ($photo) {
+                    $fp = __DIR__ . '/../uploads/logements/' . $photo['filename'];
+                    if (file_exists($fp)) { @unlink($fp); }
+                    $pdo->prepare("DELETE FROM logements_photos WHERE id = ? AND logement_id = ?")
+                        ->execute([$pid, $logement_id]);
+                }
+            }
         }
-        // Map MIME types to safe extensions to prevent extension spoofing
+
+        // Handle photo reordering
+        $photoOrder = json_decode($_POST['photo_order'] ?? '[]', true);
+        if (is_array($photoOrder)) {
+            foreach ($photoOrder as $pos => $pid) {
+                $pdo->prepare("UPDATE logements_photos SET ordre = ? WHERE id = ? AND logement_id = ?")
+                    ->execute([(int)$pos, (int)$pid, $logement_id]);
+            }
+        }
+
+        // Handle new photo uploads (integrated into main form)
+        $uploadDir = __DIR__ . '/../uploads/logements/';
+        if (!is_dir($uploadDir)) { mkdir($uploadDir, 0755, true); }
         $mimeToExt = [
             'image/jpeg'     => 'jpg',
             'image/png'      => 'png',
@@ -101,26 +126,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'video/quicktime'=> 'mov',
             'video/mpeg'     => 'mpg',
         ];
-        $errors = [];
         $uploaded = 0;
         if (!empty($_FILES['photos']['name'][0])) {
             $fileCount = count($_FILES['photos']['name']);
             for ($i = 0; $i < $fileCount; $i++) {
-                if (empty($_FILES['photos']['tmp_name'][$i]) || $_FILES['photos']['error'][$i] !== UPLOAD_ERR_OK) {
-                    continue;
-                }
+                if (empty($_FILES['photos']['tmp_name'][$i]) || $_FILES['photos']['error'][$i] !== UPLOAD_ERR_OK) continue;
                 $origName = basename($_FILES['photos']['name'][$i]);
                 $tmpName  = $_FILES['photos']['tmp_name'][$i];
                 $mimeType = mime_content_type($tmpName) ?: 'application/octet-stream';
                 if (!isset($mimeToExt[$mimeType])) {
-                    $errors[] = 'Type non autorisé : ' . htmlspecialchars($origName);
+                    $uploadErrors[] = 'Type non autorisé : ' . htmlspecialchars($origName);
                     continue;
                 }
                 if ($_FILES['photos']['size'][$i] > 50 * 1024 * 1024) {
-                    $errors[] = 'Fichier trop volumineux : ' . htmlspecialchars($origName);
+                    $uploadErrors[] = 'Fichier trop volumineux : ' . htmlspecialchars($origName);
                     continue;
                 }
-                // Use extension derived from actual MIME type, not user-supplied filename
                 $ext      = $mimeToExt[$mimeType];
                 $filename = 'log_' . $logement_id . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
                 if (move_uploaded_file($tmpName, $uploadDir . $filename)) {
@@ -130,11 +151,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        if ($uploaded > 0) {
-            $_SESSION['success'] = $uploaded . ' photo(s)/vidéo(s) ajoutée(s).';
-        }
-        if (!empty($errors)) {
-            $_SESSION['error'] = implode(' | ', $errors);
+
+        $msg = 'Logement enregistré avec succès.';
+        if ($uploaded > 0) $msg .= ' ' . $uploaded . ' photo(s)/vidéo(s) ajoutée(s).';
+        $_SESSION['success'] = $msg;
+        if (!empty($uploadErrors)) {
+            $_SESSION['error'] = implode(' | ', $uploadErrors);
         }
         header("Location: logement-detail.php?id=$logement_id");
         exit;
@@ -142,20 +164,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete_photo') {
         $photoId = (int)($_POST['photo_id'] ?? 0);
+        $isAjax  = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
         if ($photoId > 0) {
             $row = $pdo->prepare("SELECT filename FROM logements_photos WHERE id = ? AND logement_id = ?");
             $row->execute([$photoId, $logement_id]);
             $photo = $row->fetch(PDO::FETCH_ASSOC);
             if ($photo) {
                 $filePath = __DIR__ . '/../uploads/logements/' . $photo['filename'];
-                if (file_exists($filePath)) {
-                    unlink($filePath);
-                }
+                if (file_exists($filePath)) { @unlink($filePath); }
                 $pdo->prepare("DELETE FROM logements_photos WHERE id = ? AND logement_id = ?")
                     ->execute([$photoId, $logement_id]);
-                $_SESSION['success'] = 'Photo supprimée.';
             }
         }
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true]);
+            exit;
+        }
+        $_SESSION['success'] = 'Photo supprimée.';
         header("Location: logement-detail.php?id=$logement_id");
         exit;
     }
@@ -167,6 +193,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE logements_photos SET ordre = ? WHERE id = ? AND logement_id = ?")
                     ->execute([(int)$pos, (int)$pid, $logement_id]);
             }
+        }
+        $isAjax = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true]);
+            exit;
         }
         header("Location: logement-detail.php?id=$logement_id");
         exit;
@@ -332,6 +364,31 @@ unset($_SESSION['success'], $_SESSION['error']);
             cursor: pointer; font-size: .75rem;
         }
         .thumb-del-btn:hover { background: #dc3545; }
+        /* Drag-and-drop reorder */
+        .photo-thumb { cursor: grab; }
+        .photo-thumb.dragging { opacity: .45; cursor: grabbing; }
+        .photo-thumb.drag-over-target { box-shadow: 0 0 0 3px #0d6efd; }
+        /* New file preview list (before upload) */
+        .new-file-preview-list { list-style: none; padding: 0; margin: 0; }
+        .new-file-preview-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 10px; border: 1px solid #dee2e6;
+            border-radius: 6px; margin-bottom: 5px; background: #fff;
+        }
+        .new-file-thumb {
+            width: 52px; height: 42px; object-fit: cover;
+            border-radius: 4px; border: 1px solid #dee2e6; flex-shrink: 0;
+        }
+        .new-file-video-icon {
+            width: 52px; height: 42px; display: flex;
+            align-items: center; justify-content: center;
+            background: #212529; border-radius: 4px; flex-shrink: 0;
+        }
+        .new-file-info { flex: 1; min-width: 0; }
+        .new-file-name { font-size:.875rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .new-file-size { font-size:.75rem; color:#6c757d; }
+        .btn-remove-new-photo { flex-shrink:0; background:none; border:none; color:#dc3545; padding:4px 8px; cursor:pointer; border-radius:4px; }
+        .btn-remove-new-photo:hover { background:#f8d7da; }
     </style>
 </head>
 <body>
@@ -375,9 +432,11 @@ unset($_SESSION['success'], $_SESSION['error']);
                 <!-- Informations principales -->
                 <div class="section-card">
                     <h5 class="fw-semibold mb-4"><i class="bi bi-pencil-square me-2 text-primary"></i>Informations du logement</h5>
-                    <form method="POST" id="formInfos">
+                    <form method="POST" id="formInfos" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         <input type="hidden" name="action" value="update_infos">
+                        <input type="hidden" name="photo_order" id="photoOrderInput" value="[]">
+                        <div id="deletePhotoInputs"></div>
 
                         <div class="row g-3">
                             <div class="col-md-4">
@@ -504,70 +563,75 @@ unset($_SESSION['success'], $_SESSION['error']);
                                 <div class="form-text">URL de la vidéo YouTube à afficher sur la page publique (facultatif).</div>
                             </div>
 
+                            <!-- ── Photos & Vidéos (intégrées au formulaire principal) ── -->
+                            <div class="col-12">
+                                <hr class="my-1">
+                                <h6 class="text-muted small text-uppercase mb-3"><i class="bi bi-images me-1"></i>Photos et Vidéos</h6>
+                            </div>
+
+                            <?php if (!empty($logementPhotos)): ?>
+                            <div class="col-12">
+                                <p class="small text-muted mb-2">
+                                    <i class="bi bi-arrows-move me-1"></i>Glissez les miniatures pour réorganiser l'ordre. Cliquez <i class="bi bi-trash"></i> pour supprimer.
+                                </p>
+                                <div class="photo-grid mb-3" id="photoGrid">
+                                    <?php foreach ($logementPhotos as $photo): ?>
+                                    <?php $isVid = strpos($photo['mime_type'], 'video/') === 0; ?>
+                                    <div class="photo-thumb" data-photo-id="<?php echo $photo['id']; ?>" draggable="true">
+                                        <?php if ($isVid): ?>
+                                        <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                                               preload="metadata" muted></video>
+                                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);color:#fff;pointer-events:none;">
+                                            <i class="bi bi-play-circle-fill" style="font-size:1.5rem;"></i>
+                                        </div>
+                                        <?php else: ?>
+                                        <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                                             alt="<?php echo htmlspecialchars($photo['original_name']); ?>" loading="lazy">
+                                        <?php endif; ?>
+                                        <div class="thumb-actions">
+                                            <button type="button" class="thumb-del-btn btn-del-existing-photo"
+                                                    data-photo-id="<?php echo $photo['id']; ?>"
+                                                    data-csrf="<?php echo htmlspecialchars($csrfToken); ?>"
+                                                    title="Supprimer">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+
+                            <div class="col-12">
+                                <!-- Drop zone for new photos -->
+                                <div class="drop-zone" id="photoDropZone">
+                                    <input type="file" id="photoFileInput" name="photos[]" multiple accept="image/*,video/mp4,video/quicktime">
+                                    <i class="bi bi-cloud-upload fs-3 text-muted d-block mb-1"></i>
+                                    <p class="mb-1 fw-semibold small">Glissez vos photos/vidéos ici</p>
+                                    <p class="mb-2 text-muted" style="font-size:.75rem;">ou</p>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="photoBtnBrowse">
+                                        <i class="bi bi-folder2-open me-1"></i>Parcourir
+                                    </button>
+                                    <p class="mt-2 mb-0 text-muted" style="font-size:.7rem;">JPEG, PNG, GIF, WEBP, MP4, MOV — Max 50 Mo</p>
+                                </div>
+                                <!-- Preview of newly selected files -->
+                                <div id="newPhotosWrapper" class="mt-3" style="display:none;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="small fw-semibold">Nouveaux fichiers à ajouter (<span id="newPhotosCount">0</span>)</span>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" id="photoBtnClearAll">
+                                            <i class="bi bi-trash me-1"></i>Tout effacer
+                                        </button>
+                                    </div>
+                                    <ul class="new-file-preview-list" id="newPhotoPreviewList"></ul>
+                                </div>
+                            </div>
+
                             <div class="col-12 d-flex justify-content-end gap-2">
                                 <a href="logements.php" class="btn btn-outline-secondary">Annuler</a>
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-primary" id="btnSaveLogement">
                                     <i class="bi bi-save me-1"></i>Enregistrer
                                 </button>
                             </div>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Photos & Vidéos -->
-                <div class="section-card">
-                    <h5 class="fw-semibold mb-3"><i class="bi bi-images me-2 text-primary"></i>Photos et Vidéos</h5>
-
-                    <?php if (!empty($logementPhotos)): ?>
-                    <div class="photo-grid mb-3" id="photoGrid">
-                        <?php foreach ($logementPhotos as $photo): ?>
-                        <?php $isVid = strpos($photo['mime_type'], 'video/') === 0; ?>
-                        <div class="photo-thumb" data-photo-id="<?php echo $photo['id']; ?>">
-                            <?php if ($isVid): ?>
-                            <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
-                                   preload="none" muted></video>
-                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);color:#fff;pointer-events:none;">
-                                <i class="bi bi-play-circle-fill" style="font-size:1.5rem;"></i>
-                            </div>
-                            <?php else: ?>
-                            <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
-                                 alt="<?php echo htmlspecialchars($photo['original_name']); ?>" loading="lazy">
-                            <?php endif; ?>
-                            <div class="thumb-actions">
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette photo ?');">
-                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                                    <input type="hidden" name="action" value="delete_photo">
-                                    <input type="hidden" name="photo_id" value="<?php echo $photo['id']; ?>">
-                                    <button type="submit" class="thumb-del-btn" title="Supprimer">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-
-                    <form method="POST" enctype="multipart/form-data" id="formPhotos">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="upload_photos">
-                        <div class="drop-zone" id="photoDropZone">
-                            <input type="file" id="photoFileInput" name="photos[]" multiple accept="image/*,video/mp4,video/quicktime">
-                            <i class="bi bi-cloud-upload fs-3 text-muted d-block mb-1"></i>
-                            <p class="mb-1 fw-semibold small">Glissez vos photos/vidéos ici</p>
-                            <p class="mb-2 text-muted" style="font-size:.75rem;">ou</p>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="photoBtnBrowse">
-                                <i class="bi bi-folder2-open me-1"></i>Parcourir
-                            </button>
-                            <p class="mt-2 mb-0 text-muted" style="font-size:.7rem;">JPEG, PNG, GIF, WEBP, MP4, MOV — Max 50 Mo</p>
-                        </div>
-                        <div id="photoListWrapper" class="mt-2" style="display:none;">
-                            <p class="small text-muted mb-1">Fichiers sélectionnés : <span id="photoFileCount">0</span></p>
-                        </div>
-                        <div class="mt-2">
-                            <button type="submit" class="btn btn-primary btn-sm" id="photoBtnUpload" disabled>
-                                <i class="bi bi-upload me-1"></i>Téléverser
-                            </button>
                         </div>
                     </form>
                 </div>
@@ -764,37 +828,225 @@ function copyLink(inputId, btn) {
     });
 }
 
-// Photo upload drop zone
+// ── Photo management (new file preview + existing drag-reorder + AJAX delete) ──
 (function () {
-    var dropZone    = document.getElementById('photoDropZone');
-    var fileInput   = document.getElementById('photoFileInput');
-    var btnBrowse   = document.getElementById('photoBtnBrowse');
-    var btnUpload   = document.getElementById('photoBtnUpload');
-    var fileCount   = document.getElementById('photoFileCount');
-    var listWrapper = document.getElementById('photoListWrapper');
-    if (!dropZone) return;
+    'use strict';
 
-    btnBrowse.addEventListener('click', function () { fileInput.click(); });
+    var dropZone     = document.getElementById('photoDropZone');
+    var fileInput    = document.getElementById('photoFileInput');
+    var btnBrowse    = document.getElementById('photoBtnBrowse');
+    var btnClearAll  = document.getElementById('photoBtnClearAll');
+    var previewList  = document.getElementById('newPhotoPreviewList');
+    var wrapper      = document.getElementById('newPhotosWrapper');
+    var countEl      = document.getElementById('newPhotosCount');
+    var photoOrderEl = document.getElementById('photoOrderInput');
+    var photoGrid    = document.getElementById('photoGrid');
+    var form         = document.getElementById('formInfos');
+    var saveBtn      = document.getElementById('btnSaveLogement');
 
-    dropZone.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-    dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('drag-over'); });
-    dropZone.addEventListener('drop', function (e) {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        fileInput.files = e.dataTransfer.files;
-        updateCount();
-    });
-    fileInput.addEventListener('change', updateCount);
+    var fileDt      = new DataTransfer();
+    var ignoreChg   = false;
+    var MAX_SIZE    = 50 * 1024 * 1024;
 
-    function updateCount() {
-        var n = fileInput.files.length;
-        if (fileCount) fileCount.textContent = n;
-        if (listWrapper) listWrapper.style.display = n > 0 ? '' : 'none';
-        if (btnUpload) btnUpload.disabled = n === 0;
+    var logementId  = <?php echo (int)$logement_id; ?>;
+    var csrfToken   = <?php echo json_encode($csrfToken); ?>;
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function formatBytes(b) {
+        if (b < 1024) return b + ' o';
+        if (b < 1048576) return (b/1024).toFixed(1) + ' Ko';
+        return (b/1048576).toFixed(1) + ' Mo';
     }
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── New file preview ──────────────────────────────────────────────────────
+    function refreshPreview() {
+        var n = fileDt.files.length;
+        if (countEl) countEl.textContent = n;
+        if (wrapper) wrapper.style.display = n > 0 ? '' : 'none';
+    }
+
+    function addFilesToPreview(files) {
+        var existing = new Set();
+        for (var j = 0; j < fileDt.files.length; j++) {
+            existing.add(fileDt.files[j].name + '|' + fileDt.files[j].size);
+        }
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            if (f.size > MAX_SIZE) { alert('Fichier trop volumineux (max 50 Mo) : ' + f.name); continue; }
+            var key = f.name + '|' + f.size;
+            if (existing.has(key)) continue;
+            fileDt.items.add(f);
+            existing.add(key);
+
+            var li = document.createElement('li');
+            li.className = 'new-file-preview-item';
+            li.dataset.index = fileDt.files.length - 1;
+            var isVideo = f.type.startsWith('video/');
+            var thumbHtml = isVideo
+                ? '<div class="new-file-video-icon"><i class="bi bi-play-circle-fill text-white fs-5"></i></div>'
+                : '<img class="new-file-thumb" src="" alt="">';
+            li.innerHTML = thumbHtml
+                + '<div class="new-file-info">'
+                +   '<div class="new-file-name">' + escHtml(f.name) + '</div>'
+                +   '<div class="new-file-size">' + formatBytes(f.size) + '</div>'
+                + '</div>'
+                + '<button type="button" class="btn-remove-new-photo" data-li-idx="' + (fileDt.files.length - 1) + '" title="Retirer">'
+                +   '<i class="bi bi-x-lg"></i>'
+                + '</button>';
+            previewList.appendChild(li);
+
+            if (!isVideo) {
+                (function(img, file) {
+                    var r = new FileReader();
+                    r.onload = function(e) { img.src = e.target.result; };
+                    r.readAsDataURL(file);
+                })(li.querySelector('img'), f);
+            }
+        }
+        refreshPreview();
+    }
+
+    function rebuildIndices() {
+        previewList.querySelectorAll('.new-file-preview-item').forEach(function(li, i) {
+            li.dataset.index = i;
+            var btn = li.querySelector('.btn-remove-new-photo');
+            if (btn) btn.dataset.liIdx = i;
+        });
+    }
+
+    if (dropZone) {
+        btnBrowse && btnBrowse.addEventListener('click', function() { fileInput.click(); });
+        dropZone.addEventListener('click', function(e) { if (e.target === dropZone) fileInput.click(); });
+        dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('drag-over'); });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault(); dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) addFilesToPreview(e.dataTransfer.files);
+        });
+        fileInput && fileInput.addEventListener('change', function() {
+            if (ignoreChg) return;
+            if (fileInput.files.length > 0) {
+                addFilesToPreview(fileInput.files);
+                ignoreChg = true; fileInput.value = ''; ignoreChg = false;
+            }
+        });
+    }
+
+    previewList && previewList.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-remove-new-photo');
+        if (!btn) return;
+        var idx = parseInt(btn.dataset.liIdx, 10);
+        var newDt = new DataTransfer();
+        for (var i = 0; i < fileDt.files.length; i++) {
+            if (i !== idx) newDt.items.add(fileDt.files[i]);
+        }
+        fileDt = newDt;
+        var li = btn.closest('.new-file-preview-item');
+        if (li) li.remove();
+        rebuildIndices(); refreshPreview();
+    });
+
+    btnClearAll && btnClearAll.addEventListener('click', function() {
+        fileDt = new DataTransfer();
+        previewList.innerHTML = '';
+        refreshPreview();
+    });
+
+    // ── Existing photos: drag-to-reorder ─────────────────────────────────────
+    var dragSrc = null;
+
+    function updateOrderInput() {
+        if (!photoGrid || !photoOrderEl) return;
+        var ids = [];
+        photoGrid.querySelectorAll('.photo-thumb[data-photo-id]').forEach(function(el) {
+            ids.push(parseInt(el.dataset.photoId, 10));
+        });
+        photoOrderEl.value = JSON.stringify(ids);
+    }
+
+    if (photoGrid) {
+        photoGrid.addEventListener('dragstart', function(e) {
+            var thumb = e.target.closest('.photo-thumb');
+            if (!thumb) return;
+            dragSrc = thumb;
+            thumb.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        photoGrid.addEventListener('dragend', function(e) {
+            var thumb = e.target.closest('.photo-thumb');
+            if (thumb) thumb.classList.remove('dragging');
+            photoGrid.querySelectorAll('.photo-thumb').forEach(function(t) { t.classList.remove('drag-over-target'); });
+            dragSrc = null;
+        });
+        photoGrid.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var thumb = e.target.closest('.photo-thumb');
+            if (!thumb || thumb === dragSrc) return;
+            photoGrid.querySelectorAll('.photo-thumb').forEach(function(t) { t.classList.remove('drag-over-target'); });
+            thumb.classList.add('drag-over-target');
+        });
+        photoGrid.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var target = e.target.closest('.photo-thumb');
+            if (!target || target === dragSrc || !dragSrc) return;
+            target.classList.remove('drag-over-target');
+            // Insert dragSrc before or after target based on position
+            var rect = target.getBoundingClientRect();
+            var midX = rect.left + rect.width / 2;
+            if (e.clientX < midX) {
+                photoGrid.insertBefore(dragSrc, target);
+            } else {
+                photoGrid.insertBefore(dragSrc, target.nextSibling);
+            }
+            updateOrderInput();
+        });
+        updateOrderInput(); // initialize on page load
+    }
+
+    // ── Existing photos: AJAX delete ─────────────────────────────────────────
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-del-existing-photo');
+        if (!btn) return;
+        if (!confirm('Supprimer cette photo ?')) return;
+        var pid    = btn.dataset.photoId;
+        var thumb  = btn.closest('.photo-thumb');
+        var fd     = new FormData();
+        fd.append('csrf_token', btn.dataset.csrf || csrfToken);
+        fd.append('action', 'delete_photo');
+        fd.append('photo_id', pid);
+        fetch('logement-detail.php?id=' + logementId, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        }).then(function(r) { return r.json(); })
+          .then(function(data) {
+              if (data.success) {
+                  if (thumb) thumb.remove();
+                  updateOrderInput();
+              } else {
+                  alert('Erreur lors de la suppression.');
+              }
+          })
+          .catch(function() { alert('Erreur réseau.'); });
+    });
+
+    // ── Form submit: sync file DataTransfer to file input ────────────────────
+    form && form.addEventListener('submit', function() {
+        updateOrderInput();
+        try {
+            ignoreChg = true;
+            fileInput.files = fileDt.files;
+            ignoreChg = false;
+        } catch(ex) { ignoreChg = false; }
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enregistrement…';
+        }
+    });
+
 }());
 </script>
 </body>

@@ -450,6 +450,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
         }
 
+        // ── Envoyer le lien de paiement Stripe par email ──────────────────────
+        if ($postAction === 'envoyer_lien_paiement_email' && $decompte && $decompte['statut'] === 'facture_envoyee') {
+            $locataireEmail = $decompte['locataire_email'] ?? '';
+            if (empty($locataireEmail)) {
+                $errors[] = 'Adresse email du locataire introuvable.';
+            } elseif (empty($decompte['token_paiement'])) {
+                $errors[] = 'Aucun lien de paiement généré. Veuillez d\'abord générer le lien Stripe.';
+            } else {
+                $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+                $lienPaiementUrl = rtrim($config['SITE_URL'] ?? '', '/') . '/payment/pay-decompte.php?token=' . urlencode($decompte['token_paiement']);
+                $boutonsHtml = '<div style="text-align:center;margin:24px 0;">'
+                    . '<a href="' . htmlspecialchars($lienPaiementUrl) . '" style="display:inline-block;background:#635bff;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:1rem;">'
+                    . '💳 Payer en ligne</a></div>';
+                $expDate = !empty($decompte['token_paiement_expiration'])
+                    ? date('d/m/Y', strtotime($decompte['token_paiement_expiration'])) : '';
+
+                $emailVarsPay = [
+                    'prenom'             => $decompte['locataire_prenom'] ?? '',
+                    'nom'                => $decompte['locataire_nom'] ?? '',
+                    'reference'          => $decompte['reference'],
+                    'reference_sig'      => $decompte['sig_reference'],
+                    'titre'              => $decompte['sig_titre'],
+                    'adresse'            => $decompte['adresse'],
+                    'logement_reference' => $decompte['logement_reference'] ?? '',
+                    'montant_total'      => number_format((float)$decompte['montant_total'], 2, ',', ' '),
+                    'lien_paiement'      => $lienPaiementUrl,
+                    'bouton_paiement'    => $boutonsHtml,
+                    'date_expiration'    => $expDate,
+                    'company'            => $companyName,
+                ];
+
+                // Use template if exists, otherwise fallback
+                $sent = false;
+                if (getEmailTemplate('decompte_lien_paiement_stripe')) {
+                    $sent = (bool)sendTemplatedEmail(
+                        'decompte_lien_paiement_stripe',
+                        $locataireEmail,
+                        $emailVarsPay,
+                        null, false, true,
+                        ['contexte' => 'lien_paiement_stripe;dec_id=' . $decompteId]
+                    );
+                } else {
+                    // Fallback inline HTML
+                    $subject  = 'Règlement de la facture ' . $decompte['reference'] . ' — ' . $companyName;
+                    $htmlBody = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">'
+                        . '<h2 style="color:#635bff;">💳 Lien de paiement Stripe</h2>'
+                        . '<p>Bonjour ' . htmlspecialchars($emailVarsPay['prenom']) . ' ' . htmlspecialchars($emailVarsPay['nom']) . ',</p>'
+                        . '<p>Veuillez régler la facture <strong>' . htmlspecialchars($decompte['reference']) . '</strong> d\'un montant de <strong>' . htmlspecialchars($emailVarsPay['montant_total']) . ' €</strong>.</p>'
+                        . $boutonsHtml
+                        . '<p><small>Lien : <a href="' . htmlspecialchars($lienPaiementUrl) . '">' . htmlspecialchars($lienPaiementUrl) . '</a></small></p>'
+                        . ($expDate ? '<p><small>Ce lien expire le ' . htmlspecialchars($expDate) . '.</small></p>' : '')
+                        . '<p>Cordialement,<br>' . htmlspecialchars($companyName) . '</p>'
+                        . '</body></html>';
+                    $sent = sendEmail($locataireEmail, $subject, $htmlBody, null, true, false, null, null, true,
+                        ['contexte' => 'lien_paiement_stripe_fallback;dec_id=' . $decompteId]);
+                }
+
+                if ($sent) {
+                    header("Location: decompte-detail.php?id=$decompteId&success=lien_paiement_email");
+                    exit;
+                } else {
+                    $errors[] = 'L\'envoi de l\'email a échoué. Vérifiez la configuration email.';
+                }
+            }
+        }
+
         // ── Envoyer la facture au locataire ────────────────────────────────────
         if ($postAction === 'envoyer_facture' && $decompte && $decompte['statut'] === 'valide') {
             $locataireEmail = $decompte['locataire_email'] ?? '';
@@ -558,13 +624,14 @@ if ($decompteId > 0) {
 
 $successParam = $_GET['success'] ?? '';
 $successMessages = [
-    'created'       => 'Décompte créé avec succès. Les lignes standards ont été pré-remplies.',
-    'saved'         => 'Lignes sauvegardées avec succès.',
-    'upload'        => 'Pièce jointe ajoutée.',
-    'deleted'       => 'Pièce jointe supprimée.',
-    'valide'        => 'Décompte validé. Les collaborateurs ont été notifiés.',
-    'facture'       => 'Facture envoyée au locataire.',
-    'lien_paiement' => 'Lien de paiement Stripe généré avec succès.',
+    'created'              => 'Décompte créé avec succès. Les lignes standards ont été pré-remplies.',
+    'saved'                => 'Lignes sauvegardées avec succès.',
+    'upload'               => 'Pièce jointe ajoutée.',
+    'deleted'              => 'Pièce jointe supprimée.',
+    'valide'               => 'Décompte validé. Les collaborateurs ont été notifiés.',
+    'facture'              => 'Facture envoyée au locataire.',
+    'lien_paiement'        => 'Lien de paiement Stripe généré avec succès.',
+    'lien_paiement_email'  => 'Lien de paiement Stripe envoyé par email au locataire.',
 ];
 if ($successParam && isset($successMessages[$successParam])) {
     $successMsg = $successMessages[$successParam];
@@ -1128,6 +1195,17 @@ function sendFactureEmail(string $to, array $vars, array $fichiers, int $decompt
                         <i class="bi bi-clock me-1"></i>
                         Expire le <?php echo date('d/m/Y', strtotime($decompte['token_paiement_expiration'])); ?>
                     </p>
+                    <?php endif; ?>
+                    <!-- Send link by email -->
+                    <?php if (!empty($decompte['locataire_email'])): ?>
+                    <form method="POST" class="mb-1" onsubmit="return confirm('Envoyer le lien de paiement Stripe par email à ' + <?php echo json_encode(htmlspecialchars($decompte['locataire_email'])); ?> + ' ?');">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="envoyer_lien_paiement_email">
+                        <button type="submit" class="btn btn-primary btn-sm w-100 mb-1">
+                            <i class="bi bi-envelope me-1"></i>Envoyer le lien par email
+                        </button>
+                    </form>
+                    <p class="text-muted" style="font-size:.7rem;"><i class="bi bi-info-circle me-1"></i>Un email avec le lien sera envoyé à <strong><?php echo htmlspecialchars($decompte['locataire_email']); ?></strong> (copie aux admins en BCC).</p>
                     <?php endif; ?>
                     <form method="POST" class="mb-1" onsubmit="return confirm('Régénérer un nouveau lien de paiement ?');">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
