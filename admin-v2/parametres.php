@@ -224,7 +224,34 @@ foreach ($allParams as $param) {
                                 <?php echo htmlspecialchars($param['description']); ?>
                             </div>
                             
-                            <?php if ($param['type'] === 'boolean'): ?>
+                            <?php if ($param['type'] === 'boolean' && $param['cle'] === 'garantie_visale_requise'): ?>
+                                <!-- Special UI for garantie_visale_requise: Oui / Je ne sais pas -->
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <?php
+                                    $gvVal = $param['valeur'];
+                                    // Treat legacy 'true' as 'oui', anything else as 'je_ne_sais_pas'
+                                    $gvIsOui = ($gvVal === 'true' || $gvVal === 'oui');
+                                    ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="parametres[<?php echo $param['cle']; ?>]"
+                                               id="gv_oui" value="true" <?php echo $gvIsOui ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="gv_oui">
+                                            <span class="badge bg-success me-1">Oui</span>
+                                            Garantie Visale requise
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="parametres[<?php echo $param['cle']; ?>]"
+                                               id="gv_nsp" value="false" <?php echo !$gvIsOui ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="gv_nsp">
+                                            <span class="badge bg-warning text-dark me-1">Je ne sais pas</span>
+                                            Pas de prérequis strict
+                                        </label>
+                                    </div>
+                                </div>
+                            <?php elseif ($param['type'] === 'boolean'): ?>
                                 <select name="parametres[<?php echo $param['cle']; ?>]" class="form-select">
                                     <option value="true" <?php echo $param['valeur'] === 'true' ? 'selected' : ''; ?>>Oui</option>
                                     <option value="false" <?php echo $param['valeur'] === 'false' ? 'selected' : ''; ?>>Non</option>

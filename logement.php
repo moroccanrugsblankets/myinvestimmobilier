@@ -386,6 +386,11 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                     <div>
                         <span class="badge bg-<?php echo $statutLabel[1]; ?> mb-2"><?php echo $statutLabel[0]; ?></span>
+                        <div class="mb-1">
+                            <span style="display:inline-block;background:rgba(255,255,255,.18);color:#fff;font-family:monospace;font-size:.9rem;font-weight:700;letter-spacing:.05em;padding:.2em .6em;border-radius:6px;border:1px solid rgba(255,255,255,.3);">
+                                <i class="bi bi-hash me-1"></i><?php echo htmlspecialchars($logement['reference']); ?>
+                            </span>
+                        </div>
                         <h1 class="h3 fw-bold mb-1"><?php echo htmlspecialchars($logement['adresse']); ?></h1>
                         <p class="mb-0 opacity-75">
                             <?php if ($logement['type']): ?>
@@ -417,7 +422,7 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
                     <div class="slide-item <?php echo $idx === 0 ? 'active' : ''; ?>" data-index="<?php echo $idx; ?>">
                         <?php if ($isVideo): ?>
                         <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
-                               controls preload="none" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;"></video>
+                               controls preload="metadata" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;"></video>
                         <?php else: ?>
                         <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
                              alt="<?php echo htmlspecialchars($photo['original_name']); ?>"
@@ -443,8 +448,11 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
                     <?php $isVideo = strpos($photo['mime_type'], 'video/') === 0; ?>
                     <div class="thumb-item <?php echo $idx === 0 ? 'active' : ''; ?>" data-index="<?php echo $idx; ?>" role="button" aria-label="Miniature <?php echo $idx + 1; ?>">
                         <?php if ($isVideo): ?>
-                        <div style="width:100%;height:100%;background:#222;display:flex;align-items:center;justify-content:center;">
-                            <i class="bi bi-play-circle text-white"></i>
+                        <div style="width:100%;height:100%;background:#222;display:flex;align-items:center;justify-content:center;position:relative;">
+                            <video src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
+                                   preload="metadata" muted
+                                   style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;"></video>
+                            <div class="thumb-video-icon" style="z-index:1;"><i class="bi bi-play-circle text-white"></i></div>
                         </div>
                         <?php else: ?>
                         <img src="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/uploads/logements/' . $photo['filename']); ?>"
@@ -524,29 +532,8 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             </div>
             <?php endif; ?>
 
-            <!-- Équipements inventoriés -->
-            <?php if (!empty($equipByCategory)): ?>
-            <div class="section-card">
-                <div class="section-title">Équipements</div>
-                <?php foreach ($equipByCategory as $catNom => $items): ?>
-                <div class="mb-3">
-                    <h6 class="fw-semibold mb-2"><?php echo htmlspecialchars($catNom); ?></h6>
-                    <div>
-                        <?php foreach ($items as $item): ?>
-                        <span class="equip-badge">
-                            <i class="bi bi-check2"></i>
-                            <?php echo htmlspecialchars($item['nom']); ?>
-                            <?php if ((int)$item['quantite'] > 1): ?>
-                            <small class="opacity-75">×<?php echo (int)$item['quantite']; ?></small>
-                            <?php endif; ?>
-                        </span>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php elseif (!empty($logement['equipements'])): ?>
-            <!-- Equipements résumé libre -->
+            <!-- Équipements inclus (texte libre) -->
+            <?php if (!empty($logement['equipements'])): ?>
             <div class="section-card">
                 <div class="section-title">Équipements inclus</div>
                 <div class="logement-html-content"><?php echo $logement['equipements']; ?></div>

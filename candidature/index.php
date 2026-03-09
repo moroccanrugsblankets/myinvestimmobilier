@@ -33,7 +33,18 @@ try {
         foreach ($logements as $logement) {
             if (md5($logement['reference']) === $ref_param) {
                 $selected_logement_id = $logement['id'];
+                $selected_logement    = $logement;
                 break;
+            }
+        }
+        // Also search logements not in "disponible" status (in case ref points to non-available)
+        if (!$selected_logement_id) {
+            $stmtAll = $pdo->prepare("SELECT id, reference, adresse, type, loyer FROM logements WHERE MD5(reference) = ? AND deleted_at IS NULL LIMIT 1");
+            $stmtAll->execute([$ref_param]);
+            $row = $stmtAll->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $selected_logement_id = $row['id'];
+                $selected_logement    = $row;
             }
         }
     }
@@ -41,6 +52,9 @@ try {
     error_log("Erreur récupération logements: " . $e->getMessage());
     $logements = [];
 }
+// Pre-selected logement info (when ref is in URL)
+$selected_logement = $selected_logement ?? null;
+$ref_locks_logement = ($ref_param && $selected_logement_id);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -293,6 +307,22 @@ try {
                                 </div>
 
                                 <div class="mb-3">
+                                    <?php if ($ref_locks_logement && $selected_logement): ?>
+                                    <!-- When ref is in URL: show the pre-selected logement as read-only info -->
+                                    <input type="hidden" name="logement_id" value="<?php echo (int)$selected_logement_id; ?>">
+                                    <label class="form-label required-field">Logement</label>
+                                    <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-2">
+                                        <i class="bi bi-building fs-5"></i>
+                                        <div>
+                                            <strong><?php echo htmlspecialchars($selected_logement['reference']); ?></strong>
+                                            — <?php echo htmlspecialchars($selected_logement['adresse']); ?>
+                                            <?php if ($selected_logement['type']): ?>
+                                            <span class="text-muted">(<?php echo htmlspecialchars($selected_logement['type']); ?>)</span>
+                                            <?php endif; ?>
+                                            — <strong><?php echo number_format($selected_logement['loyer'], 0, ',', ' '); ?> €/mois</strong>
+                                        </div>
+                                    </div>
+                                    <?php else: ?>
                                     <label for="logement_id" class="form-label required-field">Logement souhaité</label>
                                     <select class="form-select" id="logement_id" name="logement_id" required>
                                         <option value="">-- Sélectionnez un logement --</option>
@@ -305,6 +335,7 @@ try {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
