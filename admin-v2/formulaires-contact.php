@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'save_field') {
         $formId     = isset($_POST['form_id'])   ? (int)$_POST['form_id']  : 0;
         $fieldId    = isset($_POST['field_id'])  ? (int)$_POST['field_id'] : 0;
-        $nomChamp   = trim(strtolower(preg_replace('/[^a-z0-9_]/', '_', $_POST['nom_champ'] ?? '')));
+        $nomChamp   = trim(strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $_POST['nom_champ'] ?? '')));
         $label      = trim($_POST['label']       ?? '');
         $typeChamp  = $_POST['type_champ']       ?? 'text';
         $placeholder= trim($_POST['placeholder'] ?? '');

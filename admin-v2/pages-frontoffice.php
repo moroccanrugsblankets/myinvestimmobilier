@@ -108,9 +108,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /**
  * Helper: check if a column exists in a table.
+ * Only allows whitelisted table names to prevent SQL injection.
  */
 function columnExists(PDO $pdo, string $table, string $column): bool
 {
+    $allowedTables = ['frontend_pages', 'frontend_menu_items', 'contact_forms', 'contact_form_fields'];
+    if (!in_array($table, $allowedTables, true)) {
+        return false;
+    }
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM `{$table}` LIKE ?");
         $stmt->execute([$column]);

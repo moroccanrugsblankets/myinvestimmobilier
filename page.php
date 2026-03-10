@@ -140,11 +140,21 @@ function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
  */
 function renderContactFormHtml(array $form, array $fields, string $siteUrl): string
 {
+    // Generate a CSRF token for this form and store it in session
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $csrfKey = 'csrf_contact_form_' . (int)$form['id'];
+    if (empty($_SESSION[$csrfKey])) {
+        $_SESSION[$csrfKey] = bin2hex(random_bytes(16));
+    }
+    $csrfToken = $_SESSION[$csrfKey];
+
     $formId = (int)$form['id'];
     $html  = '<form method="POST" action="' . htmlspecialchars($siteUrl . '/contact-form-submit.php') . '" ';
     $html .= 'class="contact-form-shortcode" data-form-id="' . $formId . '">';
     $html .= '<input type="hidden" name="form_id" value="' . $formId . '">';
-    $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(session_id()) . '">';
+    $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
     foreach ($fields as $field) {
         $name  = htmlspecialchars($field['nom_champ']);
         $label = htmlspecialchars($field['label']);
