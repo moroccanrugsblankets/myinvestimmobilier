@@ -5,5 +5,5 @@
 --   confirmation de paiement d'un décompte au locataire.
 
 ALTER TABLE signalements_decomptes
-    ADD COLUMN IF NOT EXISTS confirmation_email_envoye TINYINT(1) NOT NULL DEFAULT 0
+    ADD COLUMN confirmation_email_envoye TINYINT(1) NOT NULL DEFAULT 0
         COMMENT '1 = email de confirmation de paiement déjà envoyé au locataire';
