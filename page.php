@@ -99,13 +99,20 @@ try {
     // menu table might not exist yet
 }
 
+// Support both legacy (/page.php?slug=X) and SEO-friendly (/X/) URL formats for active detection
 $currentUrl = '/page.php?slug=' . urlencode($slug);
+$currentUrlSeo = '/' . $slug . '/';
+$currentUrlSeoNoSlash = '/' . $slug;
 
 $navHtml = '';
 if ($menuItems) {
     $navHtml = '<nav class="nav-frontoffice">';
     foreach ($menuItems as $item) {
-        $isActive = ($item['url'] === $currentUrl) ? ' active' : '';
+        $isActive = (
+            $item['url'] === $currentUrl ||
+            $item['url'] === $currentUrlSeo ||
+            $item['url'] === $currentUrlSeoNoSlash
+        ) ? ' active' : '';
         $targetAttr = ($item['target'] === '_blank') ? ' target="_blank" rel="noopener"' : '';
         $iconHtml = !empty($item['icone']) ? '<i class="bi ' . htmlspecialchars($item['icone']) . ' me-1"></i>' : '';
         $navHtml .= '<a class="nav-link' . $isActive . '" href="' . htmlspecialchars($item['url']) . '"' . $targetAttr . '>'

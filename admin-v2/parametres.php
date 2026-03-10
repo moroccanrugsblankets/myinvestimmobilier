@@ -64,10 +64,33 @@ $groupesExclus = [
     'bilan_logement', // → bilan-logement-configuration.php
     'decomptes',      // → decompte-configuration.php
     'quittances',     // → quittance-configuration.php
+    'workflow',       // → candidatures-configuration.php
+    'inventaires',    // → inventaire-configuration.php
+    'rappel_loyers',  // → configuration-rappels-loyers.php
 ];
+
+// Individual parameter keys managed on dedicated pages — hide from this generic page
+$clesExclues = [
+    'etat_lieux_email_subject',      // → email-templates.php
+    'etat_lieux_email_template',     // → email-templates.php
+    'inventaire_template_html',      // → inventaire-configuration.php
+    'inventaire_sortie_template_html', // → inventaire-configuration.php
+    'inventaire_items_template',     // → inventaire-configuration.php
+    'rappel_loyers_actif',           // → configuration-rappels-loyers.php
+    'rappel_loyers_destinataires',   // → configuration-rappels-loyers.php
+    'rappel_loyers_heure_execution', // → configuration-rappels-loyers.php
+    'rappel_loyers_inclure_bouton',  // → configuration-rappels-loyers.php
+    'rappel_loyers_dates_envoi',     // → configuration-rappels-loyers.php
+    'delai_expiration_lien_contrat', // → contrat-configuration.php
+    'delai_reponse_valeur',          // → candidatures-configuration.php
+    'delai_reponse_unite',           // → candidatures-configuration.php
+    'jours_ouvres_debut',            // → candidatures-configuration.php
+    'jours_ouvres_fin',              // → candidatures-configuration.php
+];
+$placeholdersCles = implode(',', array_fill(0, count($clesExclues), '?'));
 $placeholders  = implode(',', array_fill(0, count($groupesExclus), '?'));
-$stmt = $pdo->prepare("SELECT * FROM parametres WHERE groupe NOT IN ($placeholders) ORDER BY groupe, cle");
-$stmt->execute($groupesExclus);
+$stmt = $pdo->prepare("SELECT * FROM parametres WHERE groupe NOT IN ($placeholders) AND cle NOT IN ($placeholdersCles) ORDER BY groupe, cle");
+$stmt->execute(array_merge($groupesExclus, $clesExclues));
 $allParams = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Group parameters by category
@@ -172,7 +195,7 @@ foreach ($allParams as $param) {
                     </h5>
 
                     <?php 
-                    // Group delay parameters together
+                    // Group delay parameters together (kept for compatibility, though workflow params are now excluded)
                     $delayParamsKeys = ['delai_reponse_valeur', 'delai_reponse_unite'];
                     $obsoleteParams = ['delai_reponse_jours', 'delai_refus_auto_heures', 'email_admin']; // Parameters to hide
                     $delayParams = [];

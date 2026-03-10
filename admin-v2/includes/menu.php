@@ -63,7 +63,8 @@ $page_to_menu_map = [
     'guide-reparations.php'   => 'signalements.php',
     'gestion-decomptes.php'   => 'signalements.php',
     'decompte-detail.php'     => 'signalements.php',
-    'pages-frontoffice.php'   => 'menu-frontoffice.php',
+    'pages-frontoffice.php'       => 'menu-frontoffice.php',
+    'candidatures-configuration.php' => 'candidatures.php',
 ];
 
 // Check if current page is a detail page, if so use parent menu
@@ -105,6 +106,15 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             <a class="nav-link <?php echo $active_menu === 'candidatures.php' ? 'active' : ''; ?>" href="candidatures.php">
                 <i class="bi bi-file-earmark-text"></i> Candidatures
             </a>
+            <?php if ($active_menu === 'candidatures.php'): ?>
+            <ul class="nav flex-column ms-3">
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'candidatures-configuration.php' ? 'active' : ''; ?>" href="candidatures-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-gear"></i> Configuration
+                    </a>
+                </li>
+            </ul>
+            <?php endif; ?>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'contrats.php' ? 'active' : ''; ?>" href="contrats.php">
@@ -230,6 +240,20 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             <a class="nav-link <?php echo $active_menu === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php">
                 <i class="bi bi-layout-text-window-reverse"></i> Site public
             </a>
+            <?php if ($active_menu === 'menu-frontoffice.php'): ?>
+            <ul class="nav flex-column ms-3">
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-list"></i> Menu
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'pages-frontoffice.php' ? 'active' : ''; ?>" href="pages-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-file-richtext"></i> Pages
+                    </a>
+                </li>
+            </ul>
+            <?php endif; ?>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'cron-jobs.php' ? 'active' : ''; ?>" href="cron-jobs.php">

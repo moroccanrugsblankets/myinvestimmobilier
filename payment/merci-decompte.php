@@ -55,6 +55,43 @@ if (!$decompte) {
 
 $isPaid = ($decompte['statut_paiement'] === 'paye');
 
+/**
+ * Send confirmation email to tenant (with admin BCC) if not already sent.
+ */
+function sendDecompteConfirmationEmail(array $decompte, array $config): void {
+    if (empty($decompte['locataire_email'])) {
+        return;
+    }
+    // Check flag (column may not exist yet on older installations)
+    if (!empty($decompte['confirmation_email_envoye'])) {
+        return; // already sent
+    }
+    $sent = sendTemplatedEmail('decompte_paiement_confirme', $decompte['locataire_email'], [
+        'prenom'            => $decompte['locataire_prenom'] ?? '',
+        'nom'               => '',
+        'reference'         => $decompte['reference'],
+        'adresse'           => $decompte['adresse'],
+        'logement_reference'=> $decompte['logement_reference'] ?? '',
+        'montant_total'     => number_format((float)$decompte['montant_total'], 2, ',', ' '),
+        'date_paiement'     => $decompte['date_paiement'] ? date('d/m/Y', strtotime($decompte['date_paiement'])) : date('d/m/Y'),
+        'company'           => $config['COMPANY_NAME'] ?? '',
+        'signature'         => getParameter('email_signature', ''),
+    ], null, false, true, ['contexte' => 'decompte_paiement_confirme']);
+
+    if ($sent) {
+        global $pdo, $token;
+        try {
+            $pdo->prepare("
+                UPDATE signalements_decomptes
+                SET confirmation_email_envoye = 1, updated_at = NOW()
+                WHERE token_paiement = ?
+            ")->execute([$token]);
+        } catch (Exception $e) {
+            // Column may not exist yet on older installations; ignore
+        }
+    }
+}
+
 // Vérifier via Stripe si paiement non encore confirmé
 if (!$isPaid && !empty($_GET['session_id']) && class_exists('\Stripe\Stripe')) {
     $sessionId = trim($_GET['session_id']);
@@ -84,12 +121,20 @@ if (!$isPaid && !empty($_GET['session_id']) && class_exists('\Stripe\Stripe')) {
                     $isPaid = true;
                     $decompte['statut_paiement'] = 'paye';
                     $decompte['date_paiement']   = date('Y-m-d H:i:s');
+
+                    // Send confirmation email to tenant (with admin BCC)
+                    sendDecompteConfirmationEmail($decompte, $config);
                 }
             }
         } catch (Exception $e) {
             error_log('merci-decompte.php Stripe check error: ' . $e->getMessage());
         }
     }
+}
+
+// If already paid but confirmation email not yet sent, send it now (idempotent via flag)
+if ($isPaid && empty($decompte['confirmation_email_envoye'])) {
+    sendDecompteConfirmationEmail($decompte, $config);
 }
 ?>
 <!DOCTYPE html>

@@ -9,7 +9,22 @@ define('MAX_SIGNATURE_SIZE', 2 * 1024 * 1024); // 2 MB
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'update_jours_avant_impaye') {
+    if ($_POST['action'] === 'update_delai_expiration') {
+        $heures = max(1, (int)$_POST['delai_expiration_lien_contrat']);
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM parametres WHERE cle = 'delai_expiration_lien_contrat'");
+        $stmt->execute();
+        if ($stmt->fetchColumn() > 0) {
+            $stmt = $pdo->prepare("UPDATE parametres SET valeur = ?, groupe = 'contrats', updated_at = NOW() WHERE cle = 'delai_expiration_lien_contrat'");
+            $stmt->execute([$heures]);
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('delai_expiration_lien_contrat', ?, 'integer', 'contrats', 'Délai d\'expiration du lien de signature (en heures)')");
+            $stmt->execute([$heures]);
+        }
+        $_SESSION['success'] = "Paramètre mis à jour avec succès";
+        header('Location: contrat-configuration.php');
+        exit;
+    }
+    elseif ($_POST['action'] === 'update_jours_avant_impaye') {
         $jours = max(1, (int)$_POST['jours_avant_impaye']);
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM parametres WHERE cle = 'jours_avant_impaye'");
         $stmt->execute();
@@ -241,6 +256,10 @@ if (!$template) {
 // Get jours_avant_impaye parameter
 $joursAvantImpaye = (int)getParameter('jours_avant_impaye', 5);
 if ($joursAvantImpaye < 1) $joursAvantImpaye = 1;
+
+// Get delai_expiration_lien_contrat parameter
+$delaiExpirationLienContrat = (int)getParameter('delai_expiration_lien_contrat', 24);
+if ($delaiExpirationLienContrat < 1) $delaiExpirationLienContrat = 1;
 
 // Get signature settings
 $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_image'");
@@ -501,6 +520,41 @@ HTML;
                             required>
                         <small class="form-text text-muted">
                             Nombre de jours dans le mois après lequel un loyer dont le statut est "En attente" passe automatiquement en "Impayé". Par défaut : 5.
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Délai d'expiration du lien de signature -->
+        <div class="config-card">
+            <h5 class="mb-3"><i class="bi bi-clock-history"></i> Lien de Signature Électronique</h5>
+            <p class="text-muted">
+                Configurez la durée de validité du lien envoyé au locataire pour signer le contrat en ligne.
+            </p>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_delai_expiration">
+                <div class="row align-items-end">
+                    <div class="col-md-6">
+                        <label for="delai_expiration_lien_contrat" class="form-label">
+                            <strong>Délai d'expiration du lien de signature (en heures)</strong>
+                        </label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="delai_expiration_lien_contrat"
+                            name="delai_expiration_lien_contrat"
+                            min="1"
+                            max="720"
+                            value="<?= htmlspecialchars($delaiExpirationLienContrat) ?>"
+                            required>
+                        <small class="form-text text-muted">
+                            Durée (en heures) pendant laquelle le lien de signature reste valide après son envoi. Par défaut : 24 heures.
                         </small>
                     </div>
                     <div class="col-md-6">
