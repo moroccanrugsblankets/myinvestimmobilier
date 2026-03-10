@@ -511,7 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     header("Location: decompte-detail.php?id=$decompteId&success=lien_paiement_email");
                     exit;
                 } else {
-                    $errors[] = 'L\'envoi de l\'email a échoué. Vérifiez la configuration email.';
+                    $errors[] = 'L\'envoi de l\'email a échoué. Vérifiez la configuration email dans Admin > Paramètres (adresse expéditeur et paramètres SMTP).';
                 }
             }
         }
@@ -574,7 +574,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         header("Location: decompte-detail.php?id=$decompteId&success=facture");
                         exit;
                     } else {
-                        $errors[] = 'L\'envoi de la facture a échoué. Vérifiez la configuration email.';
+                        $errors[] = 'L\'envoi de la facture a échoué. Vérifiez la configuration email dans Admin > Paramètres (adresse expéditeur et paramètres SMTP).';
                     }
                 } catch (Exception $e) {
                     $errors[] = 'Erreur : ' . $e->getMessage();

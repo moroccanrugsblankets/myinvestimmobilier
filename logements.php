@@ -68,7 +68,7 @@ $statutLabels = [
 </head>
 <body>
 
-<?php renderFrontOfficeHeader($siteUrl, $companyName); ?>
+<?php renderFrontOfficeHeader($siteUrl, $companyName, null, '/logements.php'); ?>
 
 <!-- Hero banner with search -->
 <div class="hero-banner">

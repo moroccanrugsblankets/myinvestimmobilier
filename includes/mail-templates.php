@@ -212,6 +212,13 @@ function sendEmail($to, $subject, $body, $attachmentPath = null, $isHtml = true,
         }
     }
 
+    // Validate that the sender address is configured (required in all modes)
+    if (empty($config['MAIL_FROM'])) {
+        error_log("ERREUR: L'adresse email expéditeur (mail_from) n'est pas configurée. "
+                . "Configurez-la dans Admin > Paramètres (groupe Email). L'email à $to ne peut pas être envoyé.");
+        return false;
+    }
+
     // Validate SMTP configuration if SMTP auth is enabled
     if ($config['SMTP_AUTH']) {
         if (empty($config['SMTP_PASSWORD']) || empty($config['SMTP_USERNAME']) || empty($config['SMTP_HOST'])) {

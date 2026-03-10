@@ -292,10 +292,12 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
 <body>
 
 <?php
-$extraNav = $isDisponible
-    ? '<a href="' . htmlspecialchars($lienCandidature) . '" class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>Déposer ma candidature</a>'
-    : null;
-renderFrontOfficeHeader($siteUrl, $companyName, $extraNav);
+$menuNav = renderFrontOfficeMenuHtml('/logement.php?ref=' . urlencode($ref));
+$extraNav = $menuNav;
+if ($isDisponible) {
+    $extraNav .= '<a href="' . htmlspecialchars($lienCandidature) . '" class="btn btn-sm btn-primary ms-2"><i class="bi bi-person-plus me-1"></i>Déposer ma candidature</a>';
+}
+renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
 ?>
 
 <main class="container py-4">

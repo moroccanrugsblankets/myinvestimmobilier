@@ -53,7 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 // Groups managed on dedicated pages — hide them from this generic settings page
-$groupesExclus = ['contrats', 'templates', 'stripe', 'twilio', 'backup', 'signalement'];
+$groupesExclus = [
+    'contrats',       // → contrat-configuration.php
+    'templates',      // → email-templates.php
+    'stripe',         // → stripe-configuration.php
+    'twilio',         // → paramètres Twilio (section spécialisée)
+    'backup',         // → sauvegardes.php
+    'signalement',    // → guide-reparations.php
+    'etats_lieux',    // → etat-lieux-configuration.php
+    'bilan_logement', // → bilan-logement-configuration.php
+    'decomptes',      // → decompte-configuration.php
+    'quittances',     // → quittance-configuration.php
+];
 $placeholders  = implode(',', array_fill(0, count($groupesExclus), '?'));
 $stmt = $pdo->prepare("SELECT * FROM parametres WHERE groupe NOT IN ($placeholders) ORDER BY groupe, cle");
 $stmt->execute($groupesExclus);

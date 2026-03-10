@@ -63,6 +63,7 @@ $page_to_menu_map = [
     'guide-reparations.php'   => 'signalements.php',
     'gestion-decomptes.php'   => 'signalements.php',
     'decompte-detail.php'     => 'signalements.php',
+    'pages-frontoffice.php'   => 'menu-frontoffice.php',
 ];
 
 // Check if current page is a detail page, if so use parent menu
@@ -223,6 +224,11 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'parametres.php' ? 'active' : ''; ?>" href="parametres.php">
                 <i class="bi bi-gear"></i> Paramètres
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo $active_menu === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php">
+                <i class="bi bi-layout-text-window-reverse"></i> Site public
             </a>
         </li>
         <li class="nav-item">
