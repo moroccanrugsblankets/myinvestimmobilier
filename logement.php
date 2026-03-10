@@ -11,6 +11,7 @@
 
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/header-frontoffice.php';
 
 $ref = isset($_GET['ref']) ? trim($_GET['ref']) : '';
 
@@ -106,55 +107,9 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
     <meta name="description" content="<?php echo htmlspecialchars(mb_substr(strip_tags($logement['description'] ?? ''), 0, 155)); ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/assets/css/frontoffice.css'); ?>">
     <style>
-        :root {
-            --primary: #1a56db;
-            --primary-light: #e8f0fe;
-        }
-        body {
-            background: #f5f7fa;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            color: #1a1a2e;
-        }
-        /* Header */
-        .site-header {
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 1rem 0;
-        }
-        .site-header .brand {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--primary);
-            text-decoration: none;
-        }
-        /* Hero */
-        .hero-card {
-            background: linear-gradient(135deg, #1a56db 0%, #0e3a8a 100%);
-            border-radius: 18px;
-            padding: 2.5rem;
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-card::before {
-            content: '';
-            position: absolute;
-            top: -50px; right: -50px;
-            width: 200px; height: 200px;
-            background: rgba(255,255,255,.07);
-            border-radius: 50%;
-        }
-        .hero-price {
-            font-size: 2.4rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-        .hero-charges {
-            font-size: 1rem;
-            opacity: .85;
-        }
-        /* Section cards */
+        /* Section cards — logement detail specific */
         .section-card {
             background: #fff;
             border-radius: 14px;
@@ -175,8 +130,8 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             display: inline-flex;
             align-items: center;
             gap: .4rem;
-            background: var(--primary-light);
-            color: var(--primary);
+            background: var(--fo-primary-light);
+            color: var(--fo-primary);
             border-radius: 6px;
             padding: .35em .75em;
             font-size: .825rem;
@@ -223,20 +178,12 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
         .info-item .info-value {
             font-size: 1.25rem;
             font-weight: 700;
-            color: var(--primary);
+            color: var(--fo-primary);
         }
         .info-item .info-label {
             font-size: .75rem;
             color: #6b7280;
             margin-top: .2rem;
-        }
-        /* Footer */
-        .site-footer {
-            background: #fff;
-            border-top: 1px solid #e5e7eb;
-            padding: 1.5rem 0;
-            font-size: .85rem;
-            color: #6b7280;
         }
         /* Photo slider */
         .photo-slider {
@@ -249,7 +196,7 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
         .slider-main {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 ratio */
+            padding-top: 56.25%;
             overflow: hidden;
         }
         .slider-main img,
@@ -265,9 +212,7 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             top: 0; left: 0;
             width: 100%; height: 100%;
         }
-        .slider-main .slide-item.active {
-            display: block;
-        }
+        .slider-main .slide-item.active { display: block; }
         .slider-nav {
             position: absolute;
             top: 50%;
@@ -287,15 +232,13 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
         .slider-nav.next { right: 12px; }
         .slider-counter {
             position: absolute;
-            bottom: 12px;
-            right: 16px;
+            bottom: 12px; right: 16px;
             background: rgba(0,0,0,.55);
             color: #fff;
             font-size: .75rem;
             padding: 3px 10px;
             border-radius: 20px;
         }
-        /* Thumbnails */
         .slider-thumbs {
             display: flex;
             gap: 6px;
@@ -317,18 +260,14 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             transition: border-color .2s;
             position: relative;
         }
-        .thumb-item.active { border-color: #1a56db; }
-        .thumb-item img {
-            width: 100%; height: 100%;
-            object-fit: cover;
-        }
+        .thumb-item.active { border-color: var(--fo-primary); }
+        .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
         .thumb-video-icon {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
             background: rgba(0,0,0,.5);
             color: #fff; font-size: 1.2rem;
         }
-        /* Video embed */
         .video-embed-wrapper {
             position: relative;
             padding-top: 56.25%;
@@ -337,20 +276,13 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             background: #000;
             margin-bottom: 1.25rem;
         }
-        .video-embed-wrapper iframe {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            border: 0;
-        }
+        .video-embed-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         @media (max-width: 768px) {
             .hero-card { padding: 1.5rem; }
-            .hero-price { font-size: 1.8rem; }
+            .price-display { font-size: 1.8rem; }
         }
         /* TinyMCE HTML content */
-        .logement-html-content {
-            line-height: 1.7;
-        }
+        .logement-html-content { line-height: 1.7; }
         .logement-html-content p { margin-bottom: .75rem; }
         .logement-html-content ul,
         .logement-html-content ol { padding-left: 1.4rem; margin-bottom: .75rem; }
@@ -359,21 +291,12 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
 </head>
 <body>
 
-<!-- Header -->
-<header class="site-header">
-    <div class="container">
-        <div class="d-flex align-items-center justify-content-between">
-            <span class="brand">
-                <i class="bi bi-building me-1"></i><?php echo htmlspecialchars($companyName); ?>
-            </span>
-            <?php if ($isDisponible): ?>
-            <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn btn-sm btn-primary">
-                <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
-            </a>
-            <?php endif; ?>
-        </div>
-    </div>
-</header>
+<?php
+$extraNav = $isDisponible
+    ? '<a href="' . htmlspecialchars($lienCandidature) . '" class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>Déposer ma candidature</a>'
+    : null;
+renderFrontOfficeHeader($siteUrl, $companyName, $extraNav);
+?>
 
 <main class="container py-4">
     <div class="row g-4">

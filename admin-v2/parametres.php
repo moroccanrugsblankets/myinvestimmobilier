@@ -7,6 +7,19 @@ require_once '../includes/db.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'update') {
         $hasError = false;
+
+        // Handle checkbox/multi-select fields that need JSON serialization
+        $jsonCheckboxFields = ['statuts_pro_acceptes', 'nb_occupants_acceptes'];
+        foreach ($jsonCheckboxFields as $field) {
+            if (!isset($_POST['parametres'][$field])) {
+                // If the checkbox group sent nothing (empty selection), store empty JSON array
+                $_POST['parametres'][$field] = '[]';
+            } else if (is_array($_POST['parametres'][$field])) {
+                // Convert array of checked values to JSON string
+                $_POST['parametres'][$field] = json_encode(array_values($_POST['parametres'][$field]));
+            }
+        }
+
         foreach ($_POST['parametres'] as $cle => $valeur) {
             // For the SMTP password field: if submitted empty, keep the existing DB value
             if ($cle === 'smtp_password' && $valeur === '') {
@@ -39,9 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// Get all parameters grouped by category
-// Exclude 'contrats' group as it's managed in contrat-configuration.php
-$stmt = $pdo->query("SELECT * FROM parametres WHERE groupe != 'contrats' ORDER BY groupe, cle");
+// Groups managed on dedicated pages — hide them from this generic settings page
+$groupesExclus = ['contrats', 'templates', 'stripe', 'twilio', 'backup', 'signalement'];
+$placeholders  = implode(',', array_fill(0, count($groupesExclus), '?'));
+$stmt = $pdo->prepare("SELECT * FROM parametres WHERE groupe NOT IN ($placeholders) ORDER BY groupe, cle");
+$stmt->execute($groupesExclus);
 $allParams = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Group parameters by category
@@ -224,33 +239,99 @@ foreach ($allParams as $param) {
                                 <?php echo htmlspecialchars($param['description']); ?>
                             </div>
                             
-                            <?php if ($param['type'] === 'boolean' && $param['cle'] === 'garantie_visale_requise'): ?>
-                                <!-- Special UI for garantie_visale_requise: Oui / Je ne sais pas -->
+                            <?php if ($param['cle'] === 'garantie_visale_requise'): ?>
+                                <!-- Special UI for garantie_visale_requise: Oui / Non / Je ne sais pas -->
                                 <div class="d-flex gap-3 flex-wrap">
                                     <?php
-                                    $gvVal = $param['valeur'];
-                                    // Treat legacy 'true' as 'oui', anything else as 'je_ne_sais_pas'
+                                    $gvVal  = $param['valeur'];
                                     $gvIsOui = ($gvVal === 'true' || $gvVal === 'oui');
+                                    $gvIsNon = ($gvVal === 'non');
+                                    $gvIsNsp = !$gvIsOui && !$gvIsNon;
                                     ?>
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio"
                                                name="parametres[<?php echo $param['cle']; ?>]"
-                                               id="gv_oui" value="true" <?php echo $gvIsOui ? 'checked' : ''; ?>>
+                                               id="gv_oui" value="oui" <?php echo $gvIsOui ? 'checked' : ''; ?>>
                                         <label class="form-check-label" for="gv_oui">
                                             <span class="badge bg-success me-1">Oui</span>
-                                            Garantie Visale requise
+                                            Garantie Visale requise — rejet si "Non" ou "Je ne sais pas"
                                         </label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio"
                                                name="parametres[<?php echo $param['cle']; ?>]"
-                                               id="gv_nsp" value="false" <?php echo !$gvIsOui ? 'checked' : ''; ?>>
+                                               id="gv_non" value="non" <?php echo $gvIsNon ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="gv_non">
+                                            <span class="badge bg-danger me-1">Non</span>
+                                            Non requise — rejet automatique si le candidat répond "Non"
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="parametres[<?php echo $param['cle']; ?>]"
+                                               id="gv_nsp" value="je_ne_sais_pas" <?php echo $gvIsNsp ? 'checked' : ''; ?>>
                                         <label class="form-check-label" for="gv_nsp">
                                             <span class="badge bg-warning text-dark me-1">Je ne sais pas</span>
                                             Pas de prérequis strict
                                         </label>
                                     </div>
                                 </div>
+                            <?php elseif ($param['cle'] === 'statuts_pro_acceptes'): ?>
+                                <!-- User-friendly checkboxes for professional statuses -->
+                                <?php
+                                $allStatuts = ['CDI', 'CDD', 'Indépendant', 'Autre'];
+                                $currentStatuts = json_decode($param['valeur'], true) ?: [];
+                                ?>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <?php foreach ($allStatuts as $statut): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="parametres[statuts_pro_acceptes][]"
+                                               id="statut_<?php echo htmlspecialchars($statut); ?>"
+                                               value="<?php echo htmlspecialchars($statut); ?>"
+                                               <?php echo in_array($statut, $currentStatuts) ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="statut_<?php echo htmlspecialchars($statut); ?>">
+                                            <?php echo htmlspecialchars($statut); ?>
+                                        </label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <small class="text-muted">Les candidats ayant un statut non coché seront refusés automatiquement.</small>
+                            <?php elseif ($param['cle'] === 'nb_occupants_acceptes'): ?>
+                                <!-- User-friendly checkboxes for number of occupants -->
+                                <?php
+                                $allOccupants = ['1', '2', '3', 'Autre'];
+                                $currentOccupants = json_decode($param['valeur'], true) ?: [];
+                                // Normalize: cast integers to string for comparison
+                                $currentOccupants = array_map('strval', $currentOccupants);
+                                ?>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <?php foreach ($allOccupants as $occ): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="parametres[nb_occupants_acceptes][]"
+                                               id="occ_<?php echo htmlspecialchars($occ); ?>"
+                                               value="<?php echo htmlspecialchars($occ); ?>"
+                                               <?php echo in_array($occ, $currentOccupants) ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="occ_<?php echo htmlspecialchars($occ); ?>">
+                                            <?php echo $occ === 'Autre' ? 'Autre (à préciser)' : $occ . ' occupant' . ($occ === '1' ? '' : 's'); ?>
+                                        </label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <small class="text-muted">Les candidats déclarant un nombre d'occupants non coché seront refusés automatiquement.</small>
+                            <?php elseif ($param['cle'] === 'type_revenus_accepte'): ?>
+                                <!-- Select for income type -->
+                                <select name="parametres[<?php echo $param['cle']; ?>]" class="form-select">
+                                    <?php
+                                    $typesRevenus = ['Salaires', 'Indépendant', 'Retraite/rente', 'Autres'];
+                                    foreach ($typesRevenus as $type): ?>
+                                    <option value="<?php echo htmlspecialchars($type); ?>"
+                                        <?php echo $param['valeur'] === $type ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($type); ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
                             <?php elseif ($param['type'] === 'boolean'): ?>
                                 <select name="parametres[<?php echo $param['cle']; ?>]" class="form-select">
                                     <option value="true" <?php echo $param['valeur'] === 'true' ? 'selected' : ''; ?>>Oui</option>

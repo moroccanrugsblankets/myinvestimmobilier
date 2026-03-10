@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/header-frontoffice.php';
 
 // Générer un token CSRF si nécessaire
 if (!isset($_SESSION['csrf_token'])) {
@@ -55,45 +56,24 @@ try {
 // Pre-selected logement info (when ref is in URL)
 $selected_logement = $selected_logement ?? null;
 $ref_locks_logement = ($ref_param && $selected_logement_id);
+$siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
+$companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candidature Locative - My Invest Immobilier</title>
+    <title>Candidature Locative — <?php echo htmlspecialchars($companyName); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($siteUrl . '/assets/css/style.css'); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($siteUrl . '/assets/css/frontoffice.css'); ?>">
     <?php if (!empty($config['RECAPTCHA_ENABLED']) && $config['RECAPTCHA_ENABLED']): ?>
     <script src="https://www.google.com/recaptcha/api.js?render=<?php echo htmlspecialchars($config['RECAPTCHA_SITE_KEY']); ?>"></script>
     <?php endif; ?>
     <style>
-        .form-section {
-            display: none;
-        }
-        .form-section.active {
-            display: block;
-        }
-        .required-field::after {
-            content: " *";
-            color: red;
-        }
-        .progress-bar-custom {
-            height: 5px;
-            background-color: #e9ecef;
-            margin-bottom: 2rem;
-        }
-        .progress-bar-custom .progress {
-            height: 100%;
-            background-color: #0d6efd;
-            transition: width 0.3s ease;
-        }
-        .visale-link {
-            color: #0d6efd;
-            cursor: pointer;
-            text-decoration: underline;
-        }
+        /* Document upload zone */
         .document-upload-zone {
             position: relative;
             border: 2px dashed #dee2e6;
@@ -111,10 +91,7 @@ $ref_locks_logement = ($ref_param && $selected_logement_id);
             border-color: #0d6efd;
             background-color: #cfe2ff;
         }
-        .file-list {
-            min-height: 0;
-            transition: all 0.3s ease;
-        }
+        .file-list { min-height: 0; transition: all 0.3s ease; }
         .file-list-item {
             display: flex;
             align-items: center;
@@ -127,122 +104,40 @@ $ref_locks_logement = ($ref_param && $selected_logement_id);
             animation: slideIn 0.3s ease-out;
             transition: all 0.2s ease;
         }
-        .file-list-item:hover {
-            background-color: #e9ecef;
-            border-color: #dee2e6;
-            transform: translateX(2px);
-        }
-        .file-list-item .file-info {
-            display: flex;
-            align-items: center;
-            flex: 1;
-        }
-        .file-list-item .file-icon {
-            font-size: 1.5rem;
-            margin-right: 0.75rem;
-        }
-        .file-list-item .file-icon.pdf {
-            color: #dc3545;
-        }
-        .file-list-item .file-icon.image {
-            color: #0d6efd;
-        }
-        .file-list-item .file-details {
-            display: flex;
-            flex-direction: column;
-        }
-        .file-list-item .file-name {
-            font-weight: 500;
-            color: #212529;
-            word-break: break-word;
-        }
-        .file-list-item .file-size {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
+        .file-list-item:hover { background-color: #e9ecef; border-color: #dee2e6; transform: translateX(2px); }
+        .file-list-item .file-info { display: flex; align-items: center; flex: 1; }
+        .file-list-item .file-icon { font-size: 1.5rem; margin-right: 0.75rem; }
+        .file-list-item .file-icon.pdf { color: #dc3545; }
+        .file-list-item .file-icon.image { color: #0d6efd; }
+        .file-list-item .file-details { display: flex; flex-direction: column; }
+        .file-list-item .file-name { font-weight: 500; color: #212529; word-break: break-word; }
+        .file-list-item .file-size { font-size: 0.875rem; color: #6c757d; }
         .btn-remove-file {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            font-size: 1.25rem;
-            padding: 0.25rem;
-            transition: all 0.2s ease;
-            border-radius: 0.25rem;
+            background: none; border: none; color: #dc3545; cursor: pointer;
+            font-size: 1.25rem; padding: 0.25rem; transition: all 0.2s ease; border-radius: 0.25rem;
         }
-        .btn-remove-file:hover {
-            background-color: #dc3545;
-            color: white;
-            transform: scale(1.1);
-        }
-        .btn-remove-file:focus {
-            outline: 2px solid #dc3545;
-            outline-offset: 2px;
-        }
+        .btn-remove-file:hover { background-color: #dc3545; color: white; transform: scale(1.1); }
+        .btn-remove-file:focus { outline: 2px solid #dc3545; outline-offset: 2px; }
         .file-count-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #198754;
-            color: white;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.875rem;
+            position: absolute; top: 10px; right: 10px;
+            background-color: #198754; color: white; border-radius: 50%;
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.875rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             animation: scaleIn 0.3s ease-out;
         }
         .file-upload-success {
-            display: inline-block;
-            color: #198754;
-            font-size: 0.875rem;
-            margin-left: 0.5rem;
-            animation: fadeIn 0.3s ease-in;
+            display: inline-block; color: #198754; font-size: 0.875rem;
+            margin-left: 0.5rem; animation: fadeIn 0.3s ease-in;
         }
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-        @keyframes scaleIn {
-            from {
-                opacity: 0;
-                transform: scale(0);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <nav class="navbar navbar-light bg-light shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-house-door-fill me-2"></i>
-                <strong>My Invest Immobilier</strong>
-            </a>
-        </div>
-    </nav>
+    <?php renderFrontOfficeHeader($siteUrl, $companyName); ?>
 
     <div class="container my-5">
         <div class="row justify-content-center">

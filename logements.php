@@ -11,6 +11,7 @@
 
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/header-frontoffice.php';
 
 $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 $siteUrl     = rtrim($config['SITE_URL'], '/');
@@ -63,78 +64,11 @@ $statutLabels = [
     <meta name="description" content="Découvrez nos logements disponibles à la location.">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        :root { --primary: #1a56db; --primary-light: #e8f0fe; }
-        body { background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; }
-        .site-header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 1rem 0; }
-        .site-header .brand { font-size: 1.1rem; font-weight: 700; color: var(--primary); text-decoration: none; }
-        .hero-banner {
-            background: linear-gradient(135deg, #1a56db 0%, #0e3a8a 100%);
-            color: #fff;
-            padding: 3rem 0 2.5rem;
-        }
-        .hero-banner h1 { font-weight: 800; }
-        .search-form { max-width: 480px; }
-        .search-form .form-control { border-radius: 8px 0 0 8px; }
-        .search-form .btn { border-radius: 0 8px 8px 0; }
-        .logement-card {
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,.06);
-            overflow: hidden;
-            transition: transform .15s, box-shadow .15s;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-        .logement-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
-        .card-photo {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%;
-            background: #e5e7eb;
-            overflow: hidden;
-        }
-        .card-photo img, .card-photo .no-photo {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-        }
-        .card-photo .no-photo {
-            display: flex; align-items: center; justify-content: center;
-            color: #9ca3af; font-size: 2.5rem;
-        }
-        .card-ref-badge {
-            position: absolute; bottom: 8px; left: 8px;
-            background: rgba(0,0,0,.65);
-            color: #fff;
-            font-family: monospace; font-size: .8rem; font-weight: 700;
-            padding: .2em .6em; border-radius: 6px;
-        }
-        .card-body-custom { padding: 1.2rem; flex: 1; display: flex; flex-direction: column; }
-        .card-price { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
-        .card-charges { font-size: .85rem; color: #6b7280; }
-        .card-address { font-size: .9rem; color: #374151; font-weight: 500; margin: .4rem 0 .6rem; }
-        .card-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .8rem; }
-        .card-tag { background: var(--primary-light); color: var(--primary); border-radius: 5px; padding: .2em .6em; font-size: .78rem; font-weight: 500; }
-        .btn-voir { margin-top: auto; }
-        .site-footer { background: #fff; border-top: 1px solid #e5e7eb; padding: 1.5rem 0; font-size: .85rem; color: #6b7280; }
-        .no-results { text-align: center; padding: 4rem 0; }
-        .no-results i { font-size: 4rem; color: #d1d5db; }
-    </style>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/assets/css/frontoffice.css'); ?>">
 </head>
 <body>
 
-<!-- Header -->
-<header class="site-header">
-    <div class="container">
-        <div class="d-flex align-items-center justify-content-between">
-            <a href="<?php echo htmlspecialchars($siteUrl . '/logements.php'); ?>" class="brand">
-                <i class="bi bi-building me-1"></i><?php echo htmlspecialchars($companyName); ?>
-            </a>
-        </div>
-    </div>
-</header>
+<?php renderFrontOfficeHeader($siteUrl, $companyName); ?>
 
 <!-- Hero banner with search -->
 <div class="hero-banner">

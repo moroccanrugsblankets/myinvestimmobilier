@@ -636,47 +636,6 @@ unset($_SESSION['success'], $_SESSION['error']);
                     </form>
                 </div>
 
-                <!-- Inventaire équipements (read-only summary) -->
-                <?php if (!empty($equipByCategory)): ?>
-                <div class="section-card">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-semibold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Inventaire des équipements</h5>
-                        <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement_id; ?>"
-                           class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-pencil me-1"></i>Modifier
-                        </a>
-                    </div>
-                    <div class="row g-3">
-                        <?php foreach ($equipByCategory as $catNom => $items): ?>
-                        <div class="col-md-6">
-                            <h6 class="text-muted small text-uppercase mb-2"><?php echo htmlspecialchars($catNom); ?></h6>
-                            <ul class="list-unstyled mb-0">
-                                <?php foreach ($items as $item): ?>
-                                <li class="d-flex align-items-center gap-2 mb-1 small">
-                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                    <?php echo htmlspecialchars($item['nom']); ?>
-                                    <?php if ((int)$item['quantite'] > 1): ?>
-                                    <span class="badge bg-light text-dark border"><?php echo (int)$item['quantite']; ?>x</span>
-                                    <?php endif; ?>
-                                </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php else: ?>
-                <div class="section-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="fw-semibold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Inventaire des équipements</h5>
-                        <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement_id; ?>"
-                           class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-plus me-1"></i>Ajouter des équipements
-                        </a>
-                    </div>
-                    <p class="text-muted small mb-0">Aucun équipement enregistré pour ce logement.</p>
-                </div>
-                <?php endif; ?>
 
             </div><!-- /col-lg-8 -->
 
@@ -1033,8 +992,10 @@ function copyLink(inputId, btn) {
           .catch(function() { alert('Erreur réseau.'); });
     });
 
-    // ── Form submit: sync file DataTransfer to file input ────────────────────
+    // ── Form submit: sync TinyMCE content and file DataTransfer to file input ──
     form && form.addEventListener('submit', function() {
+        // Ensure TinyMCE editors sync their content back to textareas
+        if (typeof tinymce !== 'undefined') { tinymce.triggerSave(); }
         updateOrderInput();
         try {
             ignoreChg = true;

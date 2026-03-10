@@ -895,10 +895,28 @@ function evaluateCandidature($candidature) {
         $motifs[] = "Nombre d'occupants non accepté (doit être 1 ou 2)";
     }
     
-    // RULE 5: Visale guarantee - must be "Oui"
-    if ($garantieVisaleRequise && $candidature['garantie_visale'] !== 'Oui') {
-        $motifs[] = "Garantie Visale requise";
+    // RULE 5: Visale guarantee
+    // Normalize the stored parameter value
+    $gvParam = is_bool($garantieVisaleRequise)
+        ? ($garantieVisaleRequise ? 'oui' : 'je_ne_sais_pas')
+        : strtolower((string)$garantieVisaleRequise);
+    $gvParam = ($gvParam === 'true') ? 'oui' : $gvParam;
+    $gvParam = ($gvParam === 'false') ? 'je_ne_sais_pas' : $gvParam;
+
+    $candidatVisale = $candidature['garantie_visale'] ?? '';
+
+    if ($gvParam === 'oui') {
+        // Visale is required: only "Oui" is acceptable
+        if ($candidatVisale !== 'Oui') {
+            $motifs[] = "Garantie Visale requise";
+        }
+    } elseif ($gvParam === 'non') {
+        // Visale is not required, but an explicit "Non" from the candidate is still rejected
+        if ($candidatVisale === 'Non') {
+            $motifs[] = "Candidat ne peut pas bénéficier de la garantie Visale";
+        }
     }
+    // For 'je_ne_sais_pas': no rejection based on Visale
     
     // RULE 6: If CDI, trial period must be passed
     if ($candidature['statut_professionnel'] === 'CDI' && 
