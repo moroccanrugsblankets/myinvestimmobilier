@@ -172,8 +172,8 @@ if (isset($_GET['edit'])) {
                                 <label class="form-label fw-semibold">URL <span class="text-danger">*</span></label>
                                 <input type="text" name="url" class="form-control"
                                        value="<?php echo htmlspecialchars($editItem['url'] ?? ''); ?>"
-                                       placeholder="Ex: /page.php?slug=services" required>
-                                <div class="form-text">URL relative (ex: /logements.php) ou absolue.</div>
+                                       placeholder="Ex: /nos-services" required>
+                                <div class="form-text">URL relative (ex: <code>/logements.php</code> ou <code>/services</code>) ou absolue.</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Icône Bootstrap Icons</label>

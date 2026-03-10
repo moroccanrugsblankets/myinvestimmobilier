@@ -3,7 +3,8 @@
  * Rendu dynamique des pages frontoffice
  * My Invest Immobilier
  *
- * URL : /page.php?slug=<slug>
+ * URL legacy  : /page.php?slug=<slug>
+ * URL SEO     : /<slug>  (redirigé par .htaccess)
  *
  * Les pages sont stockées dans la table `frontend_pages` et gérables
  * depuis Admin → Site public → Pages.
@@ -13,6 +14,7 @@ require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/header-frontoffice.php';
 
+// Support both legacy (?slug=) and SEO-friendly URL (rewritten by .htaccess)
 $slug = isset($_GET['slug']) ? trim($_GET['slug']) : '';
 
 // Valider le slug (alphanumérique + tirets uniquement)
@@ -104,6 +106,81 @@ $currentUrl = '/page.php?slug=' . urlencode($slug);
 $currentUrlSeo = '/' . $slug . '/';
 $currentUrlSeoNoSlash = '/' . $slug;
 
+/**
+ * Process [contact-form id=N] shortcodes embedded in page content.
+ * Returns the HTML with shortcodes replaced by rendered forms.
+ */
+function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
+{
+    return preg_replace_callback(
+        '/\[contact-form\s+id=["\']?(\d+)["\']?\]/i',
+        function (array $m) use ($pdo, $siteUrl): string {
+            $formId = (int)$m[1];
+            try {
+                $stmt = $pdo->prepare("SELECT * FROM contact_forms WHERE id = ? AND actif = 1 LIMIT 1");
+                $stmt->execute([$formId]);
+                $form = $stmt->fetch(\PDO::FETCH_ASSOC);
+                if (!$form) {
+                    return '<!-- contact-form #' . $formId . ' not found -->';
+                }
+                $stmtF = $pdo->prepare("SELECT * FROM contact_form_fields WHERE form_id = ? ORDER BY ordre ASC, id ASC");
+                $stmtF->execute([$formId]);
+                $fields = $stmtF->fetchAll(\PDO::FETCH_ASSOC);
+                return renderContactFormHtml($form, $fields, $siteUrl);
+            } catch (\Exception $e) {
+                return '<!-- contact-form error: ' . htmlspecialchars($e->getMessage()) . ' -->';
+            }
+        },
+        $html
+    );
+}
+
+/**
+ * Renders the HTML for a contact form.
+ */
+function renderContactFormHtml(array $form, array $fields, string $siteUrl): string
+{
+    $formId = (int)$form['id'];
+    $html  = '<form method="POST" action="' . htmlspecialchars($siteUrl . '/contact-form-submit.php') . '" ';
+    $html .= 'class="contact-form-shortcode" data-form-id="' . $formId . '">';
+    $html .= '<input type="hidden" name="form_id" value="' . $formId . '">';
+    $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(session_id()) . '">';
+    foreach ($fields as $field) {
+        $name  = htmlspecialchars($field['nom_champ']);
+        $label = htmlspecialchars($field['label']);
+        $ph    = htmlspecialchars($field['placeholder'] ?? '');
+        $req   = $field['requis'] ? ' required' : '';
+        $html .= '<div class="mb-3">';
+        $html .= '<label class="form-label">' . $label . ($field['requis'] ? ' <span class="text-danger">*</span>' : '') . '</label>';
+        switch ($field['type_champ']) {
+            case 'textarea':
+                $html .= '<textarea name="' . $name . '" class="form-control" rows="4" placeholder="' . $ph . '"' . $req . '></textarea>';
+                break;
+            case 'select':
+                $opts = array_filter(array_map('trim', explode('|', $field['options'] ?? '')));
+                $html .= '<select name="' . $name . '" class="form-select"' . $req . '>';
+                $html .= '<option value="">— Choisir —</option>';
+                foreach ($opts as $opt) {
+                    $html .= '<option value="' . htmlspecialchars($opt) . '">' . htmlspecialchars($opt) . '</option>';
+                }
+                $html .= '</select>';
+                break;
+            case 'checkbox':
+                $html .= '<div class="form-check">';
+                $html .= '<input class="form-check-input" type="checkbox" name="' . $name . '" id="cf_' . $formId . '_' . $name . '" value="1"' . $req . '>';
+                $html .= '<label class="form-check-label" for="cf_' . $formId . '_' . $name . '">' . $label . '</label>';
+                $html .= '</div>';
+                break;
+            default:
+                $html .= '<input type="' . htmlspecialchars($field['type_champ']) . '" name="' . $name . '" class="form-control" placeholder="' . $ph . '"' . $req . '>';
+        }
+        $html .= '</div>';
+    }
+    $html .= '<button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>Envoyer</button>';
+    $html .= '</form>';
+    return $html;
+}
+
 $navHtml = '';
 if ($menuItems) {
     $navHtml = '<nav class="nav-frontoffice">';
@@ -128,10 +205,41 @@ renderFrontOfficeHeader($siteUrl, $companyName, $navHtml);
 <?php if ($page): ?>
     <div class="page-content-wrapper">
         <?php
+        // Show contact form submission feedback (success/error from contact-form-submit.php redirect)
+        if (isset($_GET['cf_success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show mb-4">
+            <i class="bi bi-check-circle me-2"></i>
+            <?php
+            // Fetch the confirmation message from the submitted form
+            $cfFormId = isset($_GET['cf_form']) ? (int)$_GET['cf_form'] : 0;
+            $cfMsg = 'Votre message a bien été envoyé. Nous vous répondrons dans les plus brefs délais.';
+            if ($cfFormId > 0) {
+                try {
+                    $stmtCf = $pdo->prepare("SELECT message_confirmation FROM contact_forms WHERE id = ? LIMIT 1");
+                    $stmtCf->execute([$cfFormId]);
+                    $cfRow = $stmtCf->fetch(PDO::FETCH_ASSOC);
+                    if ($cfRow && trim($cfRow['message_confirmation']) !== '') {
+                        $cfMsg = $cfRow['message_confirmation'];
+                    }
+                } catch (Exception $e) {}
+            }
+            echo htmlspecialchars($cfMsg);
+            ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php elseif (isset($_GET['cf_error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show mb-4">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <?php echo htmlspecialchars($_GET['cf_error']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        <?php
         // The HTML content is stored by authenticated admin users only.
         // It is displayed as-is since it is administrator-controlled content (CMS-style).
         // Only trusted admin users should have access to the pages-frontoffice.php editor.
-        echo $page['contenu_html'];
+        // Shortcodes like [contact-form id=N] are processed before output.
+        echo processShortcodes($page['contenu_html'], $pdo, $siteUrl);
         ?>
     </div>
 <?php else: ?>
