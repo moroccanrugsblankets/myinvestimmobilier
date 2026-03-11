@@ -1,279 +1,236 @@
 <?php
 /**
- * Page d'accueil — Portail locataire
+ * Page d'accueil dynamique
  * My Invest Immobilier
  *
- * Portail permettant au locataire de :
- *  - S'identifier par son adresse email
- *  - Choisir entre "Déclaration d'anomalie" et "Procédure de Départ"
+ * Affiche la page marquée comme "page d'accueil" dans la table frontend_pages
+ * (champ is_homepage = 1). Si aucune page d'accueil n'est définie, redirige
+ * vers le portail locataire (/locataire/).
  *
- * La déclaration d'anomalie est gérée sur /signalement/form.php
+ * Le portail locataire est désormais accessible sur /locataire/.
  */
 
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/header-frontoffice.php';
 
-// ── État courant ──────────────────────────────────────────────────────────────
-$errors      = [];
-$state       = $_SESSION['portal_state']     ?? 'auth';
-$locataire   = $_SESSION['portal_locataire'] ?? null;
-$emailSaisi  = $_SESSION['portal_email']     ?? '';
+$companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+$siteUrl     = rtrim($config['SITE_URL'] ?? '', '/');
 
-// Sécurité : si les données de session locataire semblent incomplètes, revenir à l'authentification
-if ($locataire !== null && (empty($locataire['id']) || empty($locataire['contrat_id']))) {
-    $locataire = null;
-    $state     = 'auth';
-    unset($_SESSION['portal_state'], $_SESSION['portal_locataire'], $_SESSION['portal_email']);
+// ── Charger la page d'accueil définie en base ─────────────────────────────────
+$homePage = null;
+try {
+    $stmt = $pdo->query("
+        SELECT titre, contenu_html, meta_description
+        FROM frontend_pages
+        WHERE is_homepage = 1 AND actif = 1
+        LIMIT 1
+    ");
+    $homePage = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+} catch (Exception $e) {
+    // Table may not exist yet (migration pending) — fall through to redirect
+    error_log('index.php homepage query error: ' . $e->getMessage());
 }
 
-// Rediriger vers le formulaire si l'état est dans le wizard anomalie
-if (in_array($state, ['anomalie1', 'anomalie2', 'anomalie3'])) {
-    header('Location: /signalement/form.php');
+// If no homepage is defined in the CMS, redirect to the tenant portal
+if (!$homePage) {
+    header('Location: /locataire/');
     exit;
 }
 
-// ── Traitement des POST ────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+$pageTitle = htmlspecialchars($homePage['titre']);
+$metaDesc  = htmlspecialchars($homePage['meta_description'] ?? '');
 
-    // ── Authentification par email ─────────────────────────────────────────
-    if ($action === 'auth') {
-        $emailSaisi = strtolower(trim($_POST['email'] ?? ''));
-        if (!filter_var($emailSaisi, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Adresse email invalide.';
-        } else {
+/**
+ * Process [contact-form id=N] shortcodes embedded in page content.
+ * Returns the HTML with shortcodes replaced by rendered forms.
+ */
+function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
+{
+    return preg_replace_callback(
+        '/\[contact-form\s+id=["\']?(\d+)["\']?\]/i',
+        function (array $m) use ($pdo, $siteUrl): string {
+            $formId = (int)$m[1];
             try {
-                $stmt = $pdo->prepare("
-                    SELECT loc.id, loc.prenom, loc.nom, loc.email, loc.telephone,
-                           c.id as contrat_id, c.reference_unique as contrat_ref,
-                           l.id as logement_id, l.adresse, l.reference as logement_ref
-                    FROM locataires loc
-                    INNER JOIN contrats c ON loc.contrat_id = c.id
-                    INNER JOIN logements l ON c.logement_id = l.id
-                    WHERE LOWER(loc.email) = ?
-                      AND c.statut = 'valide'
-                      AND (c.date_prise_effet IS NULL OR c.date_prise_effet <= CURDATE())
-                    ORDER BY c.date_prise_effet DESC, c.id DESC
-                    LIMIT 1
-                ");
-                $stmt->execute([$emailSaisi]);
-                $locataire = $stmt->fetch(PDO::FETCH_ASSOC);
-            } catch (Exception $e) {
-                error_log('index.php portal auth DB error: ' . $e->getMessage());
-                $errors[] = 'Erreur interne. Veuillez réessayer plus tard.';
+                $stmt = $pdo->prepare("SELECT * FROM contact_forms WHERE id = ? AND actif = 1 LIMIT 1");
+                $stmt->execute([$formId]);
+                $form = $stmt->fetch(\PDO::FETCH_ASSOC);
+                if (!$form) {
+                    return '<!-- contact-form #' . $formId . ' not found -->';
+                }
+                $stmtF = $pdo->prepare("SELECT * FROM contact_form_fields WHERE form_id = ? ORDER BY ordre ASC, id ASC");
+                $stmtF->execute([$formId]);
+                $fields = $stmtF->fetchAll(\PDO::FETCH_ASSOC);
+                return renderContactFormHtml($form, $fields, $siteUrl);
+            } catch (\Exception $e) {
+                return '<!-- contact-form error: ' . htmlspecialchars($e->getMessage()) . ' -->';
             }
-
-            if (empty($errors) && !$locataire) {
-                $errors[] = "Aucun contrat actif trouvé pour cette adresse email. Vérifiez l'adresse saisie ou contactez votre gestionnaire.";
-            }
-
-            if (empty($errors) && $locataire) {
-                $_SESSION['portal_locataire'] = $locataire;
-                $_SESSION['portal_email']     = $emailSaisi;
-                $_SESSION['portal_state']     = 'choice';
-                $state = 'choice';
-            }
-        }
-
-    // ── Choix : anomalie ───────────────────────────────────────────────────
-    } elseif ($action === 'choose_anomalie' && $locataire) {
-        $_SESSION['portal_state'] = 'anomalie1';
-        header('Location: /signalement/form.php');
-        exit;
-
-    // ── Choix : procédure de départ ────────────────────────────────────────
-    } elseif ($action === 'choose_depart' && $locataire) {
-        $token = $locataire['contrat_ref'] ?? '';
-        header('Location: /signature/procedure-depart.php?token=' . urlencode($token));
-        exit;
-
-    // ── Déconnexion ────────────────────────────────────────────────────────
-    } elseif ($action === 'logout') {
-        unset($_SESSION['portal_state'], $_SESSION['portal_locataire'], $_SESSION['portal_email'], $_SESSION['portal_checklist']);
-        header('Location: index.php');
-        exit;
-    }
+        },
+        $html
+    );
 }
 
-$companyName  = $config['COMPANY_NAME']  ?? 'My Invest Immobilier';
-$siteUrl      = rtrim($config['SITE_URL'] ?? '', '/');
-$companyEmail = $config['COMPANY_EMAIL'] ?? '';
+/**
+ * Renders the HTML for a contact form.
+ */
+function renderContactFormHtml(array $form, array $fields, string $siteUrl): string
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $csrfKey = 'csrf_contact_form_' . (int)$form['id'];
+    if (empty($_SESSION[$csrfKey])) {
+        $_SESSION[$csrfKey] = bin2hex(random_bytes(16));
+    }
+    $csrfToken = $_SESSION[$csrfKey];
+
+    $formId = (int)$form['id'];
+    $html  = '<form method="POST" action="' . htmlspecialchars($siteUrl . '/contact-form-submit.php') . '" ';
+    $html .= 'class="contact-form-shortcode" data-form-id="' . $formId . '">';
+    $html .= '<input type="hidden" name="form_id" value="' . $formId . '">';
+    $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
+    foreach ($fields as $field) {
+        $name  = htmlspecialchars($field['nom_champ']);
+        $label = htmlspecialchars($field['label']);
+        $ph    = htmlspecialchars($field['placeholder'] ?? '');
+        $req   = $field['requis'] ? ' required' : '';
+        $html .= '<div class="mb-3">';
+        $html .= '<label class="form-label">' . $label . ($field['requis'] ? ' <span class="text-danger">*</span>' : '') . '</label>';
+        switch ($field['type_champ']) {
+            case 'textarea':
+                $html .= '<textarea name="' . $name . '" class="form-control" rows="4" placeholder="' . $ph . '"' . $req . '></textarea>';
+                break;
+            case 'select':
+                $opts = array_filter(array_map('trim', explode('|', $field['options'] ?? '')));
+                $html .= '<select name="' . $name . '" class="form-select"' . $req . '>';
+                $html .= '<option value="">— Choisir —</option>';
+                foreach ($opts as $opt) {
+                    $html .= '<option value="' . htmlspecialchars($opt) . '">' . htmlspecialchars($opt) . '</option>';
+                }
+                $html .= '</select>';
+                break;
+            case 'checkbox':
+                $html .= '<div class="form-check">';
+                $html .= '<input class="form-check-input" type="checkbox" name="' . $name . '" id="cf_' . $formId . '_' . $name . '" value="1"' . $req . '>';
+                $html .= '<label class="form-check-label" for="cf_' . $formId . '_' . $name . '">' . $label . '</label>';
+                $html .= '</div>';
+                break;
+            default:
+                $html .= '<input type="' . htmlspecialchars($field['type_champ']) . '" name="' . $name . '" class="form-control" placeholder="' . $ph . '"' . $req . '>';
+        }
+        $html .= '</div>';
+    }
+    $html .= '<button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>Envoyer</button>';
+    $html .= '</form>';
+    return $html;
+}
+
+// ── Menu de navigation ────────────────────────────────────────────────────────
+$menuItems = getFrontOfficeMenuItems();
+$currentUri = '/';
+
+$navHtml = '';
+if ($menuItems) {
+    $navHtml = '<nav class="fo-nav d-none d-lg-flex align-items-center gap-1">';
+    foreach ($menuItems as $item) {
+        $isActive = ($item['url'] === $currentUri) ? ' active' : '';
+        $targetAttr = ($item['target'] === '_blank') ? ' target="_blank" rel="noopener"' : '';
+        $iconHtml = !empty($item['icone']) ? '<i class="bi ' . htmlspecialchars($item['icone']) . ' me-1"></i>' : '';
+        $navHtml .= '<a class="fo-nav-link' . $isActive . '" href="' . htmlspecialchars($item['url']) . '"' . $targetAttr . '>'
+                  . $iconHtml . htmlspecialchars($item['label']) . '</a>';
+    }
+    $navHtml .= '</nav>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portail locataire — <?php echo htmlspecialchars($companyName); ?></title>
+    <title><?php echo $pageTitle; ?> — <?php echo htmlspecialchars($companyName); ?></title>
+    <?php if ($metaDesc): ?>
+    <meta name="description" content="<?php echo $metaDesc; ?>">
+    <?php endif; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($siteUrl . '/assets/css/frontoffice.css'); ?>">
     <style>
-        .portal-card {
+        body { background: #f0f4f8; color: #2c3e50; }
+        .site-header { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 15px 0; margin-bottom: 0; }
+        .site-header .brand { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
+        .header-logo { max-height: 50px; max-width: 160px; object-fit: contain; }
+        .page-content-wrapper {
             background: #fff;
             border-radius: 14px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            padding: 40px;
+            margin: 30px auto;
+            max-width: 960px;
         }
-        .portal-header {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: #fff;
-            padding: 32px 36px 26px;
-        }
-        .portal-body { padding: 36px; }
-        .choice-box {
-            display: block;
-            border: 2px solid #dee2e6;
-            border-radius: 12px;
-            padding: 28px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color .15s, background .15s, transform .1s;
-            text-decoration: none;
-            color: inherit;
-            background: #fff;
-            width: 100%;
-        }
-        .choice-box:hover {
-            border-color: #3498db;
-            background: #eaf4fd;
-            transform: translateY(-2px);
-        }
-        .choice-box .choice-icon  { font-size: 2.8rem; margin-bottom: 10px; }
-        .choice-box .choice-title { font-size: 1.05rem; font-weight: 700; color: #2c3e50; }
-        .choice-box .choice-desc  { font-size: 0.85rem; color: #6c757d; margin-top: 6px; }
+        .page-content-wrapper h1 { color: #2c3e50; }
+        .page-content-wrapper h2 { color: #2c3e50; font-size: 1.5rem; }
+        .page-content-wrapper h3 { color: #3498db; font-size: 1.2rem; }
+        .page-content-wrapper a { color: #3498db; }
+        footer { background: #2c3e50; color: rgba(255,255,255,0.7); padding: 24px 0; text-align: center; font-size: 0.85rem; margin-top: 40px; }
+        footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
+        footer a:hover { color: #fff; }
     </style>
 </head>
 <body>
-<?php
-require_once __DIR__ . '/includes/header-frontoffice.php';
-renderFrontOfficeHeader($siteUrl, $companyName);
-?>
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-6 col-md-8 col-12">
+<?php renderFrontOfficeHeader($siteUrl, $companyName, $navHtml ?: false); ?>
 
-            <div class="portal-card">
-
-                <?php /* ── En-tête ── */ ?>
-                <div class="portal-header">
-                    <h2 class="mb-1 fs-4">
-                        <?php if ($state === 'auth'): ?>
-                            <i class="bi bi-house-door me-2"></i>Portail locataire
-                        <?php elseif ($state === 'choice'): ?>
-                            <i class="bi bi-grid me-2"></i>Bonjour, <?php echo htmlspecialchars($locataire['prenom']); ?> !
-                        <?php endif; ?>
-                    </h2>
-                    <p class="mb-0 opacity-75" style="font-size:.92rem;">
-                        <?php if ($state === 'auth'): ?>
-                            <?php echo htmlspecialchars($companyName); ?>
-                        <?php elseif ($locataire): ?>
-                            <i class="bi bi-house me-1"></i><?php echo htmlspecialchars($locataire['adresse']); ?>
-                            <?php if (!empty($locataire['logement_ref'])): ?>
-                                &nbsp;—&nbsp;<span class="font-monospace"><?php echo htmlspecialchars($locataire['logement_ref']); ?></span>
-                            <?php endif; ?>
-                            &nbsp;—&nbsp;<i class="bi bi-person me-1"></i><?php echo htmlspecialchars($locataire['prenom'] . ' ' . $locataire['nom']); ?>
-                        <?php endif; ?>
-                    </p>
-                </div>
-
-                <div class="portal-body">
-
-                    <?php if (!empty($errors)): ?>
-                        <div class="alert alert-danger mb-4">
-                            <i class="bi bi-exclamation-circle-fill me-2"></i>
-                            <ul class="mb-0 ps-3">
-                                <?php foreach ($errors as $e): ?>
-                                    <li><?php echo htmlspecialchars($e); ?></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php /* ════════════════
-                     *  AUTHENTIFICATION
-                     * ════════════════ */ ?>
-                    <?php if ($state === 'auth'): ?>
-
-                        <p class="mb-1">
-                            Afin de traiter votre demande efficacement, une identification est requise.
-                        </p>
-                        <p class="text-muted mb-4">
-                            Merci de vous identifier avec l'adresse e-mail renseignée dans votre contrat de location.
-                        </p>
-
-                        <form method="POST" novalidate>
-                            <input type="hidden" name="action" value="auth">
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold" for="email">
-                                    Votre adresse e-mail <span class="text-danger">*</span>
-                                </label>
-                                <input type="email" class="form-control form-control-lg" id="email" name="email"
-                                       required autofocus placeholder="votre@email.fr"
-                                       value="<?php echo htmlspecialchars($emailSaisi); ?>">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-lg w-100">
-                                <i class="bi bi-arrow-right me-2"></i>Continuer
-                            </button>
-                        </form>
-
-                    <?php /* ════════════════
-                     *  CHOIX
-                     * ════════════════ */ ?>
-                    <?php elseif ($state === 'choice'): ?>
-
-                        <p class="text-muted mb-4">Que souhaitez-vous faire ?</p>
-
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <form method="POST">
-                                    <input type="hidden" name="action" value="choose_anomalie">
-                                    <button type="submit" class="choice-box border-0">
-                                        <div class="choice-icon">🛠️</div>
-                                        <div class="choice-title">Déclaration d'anomalie</div>
-                                        <div class="choice-desc">Signalez un problème dans votre logement</div>
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-md-6">
-                                <form method="POST">
-                                    <input type="hidden" name="action" value="choose_depart">
-                                    <button type="submit" class="choice-box border-0">
-                                        <div class="choice-icon">🏠</div>
-                                        <div class="choice-title">Procédure de Départ</div>
-                                        <div class="choice-desc">Initiez votre départ du logement</div>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <div class="text-end">
-                            <form method="POST" class="d-inline">
-                                <input type="hidden" name="action" value="logout">
-                                <button type="submit" class="btn btn-link btn-sm text-muted p-0">
-                                    <i class="bi bi-box-arrow-left me-1"></i>Se déconnecter
-                                </button>
-                            </form>
-                        </div>
-
-                    <?php endif; ?>
-
-                </div>
-            </div>
-
-            <?php if ($locataire && $state !== 'auth'): ?>
-            <p class="text-center mt-3 text-muted small">
-                <?php echo htmlspecialchars($companyName); ?>
-                <?php if (!empty($companyEmail)): ?>
-                    &nbsp;—&nbsp;<a href="mailto:<?php echo htmlspecialchars($companyEmail); ?>" class="text-muted"><?php echo htmlspecialchars($companyEmail); ?></a>
-                <?php endif; ?>
-            </p>
-            <?php endif; ?>
-
+<main>
+    <div class="page-content-wrapper">
+        <?php if (isset($_GET['cf_success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show mb-4">
+            <i class="bi bi-check-circle me-2"></i>
+            <?php
+            $cfFormId = isset($_GET['cf_form']) ? (int)$_GET['cf_form'] : 0;
+            $cfMsg = 'Votre message a bien été envoyé. Nous vous répondrons dans les plus brefs délais.';
+            if ($cfFormId > 0) {
+                try {
+                    $stmtCf = $pdo->prepare("SELECT message_confirmation FROM contact_forms WHERE id = ? LIMIT 1");
+                    $stmtCf->execute([$cfFormId]);
+                    $cfRow = $stmtCf->fetch(PDO::FETCH_ASSOC);
+                    if ($cfRow && trim($cfRow['message_confirmation']) !== '') {
+                        $cfMsg = $cfRow['message_confirmation'];
+                    }
+                } catch (Exception $e) {}
+            }
+            echo htmlspecialchars($cfMsg);
+            ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        <?php elseif (isset($_GET['cf_error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show mb-4">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <?php echo htmlspecialchars($_GET['cf_error']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        <?php
+        // The HTML content is stored by authenticated admin users only.
+        // Only trusted admin users should have access to the pages-frontoffice.php editor.
+        // Shortcodes like [contact-form id=N] are processed before output.
+        echo processShortcodes($homePage['contenu_html'], $pdo, $siteUrl);
+        ?>
     </div>
-</div>
+</main>
+
+<footer>
+    <div class="container">
+        <p class="mb-1">&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
+        <p class="mb-0">
+            <?php
+            $footerLinks = [];
+            foreach ($menuItems as $item) {
+                $footerLinks[] = '<a href="' . htmlspecialchars($item['url']) . '">' . htmlspecialchars($item['label']) . '</a>';
+            }
+            echo implode('&nbsp;·&nbsp;', $footerLinks);
+            ?>
+        </p>
+    </div>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

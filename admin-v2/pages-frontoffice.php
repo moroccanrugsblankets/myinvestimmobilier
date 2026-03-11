@@ -509,7 +509,7 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
     // On form submit: synchronise hidden field from active editor
     if (pageForm) {
         pageForm.addEventListener('submit', function () {
-            var isRaw = rawWrapper && rawWrapper.style.display !== 'none';
+            var isRaw = rawWrapper && rawWrapper.style.display === 'block';
             if (isRaw) {
                 hiddenInput.value = rawTextarea.value;
             } else {
