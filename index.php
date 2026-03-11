@@ -159,28 +159,23 @@ if ($menuItems) {
         .site-header { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 15px 0; margin-bottom: 0; }
         .site-header .brand { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
         .header-logo { max-height: 50px; max-width: 160px; object-fit: contain; }
-        .page-content-wrapper {
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-            padding: 40px;
-            margin: 30px auto;
-            max-width: 960px;
-        }
-        .page-content-wrapper h1 { color: #2c3e50; }
-        .page-content-wrapper h2 { color: #2c3e50; font-size: 1.5rem; }
-        .page-content-wrapper h3 { color: #3498db; font-size: 1.2rem; }
-        .page-content-wrapper a { color: #3498db; }
-        footer { background: #2c3e50; color: rgba(255,255,255,0.7); padding: 24px 0; text-align: center; font-size: 0.85rem; margin-top: 40px; }
+        /* Homepage: fullscreen, no max-width wrapper */
+        .homepage-content { width: 100%; overflow-x: hidden; }
+        .homepage-content img { max-width: 100%; height: auto; }
+        footer { background: #2c3e50; color: rgba(255,255,255,0.7); padding: 24px 0; text-align: center; font-size: 0.85rem; margin-top: 0; }
         footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
         footer a:hover { color: #fff; }
+        /* Alert messages on homepage */
+        .homepage-alerts { max-width: 900px; margin: 1rem auto; padding: 0 1rem; }
     </style>
 </head>
 <body>
 <?php renderFrontOfficeHeader($siteUrl, $companyName, $navHtml ?: false); ?>
 
 <main>
-    <div class="page-content-wrapper">
+    <div class="homepage-content">
+        <?php if (isset($_GET['cf_success']) || isset($_GET['cf_error'])): ?>
+        <div class="homepage-alerts">
         <?php if (isset($_GET['cf_success'])): ?>
         <div class="alert alert-success alert-dismissible fade show mb-4">
             <i class="bi bi-check-circle me-2"></i>
@@ -206,6 +201,8 @@ if ($menuItems) {
             <i class="bi bi-exclamation-triangle me-2"></i>
             <?php echo htmlspecialchars($_GET['cf_error']); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
         </div>
         <?php endif; ?>
         <?php

@@ -454,17 +454,125 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
         height: '600px',
         width: '100%',
         storageManager: false,
-        plugins: [
-            typeof gjsBlocksBasic !== 'undefined' ? gjsBlocksBasic : null
-        ].filter(Boolean),
+        plugins: ['grapesjs-blocks-basic'],
         pluginsOpts: {
-            'grapesjs-blocks-basic': {}
+            'grapesjs-blocks-basic': { flexGrid: true }
         },
         canvas: {
             styles: [
-                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css'
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+                'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css'
             ]
         }
+    });
+
+    // ── Blocs Bootstrap personnalisés ─────────────────────────────────────
+    var bm = editor.BlockManager;
+
+    bm.add('bs-carousel', {
+        label: 'Slider / Carrousel',
+        category: 'Bootstrap',
+        media: '<svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40"><path d="M2 7h20v10H2z" opacity=".3"/><path d="M22 5H2C.9 5 0 5.9 0 7v10c0 1.1.9 2 2 2h20c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 12H2V7h20v10zM7.5 13.5L10 10l2.5 3.01L14 11l3 4H7l.5-1.5z"/></svg>',
+        content: `<div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
+  <div class="carousel-indicators">
+    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active"></button>
+    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1"></button>
+    <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2"></button>
+  </div>
+  <div class="carousel-inner">
+    <div class="carousel-item active">
+      <img src="https://placehold.co/1920x600/2c3e50/ffffff?text=Image+1" class="d-block w-100" alt="Slide 1" style="object-fit:cover;height:500px;">
+      <div class="carousel-caption d-none d-md-block">
+        <h2 class="fw-bold">Titre du slide 1</h2>
+        <p>Description du slide 1</p>
+      </div>
+    </div>
+    <div class="carousel-item">
+      <img src="https://placehold.co/1920x600/3498db/ffffff?text=Image+2" class="d-block w-100" alt="Slide 2" style="object-fit:cover;height:500px;">
+      <div class="carousel-caption d-none d-md-block">
+        <h2 class="fw-bold">Titre du slide 2</h2>
+        <p>Description du slide 2</p>
+      </div>
+    </div>
+    <div class="carousel-item">
+      <img src="https://placehold.co/1920x600/2ecc71/ffffff?text=Image+3" class="d-block w-100" alt="Slide 3" style="object-fit:cover;height:500px;">
+      <div class="carousel-caption d-none d-md-block">
+        <h2 class="fw-bold">Titre du slide 3</h2>
+        <p>Description du slide 3</p>
+      </div>
+    </div>
+  </div>
+  <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+    <span class="carousel-control-prev-icon"></span>
+  </button>
+  <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+    <span class="carousel-control-next-icon"></span>
+  </button>
+</div>`
+    });
+
+    bm.add('bs-hero', {
+        label: 'Bloc hero',
+        category: 'Bootstrap',
+        media: '<svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40"><rect x="1" y="3" width="22" height="14" rx="1" opacity=".3"/><path d="M1 3h22v14H1z" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="19" width="18" height="2" rx="1" opacity=".5"/></svg>',
+        content: `<section class="py-5 text-white text-center" style="background:linear-gradient(135deg,#2c3e50,#3498db);min-height:60vh;display:flex;align-items:center;">
+  <div class="container">
+    <h1 class="display-4 fw-bold mb-3">Titre principal</h1>
+    <p class="lead mb-4">Sous-titre ou description de votre activité</p>
+    <a href="#" class="btn btn-light btn-lg px-4 me-2">En savoir plus</a>
+    <a href="#" class="btn btn-outline-light btn-lg px-4">Nous contacter</a>
+  </div>
+</section>`
+    });
+
+    bm.add('bs-cols-2', {
+        label: '2 colonnes',
+        category: 'Bootstrap',
+        media: '<svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40"><rect x="1" y="4" width="10" height="16" rx="1" opacity=".4"/><rect x="13" y="4" width="10" height="16" rx="1" opacity=".4"/></svg>',
+        content: `<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <h3>Colonne gauche</h3>
+      <p>Contenu de la colonne gauche. Modifiez ce texte selon vos besoins.</p>
+    </div>
+    <div class="col-md-6">
+      <h3>Colonne droite</h3>
+      <p>Contenu de la colonne droite. Modifiez ce texte selon vos besoins.</p>
+    </div>
+  </div>
+</div>`
+    });
+
+    bm.add('bs-cols-3', {
+        label: '3 colonnes',
+        category: 'Bootstrap',
+        media: '<svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40"><rect x="1" y="4" width="6" height="16" rx="1" opacity=".4"/><rect x="9" y="4" width="6" height="16" rx="1" opacity=".4"/><rect x="17" y="4" width="6" height="16" rx="1" opacity=".4"/></svg>',
+        content: `<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-md-4 text-center">
+      <div class="p-3"><i class="bi bi-star-fill fs-1 text-primary mb-3 d-block"></i><h4>Service 1</h4><p>Description du premier service ou avantage.</p></div>
+    </div>
+    <div class="col-md-4 text-center">
+      <div class="p-3"><i class="bi bi-shield-check fs-1 text-primary mb-3 d-block"></i><h4>Service 2</h4><p>Description du deuxième service ou avantage.</p></div>
+    </div>
+    <div class="col-md-4 text-center">
+      <div class="p-3"><i class="bi bi-people-fill fs-1 text-primary mb-3 d-block"></i><h4>Service 3</h4><p>Description du troisième service ou avantage.</p></div>
+    </div>
+  </div>
+</div>`
+    });
+
+    bm.add('bs-cta', {
+        label: "Appel à l'action",
+        category: 'Bootstrap',
+        media: '<svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40"><rect x="2" y="8" width="20" height="8" rx="4" opacity=".4"/><path d="M12 10v4M10 12h4" stroke="currentColor" stroke-width="1.5"/></svg>',
+        content: `<section class="py-5 bg-primary text-white text-center">
+  <div class="container">
+    <h2 class="fw-bold mb-3">Passez à l'action</h2>
+    <p class="lead mb-4">Rejoignez-nous dès aujourd'hui et profitez de nos services.</p>
+    <a href="#" class="btn btn-light btn-lg px-5">Commencer maintenant</a>
+  </div>
+</section>`
     });
 
     // Extract all <style> blocks from an HTML string and return { html, css }.

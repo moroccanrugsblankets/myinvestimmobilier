@@ -72,9 +72,9 @@ $metaDesc    = $page ? htmlspecialchars($page['meta_description'] ?? '') : '';
             background: #fff;
             border-radius: 14px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-            padding: 40px;
+            padding: 40px 48px;
             margin: 30px auto;
-            max-width: 960px;
+            max-width: 1400px;
         }
         .page-content-wrapper h1 { color: #2c3e50; }
         .page-content-wrapper h2 { color: #2c3e50; font-size: 1.5rem; }
