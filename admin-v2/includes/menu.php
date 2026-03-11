@@ -63,7 +63,10 @@ $page_to_menu_map = [
     'guide-reparations.php'   => 'signalements.php',
     'gestion-decomptes.php'   => 'signalements.php',
     'decompte-detail.php'     => 'signalements.php',
-    'pages-frontoffice.php'       => 'menu-frontoffice.php',
+    'pages-frontoffice.php'         => 'pages-frontoffice.php',
+    'menu-frontoffice.php'          => 'pages-frontoffice.php',
+    'formulaires-contact.php'       => 'pages-frontoffice.php',
+    'formulaire-contact-detail.php' => 'pages-frontoffice.php',
     'candidatures-configuration.php' => 'candidatures.php',
 ];
 
@@ -237,19 +240,24 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link <?php echo $active_menu === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php">
+            <a class="nav-link <?php echo $active_menu === 'pages-frontoffice.php' ? 'active' : ''; ?>" href="pages-frontoffice.php">
                 <i class="bi bi-layout-text-window-reverse"></i> Site public
             </a>
-            <?php if ($active_menu === 'menu-frontoffice.php'): ?>
+            <?php if ($active_menu === 'pages-frontoffice.php'): ?>
             <ul class="nav flex-column ms-3">
-                <li class="nav-item">
-                    <a class="nav-link <?php echo $current_page === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
-                        <i class="bi bi-list"></i> Menu
-                    </a>
-                </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'pages-frontoffice.php' ? 'active' : ''; ?>" href="pages-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-file-richtext"></i> Pages
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'formulaires-contact.php' || $current_page === 'formulaire-contact-detail.php' ? 'active' : ''; ?>" href="formulaires-contact.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-envelope-at"></i> Formulaires de contact
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'menu-frontoffice.php' ? 'active' : ''; ?>" href="menu-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-list"></i> Menu
                     </a>
                 </li>
             </ul>
