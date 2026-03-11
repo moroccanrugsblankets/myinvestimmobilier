@@ -129,19 +129,6 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl): str
 // ── Menu de navigation ────────────────────────────────────────────────────────
 $menuItems = getFrontOfficeMenuItems();
 $currentUri = '/';
-
-$navHtml = '';
-if ($menuItems) {
-    $navHtml = '<nav class="fo-nav d-none d-lg-flex align-items-center gap-1">';
-    foreach ($menuItems as $item) {
-        $isActive = ($item['url'] === $currentUri) ? ' active' : '';
-        $targetAttr = ($item['target'] === '_blank') ? ' target="_blank" rel="noopener"' : '';
-        $iconHtml = !empty($item['icone']) ? '<i class="bi ' . htmlspecialchars($item['icone']) . ' me-1"></i>' : '';
-        $navHtml .= '<a class="fo-nav-link' . $isActive . '" href="' . htmlspecialchars($item['url']) . '"' . $targetAttr . '>'
-                  . $iconHtml . htmlspecialchars($item['label']) . '</a>';
-    }
-    $navHtml .= '</nav>';
-}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -170,7 +157,7 @@ if ($menuItems) {
     </style>
 </head>
 <body>
-<?php renderFrontOfficeHeader($siteUrl, $companyName, $navHtml ?: false); ?>
+<?php renderFrontOfficeHeader($siteUrl, $companyName, null, $currentUri); ?>
 
 <main>
     <div class="homepage-content">
