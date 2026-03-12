@@ -165,15 +165,15 @@ function ensureShowTitreBlocColumn(PDO $pdo): bool
 }
 
 // ── Chargement des données ────────────────────────────────────────────────────
+// Ensure optional columns exist before the main query so the UI is always
+// functional regardless of whether the migrations have been run.
+$hasHomepageCol      = ensureHomepageColumn($pdo);
+$hasShowTitreBlocCol = ensureShowTitreBlocColumn($pdo);
+
 $pages = [];
-$hasHomepageCol      = false;
-$hasShowTitreBlocCol = false;
 try {
     $pages = $pdo->query("SELECT * FROM frontend_pages ORDER BY ordre ASC, id ASC")
         ->fetchAll(PDO::FETCH_ASSOC);
-    // Ensure optional columns exist (auto-add if missing so UI is always functional)
-    $hasHomepageCol      = ensureHomepageColumn($pdo);
-    $hasShowTitreBlocCol = ensureShowTitreBlocColumn($pdo);
 } catch (Exception $e) {
     $tableError = true;
 }
@@ -385,9 +385,7 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                                 <th>URL</th>
                                 <th class="text-center" style="width:80px;">Ordre</th>
                                 <th class="text-center" style="width:90px;">Visible</th>
-                                <?php if ($hasHomepageCol): ?>
                                 <th class="text-center" style="width:90px;">Accueil</th>
-                                <?php endif; ?>
                                 <th style="width:160px;"></th>
                             </tr>
                         </thead>
@@ -418,9 +416,8 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                                     </button>
                                 </form>
                             </td>
-                            <?php if ($hasHomepageCol): ?>
                             <td class="text-center">
-                                <?php if (!empty($page['is_homepage'])): ?>
+                                <?php if (!empty($page['is_homepage'] ?? 0)): ?>
                                     <span class="badge bg-warning text-dark" title="Page d'accueil actuelle">
                                         <i class="bi bi-house-heart-fill"></i> Accueil
                                     </span>
@@ -435,7 +432,6 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                                     </form>
                                 <?php endif; ?>
                             </td>
-                            <?php endif; ?>
                             <td class="text-end">
                                 <a href="pages-frontoffice.php?edit=<?php echo $page['id']; ?>" class="btn btn-sm btn-outline-primary me-1" title="Modifier">
                                     <i class="bi bi-pencil"></i>
@@ -508,6 +504,15 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
         plugins: ['grapesjs-blocks-basic'],
         pluginsOpts: {
             'grapesjs-blocks-basic': { flexGrid: true }
+        },
+        assetManager: {
+            // Upload images to the server so GrapesJS stores absolute URLs
+            // instead of converting them to base64 data URIs.
+            upload: 'upload-page-image.php',
+            uploadName: 'files',
+            credentials: 'same-origin',
+            multiUpload: true,
+            autoAdd: true,
         },
         canvas: {
             styles: [
