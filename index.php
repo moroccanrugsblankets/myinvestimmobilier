@@ -125,7 +125,7 @@ function renderSearchLogementsHtml(string $siteUrl): string
     // On construit le formulaire avec la nouvelle structure sémantique
     return '<form method="GET" action="' . $action . '" class="search-logements-form" role="search">'
         . '  <div class="search-icon-wrapper">'
-        . '    <i class="bi bi-search"></i>'
+        . '    🔍<i class="bi bi-search"></i>'
         . '  </div>'
         . '  <div class="search-fields-wrapper">'
         . '    <label for="ref-input">Référence logement :</label>'
