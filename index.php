@@ -103,6 +103,7 @@ function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
  * Renders a property-search form that redirects to /logements.php?ref=<value>.
  * Submits on button click OR pressing the Enter key.
  */
+/*
 function renderSearchLogementsHtml(string $siteUrl): string
 {
     $action = htmlspecialchars(rtrim($siteUrl, '/') . '/logements.php');
@@ -113,6 +114,28 @@ function renderSearchLogementsHtml(string $siteUrl): string
         . '<button type="submit" class="btn btn-warning btn-lg px-4">'
         . '<i class="bi bi-search me-1"></i>Rechercher'
         . '</button>'
+        . '</form>';
+}
+*/
+
+function renderSearchLogementsHtml(string $siteUrl): string
+{
+    $action = htmlspecialchars(rtrim($siteUrl, '/') . '/logements.php');
+    
+    // On construit le formulaire avec la nouvelle structure sémantique
+    return '<form method="GET" action="' . $action . '" class="search-logements-form" role="search">'
+        . '  <div class="search-icon-wrapper">'
+        . '    <i class="bi bi-search"></i>'
+        . '  </div>'
+        . '  <div class="search-fields-wrapper">'
+        . '    <label for="ref-input">Référence logement :</label>'
+        . '    <input type="text" id="ref-input" name="ref" class="form-control"'
+        . '     placeholder="ex : RF-001"'
+        . '     aria-label="Référence du logement" required>'
+        . '  </div>'
+        . '  <button type="submit" class="btn-search-submit">'
+        . '    <i class="bi bi-arrow-right"></i>'
+        . '  </button>'
         . '</form>';
 }
 
