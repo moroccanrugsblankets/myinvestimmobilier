@@ -136,6 +136,7 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
                          alt="<?php echo htmlspecialchars($companyName); ?>"
                          class="header-logo js-logo-img">
                     <span class="js-logo-fallback" style="display:none;"><?php echo htmlspecialchars($companyName); ?></span>
+                    <span class="company-name"><?php echo htmlspecialchars($companyName); ?></span>
                 <?php else: ?>
                     <i class="bi bi-building me-1"></i><?php echo htmlspecialchars($companyName); ?>
                 <?php endif; ?>
@@ -172,6 +173,12 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
     border-radius: 8px;
     font-size: 1rem;
 }
+.site-header .company-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2c3e50;
+    white-space: nowrap;
+}
 </style>
 <?php if ($logoSrc): ?>
 <script>
@@ -182,6 +189,8 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
             img.style.display = 'none';
             var fallback = document.querySelector('.site-header .js-logo-fallback');
             if (fallback) { fallback.style.display = 'inline'; }
+            var companyName = document.querySelector('.site-header .company-name');
+            if (companyName) { companyName.style.display = 'none'; }
         });
     }
 }());

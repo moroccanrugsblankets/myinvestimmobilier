@@ -27,7 +27,7 @@ $page = null;
 if ($slug !== '') {
     try {
         $stmt = $pdo->prepare("
-            SELECT titre, contenu_html, meta_description
+            SELECT titre, contenu_html, meta_description, show_titre_bloc
             FROM frontend_pages
             WHERE slug = ? AND actif = 1
             LIMIT 1
@@ -36,6 +36,19 @@ if ($slug !== '') {
         $page = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         error_log('page.php DB error: ' . $e->getMessage());
+        // Retry without show_titre_bloc in case column doesn't exist yet
+        try {
+            $stmt = $pdo->prepare("
+                SELECT titre, contenu_html, meta_description
+                FROM frontend_pages
+                WHERE slug = ? AND actif = 1
+                LIMIT 1
+            ");
+            $stmt->execute([$slug]);
+            $page = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e2) {
+            error_log('page.php DB error (retry): ' . $e2->getMessage());
+        }
     }
 }
 
@@ -59,15 +72,8 @@ $metaDesc    = $page ? htmlspecialchars($page['meta_description'] ?? '') : '';
     <?php endif; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/assets/css/frontoffice.css'); ?>">
     <style>
-        body { background: #f0f4f8; color: #2c3e50; }
-        .site-header { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 15px 0; margin-bottom: 0; }
-        .site-header .brand { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
-        .header-logo { max-height: 50px; max-width: 160px; object-fit: contain; }
-        .nav-frontoffice { display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; }
-        .nav-frontoffice .nav-link { color: #555; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: background .2s, color .2s; }
-        .nav-frontoffice .nav-link:hover,
-        .nav-frontoffice .nav-link.active { background: #eef4fb; color: #3498db; }
         .page-content-wrapper {
             background: #fff;
             border-radius: 14px;
@@ -92,18 +98,7 @@ $metaDesc    = $page ? htmlspecialchars($page['meta_description'] ?? '') : '';
 </head>
 <body>
 <?php
-// Load configurable menu for navigation
-$menuItems = [];
-try {
-    $stmtMenu = $pdo->query("SELECT label, url, target, icone FROM frontend_menu_items WHERE actif = 1 ORDER BY ordre ASC");
-    $menuItems = $stmtMenu->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // menu table might not exist yet
-}
-
 // Support both legacy (/page.php?slug=X) and SEO-friendly (/X/) URL formats for active detection
-$currentUrl = '/page.php?slug=' . urlencode($slug);
-$currentUrlSeo = '/' . $slug . '/';
 $currentUrlSeoNoSlash = '/' . $slug;
 
 /**
@@ -191,28 +186,29 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl): str
     return $html;
 }
 
-$navHtml = '';
-if ($menuItems) {
-    $navHtml = '<nav class="nav-frontoffice">';
-    foreach ($menuItems as $item) {
-        $isActive = (
-            $item['url'] === $currentUrl ||
-            $item['url'] === $currentUrlSeo ||
-            $item['url'] === $currentUrlSeoNoSlash
-        ) ? ' active' : '';
-        $targetAttr = ($item['target'] === '_blank') ? ' target="_blank" rel="noopener"' : '';
-        $iconHtml = !empty($item['icone']) ? '<i class="bi ' . htmlspecialchars($item['icone']) . ' me-1"></i>' : '';
-        $navHtml .= '<a class="nav-link' . $isActive . '" href="' . htmlspecialchars($item['url']) . '"' . $targetAttr . '>'
-                  . $iconHtml . htmlspecialchars($item['label']) . '</a>';
-    }
-    $navHtml .= '</nav>';
+// Load menu items for footer (header menu is auto-loaded via renderFrontOfficeHeader)
+$menuItems = [];
+try {
+    $stmtMenu = $pdo->query("SELECT label, url FROM frontend_menu_items WHERE actif = 1 ORDER BY ordre ASC");
+    $menuItems = $stmtMenu->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // menu table might not exist yet
 }
 
-renderFrontOfficeHeader($siteUrl, $companyName, $navHtml);
+renderFrontOfficeHeader($siteUrl, $companyName, null, $currentUrlSeoNoSlash);
 ?>
 
 <main>
-<?php if ($page): ?>
+<?php if ($page):
+    $showTitreBloc = !array_key_exists('show_titre_bloc', $page) || (int)$page['show_titre_bloc'] !== 0;
+?>
+<?php if ($showTitreBloc): ?>
+<div class="page-titre-bloc">
+    <div class="container">
+        <h1><?php echo htmlspecialchars($page['titre']); ?></h1>
+    </div>
+</div>
+<?php endif; ?>
     <div class="page-content-wrapper">
         <?php
         // Show contact form submission feedback (success/error from contact-form-submit.php redirect)
@@ -266,8 +262,8 @@ renderFrontOfficeHeader($siteUrl, $companyName, $navHtml);
 <?php endif; ?>
 </main>
 
-<footer>
-    <div class="container">
+<footer class="site-footer">
+    <div class="container text-center">
         <p class="mb-1">&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
         <p class="mb-0">
             <a href="<?php echo htmlspecialchars($siteUrl); ?>/logements.php">Logements</a>

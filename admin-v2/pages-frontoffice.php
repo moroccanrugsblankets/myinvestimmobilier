@@ -16,58 +16,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'save_page') {
-        $id          = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-        $slug        = trim(strtolower(preg_replace('/[^a-z0-9\-]/', '-', $_POST['slug'] ?? '')));
-        $slug        = preg_replace('/-{2,}/', '-', trim($slug, '-'));
-        $titre       = trim($_POST['titre'] ?? '');
-        $contenu     = $_POST['contenu_html'] ?? '';
-        $metaDesc    = trim($_POST['meta_description'] ?? '');
-        $actif       = isset($_POST['actif']) ? 1 : 0;
-        $ordre       = isset($_POST['ordre']) ? (int)$_POST['ordre'] : 0;
-        $isHomepage  = isset($_POST['is_homepage']) ? 1 : 0;
+        $id             = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        $slug           = trim(strtolower(preg_replace('/[^a-z0-9\-]/', '-', $_POST['slug'] ?? '')));
+        $slug           = preg_replace('/-{2,}/', '-', trim($slug, '-'));
+        $titre          = trim($_POST['titre'] ?? '');
+        $contenu        = $_POST['contenu_html'] ?? '';
+        $metaDesc       = trim($_POST['meta_description'] ?? '');
+        $actif          = isset($_POST['actif']) ? 1 : 0;
+        $ordre          = isset($_POST['ordre']) ? (int)$_POST['ordre'] : 0;
+        $isHomepage     = isset($_POST['is_homepage']) ? 1 : 0;
+        $showTitreBloc  = isset($_POST['show_titre_bloc']) ? 1 : 0;
 
         if (empty($slug) || empty($titre)) {
             $_SESSION['error'] = 'Le slug et le titre sont obligatoires.';
         } else {
-            // Ensure is_homepage column exists (auto-add if missing)
-            $hasHomepageCol = ensureHomepageColumn($pdo);
+            // Ensure optional columns exist (auto-add if missing)
+            $hasHomepageCol    = ensureHomepageColumn($pdo);
+            $hasShowTitreBlocCol = ensureShowTitreBlocColumn($pdo);
             if ($isHomepage && $hasHomepageCol) {
                 // Only one homepage at a time — clear existing before setting new
                 $pdo->prepare("UPDATE frontend_pages SET is_homepage = 0 WHERE id != ?")->execute([$id]);
             }
             if ($id > 0) {
+                $setClauses = "slug = ?, titre = ?, contenu_html = ?, meta_description = ?, actif = ?, ordre = ?";
+                $params     = [$slug, $titre, $contenu, $metaDesc, $actif, $ordre];
                 if ($hasHomepageCol) {
-                    $stmt = $pdo->prepare("
-                        UPDATE frontend_pages
-                        SET slug = ?, titre = ?, contenu_html = ?, meta_description = ?,
-                            actif = ?, ordre = ?, is_homepage = ?, updated_at = NOW()
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([$slug, $titre, $contenu, $metaDesc, $actif, $ordre, $isHomepage, $id]);
-                } else {
-                    $stmt = $pdo->prepare("
-                        UPDATE frontend_pages
-                        SET slug = ?, titre = ?, contenu_html = ?, meta_description = ?,
-                            actif = ?, ordre = ?, updated_at = NOW()
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([$slug, $titre, $contenu, $metaDesc, $actif, $ordre, $id]);
+                    $setClauses .= ", is_homepage = ?";
+                    $params[]    = $isHomepage;
                 }
+                if ($hasShowTitreBlocCol) {
+                    $setClauses .= ", show_titre_bloc = ?";
+                    $params[]    = $showTitreBloc;
+                }
+                $setClauses .= ", updated_at = NOW()";
+                $params[]    = $id;
+                $stmt = $pdo->prepare("UPDATE frontend_pages SET {$setClauses} WHERE id = ?");
+                $stmt->execute($params);
                 $_SESSION['success'] = 'Page mise à jour.';
             } else {
+                $cols   = "slug, titre, contenu_html, meta_description, actif, ordre";
+                $placeholders = "?, ?, ?, ?, ?, ?";
+                $params = [$slug, $titre, $contenu, $metaDesc, $actif, $ordre];
                 if ($hasHomepageCol) {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO frontend_pages (slug, titre, contenu_html, meta_description, actif, ordre, is_homepage)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ");
-                    $stmt->execute([$slug, $titre, $contenu, $metaDesc, $actif, $ordre, $isHomepage]);
-                } else {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO frontend_pages (slug, titre, contenu_html, meta_description, actif, ordre)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    ");
-                    $stmt->execute([$slug, $titre, $contenu, $metaDesc, $actif, $ordre]);
+                    $cols         .= ", is_homepage";
+                    $placeholders .= ", ?";
+                    $params[]      = $isHomepage;
                 }
+                if ($hasShowTitreBlocCol) {
+                    $cols         .= ", show_titre_bloc";
+                    $placeholders .= ", ?";
+                    $params[]      = $showTitreBloc;
+                }
+                $stmt = $pdo->prepare("INSERT INTO frontend_pages ({$cols}) VALUES ({$placeholders})");
+                $stmt->execute($params);
                 $_SESSION['success'] = 'Page créée.';
             }
         }
@@ -145,14 +146,34 @@ function ensureHomepageColumn(PDO $pdo): bool
     }
 }
 
+/**
+ * Ensures the show_titre_bloc column exists in frontend_pages, adding it if missing.
+ * Returns true when the column is available, false otherwise.
+ */
+function ensureShowTitreBlocColumn(PDO $pdo): bool
+{
+    if (columnExists($pdo, 'frontend_pages', 'show_titre_bloc')) {
+        return true;
+    }
+    try {
+        $pdo->exec("ALTER TABLE frontend_pages ADD COLUMN show_titre_bloc TINYINT(1) NOT NULL DEFAULT 1 AFTER is_homepage");
+        return true;
+    } catch (Exception $e) {
+        // Column may have been added by a concurrent request — re-check
+        return columnExists($pdo, 'frontend_pages', 'show_titre_bloc');
+    }
+}
+
 // ── Chargement des données ────────────────────────────────────────────────────
 $pages = [];
-$hasHomepageCol = false;
+$hasHomepageCol      = false;
+$hasShowTitreBlocCol = false;
 try {
     $pages = $pdo->query("SELECT * FROM frontend_pages ORDER BY ordre ASC, id ASC")
         ->fetchAll(PDO::FETCH_ASSOC);
-    // Ensure is_homepage column exists (auto-add if missing so UI is always functional)
-    $hasHomepageCol = ensureHomepageColumn($pdo);
+    // Ensure optional columns exist (auto-add if missing so UI is always functional)
+    $hasHomepageCol      = ensureHomepageColumn($pdo);
+    $hasShowTitreBlocCol = ensureShowTitreBlocColumn($pdo);
 } catch (Exception $e) {
     $tableError = true;
 }
@@ -322,6 +343,15 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                                        <?php echo (!empty($editPage['is_homepage'])) ? 'checked' : ''; ?>>
                                 <label class="form-check-label" for="homepageSwitch">
                                     <i class="bi bi-house-heart me-1 text-warning"></i>Page d'accueil
+                                </label>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($hasShowTitreBlocCol): ?>
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" name="show_titre_bloc" id="showTitreBlocSwitch"
+                                       <?php echo (!$editPage || !empty($editPage['show_titre_bloc'])) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="showTitreBlocSwitch">
+                                    <i class="bi bi-type-h1 me-1 text-info"></i>Afficher le bloc titre
                                 </label>
                             </div>
                             <?php endif; ?>

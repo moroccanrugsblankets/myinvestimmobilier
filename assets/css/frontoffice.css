@@ -335,3 +335,19 @@ body {
     max-width: 480px;
     margin: 0 auto;
 }
+
+/* ── Page title block (pages publiques CMS) ───────────────────────────────── */
+.page-titre-bloc {
+    background: #1a2a47;
+    color: #ffffff;
+    text-align: center;
+    padding: 2.5rem 1rem;
+    width: 100%;
+}
+
+.page-titre-bloc h1 {
+    color: #ffffff;
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+}
