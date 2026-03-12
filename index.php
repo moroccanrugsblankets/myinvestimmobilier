@@ -124,13 +124,12 @@ function renderSearchLogementsHtml(string $siteUrl): string
     return '<form method="GET" action="' . $action . '" class="search-logements-form" role="search">'
         . '<div class="search-icon">🔍</div>'
         . '<div class="search-text">'
-        . '  <label>Référence logement :</label>'
-        . '  <input type="text" name="ref" class="form-control" placeholder="Ex: RF-001" aria-label="Référence">'
+        . '<label>Référence logement :</label>'
+        . '<input type="text" name="ref" class="form-control" placeholder="Ex: RF-001" aria-label="Référence">'
         . '</div>'
         . '<button type="submit" class="search-btn"></button>'
         . '</form>';
 }
-
 /**
  * Renders the HTML for a contact form.
  */
