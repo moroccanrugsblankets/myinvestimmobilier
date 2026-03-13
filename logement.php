@@ -479,6 +479,16 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
             </div>
             <?php endif; ?>
 
+            <?php if ($isDisponible): ?>
+            <!-- CTA Candidature -->
+            <div class="section-card">
+                <a href="<?php echo htmlspecialchars($lienCandidature); ?>"
+                   class="btn btn-primary w-100 btn-lg">
+                    <i class="bi bi-person-plus me-2"></i>Déposer ma candidature
+                </a>
+            </div>
+            <?php endif; ?>
+
         </div><!-- /col-lg-8 -->
 
         <!-- Right Column: CTA & Infos -->
@@ -556,16 +566,6 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
                     </li>
                 </ul>
             </div>
-
-            <?php if ($isDisponible): ?>
-            <!-- CTA Candidature -->
-            <div class="section-card">
-                <a href="<?php echo htmlspecialchars($lienCandidature); ?>"
-                   class="btn btn-primary w-100 btn-lg">
-                    <i class="bi bi-person-plus me-2"></i>Déposer ma candidature
-                </a>
-            </div>
-            <?php endif; ?>
 
         </div><!-- /col-lg-4 -->
     </div><!-- /row -->
