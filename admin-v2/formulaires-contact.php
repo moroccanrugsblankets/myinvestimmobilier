@@ -683,7 +683,7 @@ if (isset($_GET['edit'])) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- TinyMCE (loaded only on form detail page where the template editor is shown) -->
 <?php if ($currentForm): ?>
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
