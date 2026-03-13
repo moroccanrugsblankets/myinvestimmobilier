@@ -1317,6 +1317,14 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                 hiddenInput.value = buildCombined(editor.getHtml() || '', editor.getCss() || '');
             }
         });
+
+        // Prevent Enter key from submitting the form when typing inside GrapesJS panels
+        // (e.g. when adding a CSS class to an element via the selector/style manager)
+        pageForm.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.closest('#gjs')) {
+                e.preventDefault();
+            }
+        });
     }
 }());
 </script>

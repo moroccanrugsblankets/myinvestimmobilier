@@ -107,12 +107,42 @@ try {
 if (!empty($form['email_dest'])) {
     try {
         require_once __DIR__ . '/includes/mail-templates.php';
-        $bodyLines = [];
-        foreach ($donnees as $k => $v) {
-            $bodyLines[] = '<strong>' . htmlspecialchars($k) . '</strong> : ' . htmlspecialchars(is_array($v) ? implode(', ', $v) : $v);
+        require_once __DIR__ . '/includes/functions.php';
+
+        // Resolve {{company}} from config / parametres
+        $companyName = $config['COMPANY_NAME'] ?? '';
+        if (empty($companyName)) {
+            try {
+                $stmtC = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'nom_societe' LIMIT 1");
+                $stmtC->execute();
+                $row = $stmtC->fetch(PDO::FETCH_ASSOC);
+                $companyName = $row['valeur'] ?? '';
+            } catch (Exception $e) {}
         }
-        $bodyHtml = '<p>Nouvelle soumission du formulaire <strong>' . htmlspecialchars($form['nom']) . '</strong> :</p>'
-                  . '<ul><li>' . implode('</li><li>', $bodyLines) . '</li></ul>';
+
+        $customTemplate = trim($form['email_template'] ?? '');
+
+        if ($customTemplate !== '') {
+            // Build variable map: form fields + site variables
+            $variables = array_merge(
+                $donnees,
+                [
+                    'form_name' => $form['nom'],
+                    'company'   => $companyName,
+                ]
+            );
+            $bodyHtml = replaceTemplateVariables($customTemplate, $variables);
+            // {{signature}} is handled by sendEmail() (defined in includes/mail-templates.php)
+        } else {
+            // Default template: simple list of submitted values
+            $bodyLines = [];
+            foreach ($donnees as $k => $v) {
+                $bodyLines[] = '<strong>' . htmlspecialchars($k) . '</strong> : ' . htmlspecialchars(is_array($v) ? implode(', ', $v) : $v);
+            }
+            $bodyHtml = '<p>Nouvelle soumission du formulaire <strong>' . htmlspecialchars($form['nom']) . '</strong> :</p>'
+                      . '<ul><li>' . implode('</li><li>', $bodyLines) . '</li></ul>';
+        }
+
         sendEmail(
             $form['email_dest'],
             'Nouveau message — ' . $form['nom'],

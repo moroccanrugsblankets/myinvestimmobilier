@@ -11,6 +11,22 @@ require_once '../includes/config.php';
 require_once 'auth.php';
 require_once '../includes/db.php';
 
+// ── Helper: ensure email_template column exists ───────────────────────────────
+function ensureEmailTemplateColumn(PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM `contact_forms` LIKE 'email_template'");
+        $stmt->execute();
+        if ($stmt->fetch()) {
+            return true;
+        }
+        $pdo->exec("ALTER TABLE contact_forms ADD COLUMN email_template MEDIUMTEXT NULL DEFAULT NULL AFTER message_confirmation");
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
 // ── Actions POST ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle AJAX drag-and-drop reorder (JSON body, ?reorder=1)
@@ -123,10 +139,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: formulaires-contact.php?form=' . $formId);
         exit;
 
+    } elseif ($action === 'save_form_template') {
+        $formId   = isset($_POST['form_id']) ? (int)$_POST['form_id'] : 0;
+        $template = $_POST['email_template'] ?? null;
+        if ($formId > 0 && ensureEmailTemplateColumn($pdo)) {
+            $pdo->prepare("UPDATE contact_forms SET email_template = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$template ?: null, $formId]);
+            $_SESSION['success'] = 'Template d\'email mis à jour.';
+        }
+        header('Location: formulaires-contact.php?form=' . $formId);
+        exit;
+
     }
 }
 
 // ── Chargement des données ────────────────────────────────────────────────────
+// Ensure email_template column exists so the UI is always functional
+ensureEmailTemplateColumn($pdo);
+
 $forms = [];
 try {
     $forms = $pdo->query("SELECT * FROM contact_forms ORDER BY id DESC")
@@ -421,6 +451,75 @@ if (isset($_GET['edit'])) {
         </div>
     </div>
 
+    <!-- ── Template email ── -->
+    <?php
+    $defaultEmailTemplate = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Nouveau message — {{form_name}}</h2>
+  <p>Vous avez reçu un nouveau message via le formulaire de contact de votre site.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+' . implode("\n", array_map(function($fld) {
+    return '    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 8px 12px; font-weight: bold; width: 35%; background: #f8f9fa;">' . htmlspecialchars($fld['label']) . '</td>
+      <td style="padding: 8px 12px;">{{' . htmlspecialchars($fld['nom_champ']) . '}}</td>
+    </tr>';
+}, $formFields)) . '
+  </table>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+  <p style="color: #666; font-size: 12px;">Ce message a été envoyé automatiquement par {{company}}.</p>
+  {{signature}}
+</div>';
+    $currentTemplate = !empty($currentForm['email_template']) ? $currentForm['email_template'] : '';
+    $templateToShow  = $currentTemplate ?: $defaultEmailTemplate;
+    // Build JS-safe default template
+    $defaultTemplateJs = json_encode($defaultEmailTemplate);
+    ?>
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <span class="fw-semibold"><i class="bi bi-envelope-paper me-2 text-primary"></i>Template de l'email de notification</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRestoreDefaultTemplate">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurer le template par défaut
+            </button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Ce template est utilisé pour les emails de notification envoyés lors de la soumission du formulaire.
+                Utilisez les variables ci-dessous pour personnaliser le contenu.
+            </p>
+
+            <!-- Variables disponibles -->
+            <div class="mb-3 p-3 bg-light rounded">
+                <strong class="small d-block mb-2"><i class="bi bi-braces me-1"></i>Variables disponibles :</strong>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-primary-subtle text-primary font-monospace small" style="cursor:pointer;"
+                          title="Nom du formulaire" onclick="insertTmplVar('{{form_name}}')">{{form_name}}</span>
+                    <span class="badge bg-success-subtle text-success font-monospace small" style="cursor:pointer;"
+                          title="Nom de la société" onclick="insertTmplVar('{{company}}')">{{company}}</span>
+                    <span class="badge bg-success-subtle text-success font-monospace small" style="cursor:pointer;"
+                          title="Signature email" onclick="insertTmplVar('{{signature}}')">{{signature}}</span>
+                    <?php foreach ($formFields as $fld): ?>
+                    <span class="badge bg-info-subtle text-info font-monospace small" style="cursor:pointer;"
+                          title="<?php echo htmlspecialchars($fld['label']); ?>"
+                          onclick="insertTmplVar('{{<?php echo htmlspecialchars($fld['nom_champ']); ?>}}')">
+                        {{<?php echo htmlspecialchars($fld['nom_champ']); ?>}}
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+                <small class="text-muted d-block mt-2">Cliquez sur une variable pour l'insérer dans l'éditeur.</small>
+            </div>
+
+            <form method="POST" id="templateForm">
+                <input type="hidden" name="action" value="save_form_template">
+                <input type="hidden" name="form_id" value="<?php echo $currentForm['id']; ?>">
+                <textarea id="email_template_editor" name="email_template"><?php echo htmlspecialchars($templateToShow); ?></textarea>
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>Enregistrer le template
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 <?php elseif ($editFormData || isset($_GET['new'])): ?>
     <!-- ══════════════════════════════════════════════════════
          FORMULAIRE CRÉATION / MODIFICATION
@@ -582,6 +681,10 @@ if (isset($_GET['edit'])) {
 </div><!-- /main-content -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- TinyMCE (loaded only on form detail page where the template editor is shown) -->
+<?php if ($currentForm): ?>
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+<?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
 (function () {
@@ -648,6 +751,65 @@ if (isset($_GET['edit'])) {
         }).catch(console.error);
     }
 }());
+
+// ── TinyMCE email template editor ─────────────────────────────────────────
+<?php if ($currentForm): ?>
+(function () {
+    var defaultTemplate = <?php echo $defaultTemplateJs; ?>;
+
+    if (typeof tinymce === 'undefined') {
+        console.warn('TinyMCE failed to load. The email template editor will not be available. Check the CDN URL or network connection.');
+        return;
+    }
+
+    tinymce.init({
+        selector: '#email_template_editor',
+        height: 450,
+        menubar: false,
+        language: 'fr_FR',
+        plugins: 'lists link image code table',
+        toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright | bullist numlist | table | link image | code',
+        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        setup: function (editor) {
+            // On form submit: sync TinyMCE content to textarea
+            editor.on('change', function () {
+                editor.save();
+            });
+        }
+    });
+
+    // Insert variable at cursor position in TinyMCE
+    window.insertTmplVar = function (variable) {
+        if (tinymce.activeEditor) {
+            tinymce.activeEditor.insertContent(variable);
+        }
+    };
+
+    // Restore default template
+    var btnRestore = document.getElementById('btnRestoreDefaultTemplate');
+    if (btnRestore) {
+        btnRestore.addEventListener('click', function () {
+            if (!confirm('Restaurer le template par défaut ? Le template actuel sera remplacé.')) return;
+            if (tinymce.activeEditor) {
+                tinymce.activeEditor.setContent(defaultTemplate);
+                tinymce.activeEditor.save();
+            }
+        });
+    }
+
+    // Sync TinyMCE before form submit
+    var templateForm = document.getElementById('templateForm');
+    if (templateForm) {
+        templateForm.addEventListener('submit', function () {
+            if (tinymce.activeEditor) {
+                tinymce.activeEditor.save();
+            }
+        });
+    }
+}());
+<?php else: ?>
+window.insertTmplVar = function () {};
+<?php endif; ?>
 </script>
 </body>
 </html>

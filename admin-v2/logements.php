@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Map French UI values to database values
                     $statutMap = [
                         'Disponible' => 'disponible',
-                        'Réservé' => 'en_location',
+                        'Réservé' => 'reserve',
                         'Loué' => 'en_location',
                         'Maintenance' => 'maintenance',
                         'Indisponible' => 'indisponible'
@@ -174,11 +174,9 @@ $statut_filter = isset($_GET['statut']) ? $_GET['statut'] : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Map UI status values to database values
-// Note: 'Réservé' and 'Loué' both map to 'en_location' in the database
-// This is consistent with the existing system design
 $statut_ui_to_db_map = [
     'Disponible' => 'disponible',
-    'Réservé' => 'en_location',
+    'Réservé' => 'reserve',
     'Loué' => 'en_location',
     'Maintenance' => 'maintenance',
     'Indisponible' => 'indisponible'
@@ -231,6 +229,7 @@ $logements = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Map database status to UI status for display
 $statutMap = [
     'disponible' => 'Disponible',
+    'reserve' => 'Réservé',
     'en_location' => 'Loué',
     'maintenance' => 'Maintenance',
     'indisponible' => 'Indisponible'
@@ -245,6 +244,7 @@ unset($logement); // Important: unset reference to prevent issues with subsequen
 $stats = [
     'total' => $pdo->query("SELECT COUNT(*) FROM logements")->fetchColumn(),
     'disponible' => $pdo->query("SELECT COUNT(*) FROM logements WHERE statut = 'disponible'")->fetchColumn(),
+    'reserve' => $pdo->query("SELECT COUNT(*) FROM logements WHERE statut = 'reserve'")->fetchColumn(),
     'loue' => $pdo->query("SELECT COUNT(*) FROM logements WHERE statut = 'en_location'")->fetchColumn(),
     'maintenance' => $pdo->query("SELECT COUNT(*) FROM logements WHERE statut = 'maintenance'")->fetchColumn()
 ];

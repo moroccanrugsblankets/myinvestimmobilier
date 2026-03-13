@@ -38,8 +38,8 @@ try {
                    l.equipements, l.statut,
                    (SELECT filename FROM logements_photos WHERE logement_id = l.id ORDER BY ordre ASC, id ASC LIMIT 1) AS photo_principale
             FROM logements l
-            WHERE l.deleted_at IS NULL AND l.statut = 'disponible'
-            ORDER BY l.reference ASC
+            WHERE l.deleted_at IS NULL AND l.statut IN ('disponible', 'reserve')
+            ORDER BY FIELD(l.statut, 'disponible', 'reserve'), l.reference ASC
         ");
     }
     $logements = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -50,6 +50,7 @@ try {
 
 $statutLabels = [
     'disponible'   => ['Disponible',   'success'],
+    'reserve'      => ['Réservé',      'info'],
     'en_location'  => ['Loué',         'secondary'],
     'maintenance'  => ['Indisponible', 'danger'],
     'indisponible' => ['Indisponible', 'secondary'],
@@ -114,7 +115,7 @@ $statutLabels = [
     if ($filterRef !== '') {
         $resultLabel = $count . ' logement' . $plural . ' trouvé' . $plural . ' pour « ' . htmlspecialchars($filterRef) . ' »';
     } else {
-        $resultLabel = $count . ' logement' . $plural . ' disponible' . $plural;
+        $resultLabel = $count . ' logement' . $plural . ' disponible' . $plural . ' ou réservé' . ($count > 1 ? 's' : '');
     }
     ?>
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -171,12 +172,6 @@ $statutLabels = [
                            class="btn btn-outline-primary btn-sm flex-grow-1">
                             <i class="bi bi-eye me-1"></i>Voir la fiche
                         </a>
-                        <?php if ($l['statut'] === 'disponible'): ?>
-                        <a href="<?php echo htmlspecialchars($lienCandid); ?>"
-                           class="btn btn-success btn-sm flex-grow-1">
-                            <i class="bi bi-person-plus me-1"></i>Candidater
-                        </a>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
