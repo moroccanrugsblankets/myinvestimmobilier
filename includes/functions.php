@@ -805,6 +805,7 @@ function sendTemplatedEmail($templateId, $to, $variables = [], $attachmentPath =
     return sendEmail($to, $subject, $body, $attachmentPath, true, $isAdminEmail, null, null, $addAdminBcc, array_merge(['template_id' => $templateId], $logContext));
 }
 
+if (!function_exists('formatRevenus')) {
 /**
  * Format revenus_mensuels value for display
  * @param string|null $revenus Raw enum value from database
@@ -825,6 +826,7 @@ function formatRevenus($revenus) {
     
     // Return raw value for any unexpected values
     return $revenus;
+}
 }
 
 /**

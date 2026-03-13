@@ -198,3 +198,40 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
 <?php endif; ?>
 <?php
 }
+
+/**
+ * Affiche le pied de page front office.
+ * Le texte est lu depuis le paramètre `footer_texte` (table `parametres`).
+ * Le placeholder {company} est remplacé par le nom de la société.
+ *
+ * @param string $companyName Nom de la société (utilisé si le paramètre DB n'existe pas)
+ */
+function renderFrontOfficeFooter(string $companyName = ''): void {
+    global $pdo;
+    $footerTexte = null;
+    if (isset($pdo)) {
+        try {
+            $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'footer_texte' LIMIT 1");
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && $row['valeur'] !== '') {
+                $footerTexte = $row['valeur'];
+            }
+        } catch (Exception $e) {
+            // Table not yet migrated — fall through to default
+        }
+    }
+    if ($footerTexte === null) {
+        $footerTexte = '© {company} — Tous droits réservés';
+    }
+    // Escape the whole footer text first, then substitute the already-escaped company name
+    $footerTexte = htmlspecialchars($footerTexte, ENT_QUOTES, 'UTF-8');
+    $footerTexte = str_replace('{company}', htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8'), $footerTexte);
+?>
+<footer class="site-footer">
+    <div class="container text-center">
+        <p class="mb-0"><?php echo $footerTexte; ?></p>
+    </div>
+</footer>
+<?php
+}

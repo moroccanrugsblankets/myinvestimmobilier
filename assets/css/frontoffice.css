@@ -81,6 +81,7 @@ body {
 
 .search-form .form-control {
     border-radius: 8px 0 0 8px;
+    font-size: .85rem;
 }
 
 .search-form .btn {

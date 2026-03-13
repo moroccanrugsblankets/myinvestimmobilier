@@ -172,6 +172,12 @@ $statutLabels = [
                            class="btn btn-outline-primary btn-sm flex-grow-1">
                             <i class="bi bi-eye me-1"></i>Voir la fiche
                         </a>
+                        <?php if ($l['statut'] === 'disponible'): ?>
+                        <a href="<?php echo htmlspecialchars($lienCandid); ?>"
+                           class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="bi bi-person-plus me-1"></i>Candidater
+                        </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -183,11 +189,7 @@ $statutLabels = [
 </main>
 
 <!-- Footer -->
-<footer class="site-footer">
-    <div class="container text-center">
-        <p class="mb-0">&copy; <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
-    </div>
-</footer>
+<?php renderFrontOfficeFooter($companyName); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

@@ -258,6 +258,7 @@ foreach ($allParams as $param) {
                                     'garantie_visale_requise' => 'Garantie Visale requise',
                                     'email_signature' => 'Signature des emails',
                                     'logo_societe' => 'Logo de la société',
+                                    'footer_texte' => 'Texte du pied de page',
                                     'mail_from' => 'Adresse email d\'expédition',
                                     'mail_from_name' => 'Nom de l\'expéditeur',
                                     'smtp_host' => 'Serveur SMTP',
@@ -447,6 +448,11 @@ foreach ($allParams as $param) {
                                        min="1" max="65535"
                                        required>
                                 <small class="text-muted">587 (TLS) ou 465 (SSL)</small>
+                            <?php elseif ($param['cle'] === 'footer_texte'): ?>
+                                <textarea name="parametres[<?php echo $param['cle']; ?>]"
+                                          class="form-control"
+                                          rows="2"><?php echo htmlspecialchars($param['valeur']); ?></textarea>
+                                <small class="text-muted">Utilisez <code>{company}</code> pour insérer le nom de la société. Ex : <em>© {company} — Tous droits réservés</em></small>
                             <?php else: ?>
                                 <input type="text" 
                                        name="parametres[<?php echo $param['cle']; ?>]" 

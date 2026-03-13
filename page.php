@@ -297,11 +297,7 @@ renderFrontOfficeHeader($siteUrl, $companyName, null, $currentUrlSeoNoSlash);
 <?php endif; ?>
 </main>
 
-<footer class="site-footer">
-    <div class="container text-center">
-        <p class="mb-1">&copy; <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
-    </div>
-</footer>
+<?php renderFrontOfficeFooter($companyName); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
