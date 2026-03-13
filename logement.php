@@ -484,6 +484,23 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
         <!-- Right Column: CTA & Infos -->
         <div class="col-lg-4">
 
+            <!-- CTA Candidature -->
+            <?php if ($isDisponible): ?>
+            <div class="cta-card mb-4">
+                <i class="bi bi-person-check-fill mb-2" style="font-size:2.5rem;"></i>
+                <h4 class="fw-bold mb-2">Ce logement vous intéresse ?</h4>
+                <p class="opacity-90 mb-3 small">Déposez votre candidature en quelques minutes. Dossier simple et rapide.</p>
+                <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn-cta">
+                    <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
+                </a>
+            </div>
+            <?php else: ?>
+            <div class="section-card text-center mb-4">
+                <i class="bi bi-clock-history text-muted" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 text-muted">Ce logement n'est pas disponible actuellement.</p>
+            </div>
+            <?php endif; ?>
+
             <!-- Résumé prix -->
             <div class="section-card">
                 <div class="section-title">Récapitulatif financier</div>
