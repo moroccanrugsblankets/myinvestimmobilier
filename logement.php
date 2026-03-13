@@ -540,16 +540,22 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
                 </ul>
             </div>
 
+            <?php if ($isDisponible): ?>
+            <!-- CTA Candidature -->
+            <div class="section-card">
+                <a href="<?php echo htmlspecialchars($lienCandidature); ?>"
+                   class="btn btn-primary w-100 btn-lg">
+                    <i class="bi bi-person-plus me-2"></i>Déposer ma candidature
+                </a>
+            </div>
+            <?php endif; ?>
+
         </div><!-- /col-lg-4 -->
     </div><!-- /row -->
 </main>
 
 <!-- Footer -->
-<footer class="site-footer">
-    <div class="container text-center">
-        <p class="mb-0">&copy; <?php echo htmlspecialchars($companyName); ?> — Tous droits réservés</p>
-    </div>
-</footer>
+<?php renderFrontOfficeFooter($companyName); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <?php if (!empty($photos) && count($photos) > 1): ?>
