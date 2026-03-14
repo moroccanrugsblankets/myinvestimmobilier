@@ -237,6 +237,7 @@ $lienPublic = rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . md5($loge
 // Status labels
 $statutLabels = [
     'disponible'   => ['Disponible',   'success'],
+    'reserve' => ['Réservé',   'primary'],
     'en_location'  => ['Loué',         'warning'],
     'maintenance'  => ['Maintenance',  'danger'],
     'indisponible' => ['Indisponible', 'secondary'],
