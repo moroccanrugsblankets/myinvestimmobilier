@@ -237,10 +237,9 @@ $lienPublic = rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . md5($loge
 // Status labels
 $statutLabels = [
     'disponible'   => ['Disponible',   'success'],
-    'reserve' => ['Réservé',   'primary'],
+    'reserve' => ['Réservé',   'secondary'],
     'en_location'  => ['Loué',         'warning'],
     'maintenance'  => ['Maintenance',  'danger'],
-    'indisponible' => ['Indisponible', 'secondary'],
 ];
 $statutLabel = $statutLabels[$logement['statut']] ?? [$logement['statut'], 'secondary'];
 
@@ -508,9 +507,9 @@ unset($_SESSION['success'], $_SESSION['error']);
                                 <label class="form-label fw-semibold">Statut</label>
                                 <select name="statut" class="form-select">
                                     <option value="disponible"   <?php echo $logement['statut'] === 'disponible'   ? 'selected' : ''; ?>>Disponible</option>
+                                    <option value="reserve" <?php echo $logement['statut'] === 'reserve' ? 'selected' : ''; ?>>Réservé</option>
                                     <option value="en_location"  <?php echo $logement['statut'] === 'en_location'  ? 'selected' : ''; ?>>Loué</option>
                                     <option value="maintenance"  <?php echo $logement['statut'] === 'maintenance'  ? 'selected' : ''; ?>>Maintenance</option>
-                                    <option value="indisponible" <?php echo $logement['statut'] === 'indisponible' ? 'selected' : ''; ?>>Indisponible</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
