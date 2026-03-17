@@ -580,25 +580,21 @@ $showRecaptcha = $rcEnabled && $rcSiteKey !== '';
                             </div>
                         </div>
 
+                        <?php if ($showRecaptcha && $rcType === 'v2'): ?>
+                        <div class="mt-3">
+                            <div class="g-recaptcha mb-3" data-sitekey="<?php echo htmlspecialchars($rcSiteKey); ?>"></div>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($showRecaptcha && $rcType === 'v3'): ?>
+                        <input type="hidden" name="recaptcha_response" id="recaptchaToken">
+                        <?php endif; ?>
                         <div class="d-flex justify-content-between mt-3">
                             <button type="button" class="btn btn-secondary" onclick="prevSection(6)">
                                 <i class="bi bi-arrow-left"></i> Précédent
                             </button>
-                            <?php if ($showRecaptcha && $rcType === 'v2'): ?>
-                            <div>
-                                <div class="g-recaptcha mb-3" data-sitekey="<?php echo htmlspecialchars($rcSiteKey); ?>"></div>
-                                <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
-                                    <i class="bi bi-send-fill"></i> Envoyer ma candidature
-                                </button>
-                            </div>
-                            <?php else: ?>
-                            <?php if ($showRecaptcha && $rcType === 'v3'): ?>
-                            <input type="hidden" name="recaptcha_response" id="recaptchaToken">
-                            <?php endif; ?>
                             <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
                                 <i class="bi bi-send-fill"></i> Envoyer ma candidature
                             </button>
-                            <?php endif; ?>
                         </div>
                     </div>
                 </form>
