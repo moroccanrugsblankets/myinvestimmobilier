@@ -168,11 +168,11 @@ $statutLabels = [
                         </div>
                     </div>
                     <div class="d-flex gap-2 btn-voir">
+                        <?php if ($l['statut'] === 'disponible'): ?>
                         <a href="<?php echo htmlspecialchars($lienDetail); ?>"
                            class="btn btn-outline-primary btn-sm flex-grow-1">
                             <i class="bi bi-eye me-1"></i>Voir la fiche
                         </a>
-                        <?php if ($l['statut'] === 'disponible'): ?>
                         <a href="<?php echo htmlspecialchars($lienCandid); ?>"
                            class="btn btn-primary btn-sm flex-grow-1">
                             <i class="bi bi-person-plus me-1"></i>Candidater
