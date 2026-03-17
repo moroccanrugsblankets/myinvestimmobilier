@@ -103,6 +103,35 @@ $metaDesc    = $page ? htmlspecialchars($page['meta_description'] ?? '') : '';
 $currentUrlSeoNoSlash = '/' . $slug;
 
 /**
+ * Loads global reCAPTCHA configuration from the parametres table.
+ * Returns an array with keys: enabled (bool), type (string), site_key (string).
+ */
+function loadRcConfig(\PDO $pdo): array
+{
+    $rc = ['enabled' => false, 'type' => 'v2', 'site_key' => ''];
+    try {
+        $stmt = $pdo->prepare("SELECT cle, valeur FROM parametres WHERE groupe = 'recaptcha'");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            switch ($row['cle']) {
+                case 'recaptcha_enabled':
+                    $rc['enabled'] = ($row['valeur'] === '1' || $row['valeur'] === 'true');
+                    break;
+                case 'recaptcha_type':
+                    $rc['type'] = $row['valeur'];
+                    break;
+                case 'recaptcha_site_key':
+                    $rc['site_key'] = $row['valeur'];
+                    break;
+            }
+        }
+    } catch (\Exception $e) {
+        // parametres table may not exist yet — degrade gracefully
+    }
+    return $rc;
+}
+
+/**
  * Process shortcodes embedded in page content.
  *
  * Supported shortcodes:
@@ -122,10 +151,13 @@ function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
         $html
     );
 
+    // Load reCAPTCHA config once for all contact-form shortcodes on this page
+    $rcConfig = loadRcConfig($pdo);
+
     // [contact-form id=N]
     $html = preg_replace_callback(
         '/\[contact-form\s+id=["\']?(\d+)["\']?\]/i',
-        function (array $m) use ($pdo, $siteUrl): string {
+        function (array $m) use ($pdo, $siteUrl, $rcConfig): string {
             $formId = (int)$m[1];
             try {
                 $stmt = $pdo->prepare("SELECT * FROM contact_forms WHERE id = ? AND actif = 1 LIMIT 1");
@@ -137,7 +169,7 @@ function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
                 $stmtF = $pdo->prepare("SELECT * FROM contact_form_fields WHERE form_id = ? ORDER BY ordre ASC, id ASC");
                 $stmtF->execute([$formId]);
                 $fields = $stmtF->fetchAll(\PDO::FETCH_ASSOC);
-                return renderContactFormHtml($form, $fields, $siteUrl);
+                return renderContactFormHtml($form, $fields, $siteUrl, $rcConfig);
             } catch (\Exception $e) {
                 return '<!-- contact-form error: ' . htmlspecialchars($e->getMessage()) . ' -->';
             }
@@ -167,8 +199,10 @@ function renderSearchLogementsHtml(string $siteUrl): string
 
 /**
  * Renders the HTML for a contact form.
+ *
+ * @param array  $rcConfig  reCAPTCHA config from loadRcConfig() — keys: enabled, type, site_key
  */
-function renderContactFormHtml(array $form, array $fields, string $siteUrl): string
+function renderContactFormHtml(array $form, array $fields, string $siteUrl, array $rcConfig = []): string
 {
     // Generate a CSRF token for this form and store it in session
     if (session_status() === PHP_SESSION_NONE) {
@@ -186,6 +220,43 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl): str
     $html .= '<input type="hidden" name="form_id" value="' . $formId . '">';
     $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
     foreach ($fields as $field) {
+        // reCAPTCHA field is rendered differently — no wrapper label/div from the standard path
+        if ($field['type_champ'] === 'recaptcha') {
+            $rcEnabled = !empty($rcConfig['enabled']);
+            $rcSiteKey = $rcConfig['site_key'] ?? '';
+            $rcType    = $rcConfig['type'] ?? 'v2';
+            if ($rcEnabled && $rcSiteKey !== '') {
+                if ($rcType === 'v3') {
+                    // V3: invisible — inject a hidden input populated via JS before submit
+                    $html .= '<input type="hidden" name="recaptcha_response" id="rcResp_' . $formId . '" value="">';
+                    $html .= '<script src="https://www.google.com/recaptcha/api.js?render='
+                           . htmlspecialchars($rcSiteKey) . '"></script>';
+                    $html .= '<script>(function(){'
+                           . 'var f=document.querySelector(\'.contact-form-shortcode[data-form-id="' . $formId . '"]\');'
+                           . 'if(!f)return;'
+                           . 'var tokenReady=false;'
+                           . 'f.addEventListener("submit",function(e){'
+                           . 'if(tokenReady)return;'
+                           . 'e.preventDefault();var s=this;'
+                           . 'grecaptcha.ready(function(){'
+                           . 'grecaptcha.execute(' . json_encode($rcSiteKey) . ',{action:"contact_form_' . $formId . '"}).then(function(t){'
+                           . 'document.getElementById("rcResp_' . $formId . '").value=t;'
+                           . 'tokenReady=true;'
+                           . 's.requestSubmit?s.requestSubmit():s.submit();'
+                           . '});});});'
+                           . '}());</script>';
+                } else {
+                    // V2: visible "I'm not a robot" checkbox widget
+                    $html .= '<div class="mb-3">'
+                           . '<div class="g-recaptcha" data-sitekey="' . htmlspecialchars($rcSiteKey) . '"></div>'
+                           . '</div>';
+                    $html .= '<script src="https://www.google.com/recaptcha/api.js" async defer></script>';
+                }
+            }
+            // If reCAPTCHA is not yet configured/enabled, skip the field silently
+            continue;
+        }
+
         $name  = htmlspecialchars($field['nom_champ']);
         $label = htmlspecialchars($field['label']);
         $ph    = htmlspecialchars($field['placeholder'] ?? '');
