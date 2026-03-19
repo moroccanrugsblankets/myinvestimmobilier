@@ -112,6 +112,10 @@ function renderFrontOfficeMenuHtml(string $currentUri = ''): string {
 /**
  * Affiche l'en-tête front office standard.
  *
+ * NOTE: Cette fonction ouvre un <div class="site-wrapper"> (layout boxé) qui
+ * DOIT être fermé par renderFrontOfficeFooter(). Les deux fonctions sont donc
+ * toujours appelées ensemble sur chaque page du front office.
+ *
  * @param string           $siteUrl     URL de base (ex : https://example.com)
  * @param string           $companyName Nom affiché dans le header
  * @param string|null|false $extraNav   HTML optionnel inséré côté droit du header.
@@ -127,6 +131,7 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
         $extraNav = renderFrontOfficeMenuHtml($currentUri);
     }
 ?>
+<div class="site-wrapper">
 <header class="site-header">
     <div class="container">
         <div class="d-flex align-items-center justify-content-between gap-3">
@@ -149,37 +154,6 @@ function renderFrontOfficeHeader(string $siteUrl, string $companyName, $extraNav
         </div>
     </div>
 </header>
-<style>
-.fo-nav-link {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: .92rem;
-    color: #444;
-    text-decoration: none;
-    transition: background .15s, color .15s;
-    white-space: nowrap;
-}
-.fo-nav-link:hover,
-.fo-nav-link.active {
-    background: #eef4fb;
-    color: #3498db;
-    text-decoration: none;
-}
-.fo-nav-link-mobile {
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 1rem;
-}
-.site-header .company-name {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #2c3e50;
-    white-space: nowrap;
-}
-</style>
 <?php if ($logoSrc): ?>
 <script>
 (function () {
@@ -233,5 +207,6 @@ function renderFrontOfficeFooter(string $companyName = ''): void {
         <p class="mb-0"><?php echo $footerTexte; ?></p>
     </div>
 </footer>
+</div><!-- /.site-wrapper -->
 <?php
 }
