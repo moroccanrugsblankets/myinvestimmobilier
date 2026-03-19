@@ -479,14 +479,14 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
             </div>
             <?php endif; ?>
 
-            <?php if ($isDisponible): ?>
+            <?php /*if ($isDisponible): ?>
             <!-- CTA Candidature -->
             <div class="mt-3 text-center">
                 <a href="<?php echo htmlspecialchars($lienCandidature); ?>" class="btn btn-primary">
                     <i class="bi bi-person-plus me-1"></i>Déposer ma candidature
                 </a>
             </div>
-            <?php endif; ?>
+            <?php endif;*/ ?>
 
         </div><!-- /col-lg-8 -->
 
