@@ -11,8 +11,10 @@
 
 /* ── Variables & base ─────────────────────────────────────────────────────── */
 :root {
-    --fo-primary:       #A67145;
-    --fo-primary-dark:  #7d5234;
+    --fo-primary:       #12100F;
+    --fo-primary-dark:  #12100F;
+    /*--fo-primary:       #A67145;
+    --fo-primary-dark:  #7d5234;*/
     --fo-primary-light: #f5ede4;
     --fo-secondary:     #FFB347;
     --fo-bg:            #f5f0eb;
