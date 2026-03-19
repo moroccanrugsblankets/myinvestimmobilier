@@ -281,6 +281,7 @@ $loadRcScript = $rcEnabledGlobal && $rcSiteKeyGlobal !== '';
     <?php endif; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/assets/css/frontoffice.css'); ?>">
     <?php if ($loadRcScript): ?>
     <?php if ($rcTypeGlobal === 'v3'): ?>
     <script src="https://www.google.com/recaptcha/api.js?render=<?php echo htmlspecialchars($rcSiteKeyGlobal); ?>"></script>
@@ -288,20 +289,6 @@ $loadRcScript = $rcEnabledGlobal && $rcSiteKeyGlobal !== '';
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
     <?php endif; ?>
-    <style>
-        body { background: #f0f4f8; color: #2c3e50; }
-        .site-header { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 15px 0; margin-bottom: 0; }
-        .site-header .brand { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
-        .header-logo { max-height: 50px; max-width: 160px; object-fit: contain; }
-        /* Homepage: fullscreen, no max-width wrapper */
-        .homepage-content { width: 100%; overflow-x: hidden; }
-        .homepage-content img { max-width: 100%; height: auto; }
-        footer { background: #2c3e50; color: rgba(255,255,255,0.7); padding: 24px 0; text-align: center; font-size: 0.85rem; margin-top: 0; }
-        footer a { color: rgba(255,255,255,0.8); text-decoration: none; }
-        footer a:hover { color: #fff; }
-        /* Alert messages on homepage */
-        .homepage-alerts { max-width: 900px; margin: 1rem auto; padding: 0 1rem; }
-    </style>
 </head>
 <body>
 <?php renderFrontOfficeHeader($siteUrl, $companyName, null, $currentUri); ?>

@@ -404,6 +404,23 @@ body {
     margin: 0 auto;
 }
 
+/* ── Homepage content (CMS-managed) ──────────────────────────────────────── */
+.homepage-content {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.homepage-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+.homepage-alerts {
+    max-width: 900px;
+    margin: 1rem auto;
+    padding: 0 1rem;
+}
+
 /* ── Page title block (pages publiques CMS) ───────────────────────────────── */
 .page-titre-bloc {
     background: var(--fo-primary-dark);
