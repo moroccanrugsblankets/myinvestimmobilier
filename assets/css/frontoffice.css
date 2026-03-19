@@ -164,6 +164,7 @@ body {
     color: var(--fo-white);
     padding: 3rem 0 2.5rem;
     text-align: center;
+    margin-top: 20px;
 }
 
 .hero-banner h1 {
