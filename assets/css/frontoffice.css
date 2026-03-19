@@ -71,6 +71,7 @@ body {
     background: linear-gradient(135deg, var(--fo-primary) 0%, var(--fo-primary-dark) 100%);
     color: var(--fo-white);
     padding: 3rem 0 2.5rem;
+    text-align: center;
 }
 
 .hero-banner h1 {
@@ -79,6 +80,7 @@ body {
 
 .search-form {
     max-width: 480px;
+    margin: 0 auto;
 }
 
 .search-form .form-control {
