@@ -103,6 +103,9 @@ body {
     background: var(--fo-primary);
     color: var(--fo-white);
 }
+.offcanvas-header .btn-close {
+    color: var(--fo-secondary);
+}
 
 /* ── Nav links (header) ───────────────────────────────────────────────────── */
 .fo-nav-link {
