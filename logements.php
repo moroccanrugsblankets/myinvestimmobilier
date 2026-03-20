@@ -16,6 +16,52 @@ require_once __DIR__ . '/includes/header-frontoffice.php';
 $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
 $siteUrl     = rtrim($config['SITE_URL'], '/');
 
+// ── Charger le contenu hero de la page d'accueil ─────────────────────────────
+$heroPage = null;
+try {
+    $stmtHero = $pdo->query("
+        SELECT contenu_html
+        FROM frontend_pages
+        WHERE is_homepage = 1 AND actif = 1
+        LIMIT 1
+    ");
+    $heroPage = $stmtHero ? $stmtHero->fetch(PDO::FETCH_ASSOC) : null;
+} catch (Exception $e) {
+    // Table may not exist yet or columns missing — skip hero silently
+}
+
+/**
+ * Renders a property-search form pointing to logements.php.
+ */
+function renderSearchLogementsHtml(string $siteUrl): string
+{
+    $action = htmlspecialchars(rtrim($siteUrl, '/') . '/logements.php');
+    return '<form method="GET" action="' . $action . '" class="search-logements-form" role="search">'
+        . '<div class="search-icon">🔍</div>'
+        . '<div class="search-text">'
+        . '<label>Référence logement :</label>'
+        . '<input type="text" name="ref" class="form-control" placeholder="Ex: RF-001" aria-label="Référence">'
+        . '</div>'
+        . '<button type="submit" class="search-btn"></button>'
+        . '</form>';
+}
+
+/**
+ * Process shortcodes embedded in page content (hero block).
+ * Supports: [search-logements]
+ */
+function processHeroShortcodes(string $html, string $siteUrl): string
+{
+    $html = preg_replace_callback(
+        '/\[search-logements[^\]]*\]/i',
+        function () use ($siteUrl): string {
+            return renderSearchLogementsHtml($siteUrl);
+        },
+        $html
+    );
+    return $html;
+}
+
 // Filtre par référence exacte (case-insensitive)
 $filterRef = isset($_GET['ref']) ? trim($_GET['ref']) : '';
 
@@ -71,7 +117,17 @@ $statutLabels = [
 
 <?php renderFrontOfficeHeader($siteUrl, $companyName, null, '/logements.php'); ?>
 
-<!-- Hero banner with search -->
+<!-- Hero container: homepage CMS content or fallback banner -->
+<?php if ($heroPage && !empty(trim($heroPage['contenu_html']))): ?>
+<div class="hero-container">
+    <?php
+    // The HTML content is stored by authenticated admin users only.
+    // Shortcodes like [search-logements] are processed before output.
+    echo processHeroShortcodes($heroPage['contenu_html'], $siteUrl);
+    ?>
+</div>
+<?php else: ?>
+<!-- Fallback hero banner when no CMS homepage is configured -->
 <div class="hero-banner">
     <div class="container">
         <h1 class="mb-2">Nos logements disponibles</h1>
@@ -91,6 +147,7 @@ $statutLabels = [
         <?php endif; ?>
     </div>
 </div>
+<?php endif; ?>
 
 <main class="container py-5">
 

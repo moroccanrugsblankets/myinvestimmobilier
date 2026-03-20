@@ -439,6 +439,12 @@ footer {
     margin: 0 auto;
 }
 
+/* ── Hero container (homepage CMS block — shared with logements.php) ─────── */
+.hero-container {
+    width: 100%;
+    overflow-x: hidden;
+}
+
 /* ── Homepage content (CMS-managed) ──────────────────────────────────────── */
 .homepage-content {
     width: 100%;
