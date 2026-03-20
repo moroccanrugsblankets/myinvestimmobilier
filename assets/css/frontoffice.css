@@ -265,6 +265,9 @@ footer {
     background: var(--fo-secondary-dark);
     transform: scale(1.07);
 }
+.search-btn::after {
+   display: none;
+}
 
 .hero-container {
   position: relative;
