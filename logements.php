@@ -77,13 +77,15 @@ $statutLabels = [
         <div class="container">
             <h1 class="mb-2">Nos logements disponibles</h1>
             <p class="opacity-80 mb-4">Trouvez votre prochain logement parmi nos offres.</p>
-            <form method="GET" action="logements.php" class="search-form d-flex">
-                <input type="text" name="ref" class="form-control form-control-lg"
-                       value="<?php echo htmlspecialchars($filterRef); ?>"
-                       placeholder="Recherche par référence exacte (ex: T2-PARIS-01)">
-                <button type="submit" class="btn btn-warning btn-lg px-3">
-                    <i class="bi bi-search"></i>
-                </button>
+            <form method="GET" action="logements.php" class="search-logements-form" role="search">
+                <div class="search-icon" aria-hidden="true">🔍</div>
+                <div class="search-text">
+                    <label>Référence logement :</label>
+                    <input type="text" name="ref" class="form-control"
+                           value="<?php echo htmlspecialchars($filterRef); ?>"
+                           placeholder="Ex: RF-001" aria-label="Référence du logement">
+                </div>
+                <button type="submit" class="search-btn" aria-label="Rechercher"><i class="bi bi-search" aria-hidden="true"></i></button>
             </form>
             <?php if ($filterRef !== ''): ?>
             <a href="logements.php" class="btn btn-outline-light btn-sm mt-2">

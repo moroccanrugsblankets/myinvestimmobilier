@@ -17,6 +17,7 @@
     --fo-primary-dark:  #7d5234;*/
     --fo-primary-light: #f5ede4;
     --fo-secondary:     #FFB347;
+    --fo-secondary-dark: #e0a030;
     --fo-bg:            #f5f0eb;
     --fo-text:          #1a1a2e;
     --fo-border:        #e5e7eb;
@@ -188,6 +189,81 @@ footer {
 
 .search-form .btn {
     border-radius: 0 8px 8px 0;
+}
+
+/* ── Search logements form (homepage block, also used in logements.php) ───── */
+.search-logements-form {
+    display: flex;
+    align-items: center;
+    background: var(--fo-white);
+    border-radius: 50px;
+    padding: 0.4rem 0.4rem 0.4rem 1.2rem;
+    max-width: 520px;
+    margin: 0 auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    gap: 0.6rem;
+}
+
+.search-logements-form .search-icon {
+    font-size: 1.2rem;
+    color: var(--fo-muted);
+    flex-shrink: 0;
+}
+
+.search-logements-form .search-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.search-logements-form .search-text label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--fo-muted);
+    margin: 0;
+    line-height: 1;
+}
+
+.search-logements-form .search-text .form-control {
+    border: none;
+    padding: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--fo-text);
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    height: auto;
+    line-height: 1.4;
+}
+
+.search-logements-form .search-text .form-control:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+.search-logements-form .search-btn {
+    background: var(--fo-secondary);
+    border: none;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: var(--fo-primary);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+
+.search-logements-form .search-btn:hover {
+    background: var(--fo-secondary-dark);
+    transform: scale(1.07);
 }
 
 /* ── Logement card (listing) ──────────────────────────────────────────────── */
