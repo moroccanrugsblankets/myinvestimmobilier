@@ -97,7 +97,7 @@ $statutLabels = [
 </div>
 </div>
 
-    
+    <?php /*
 <div class="hero-container<?php echo ($filterRef !== '') ? ' hero-container--compact' : ''; ?>">
     <div class="hero-banner">
         <div class="container">
@@ -112,6 +112,7 @@ $statutLabels = [
         </div>
     </div>
 </div>
+    */?>
 
 <main class="container py-5">
 
