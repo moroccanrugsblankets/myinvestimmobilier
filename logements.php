@@ -73,6 +73,22 @@ $statutLabels = [
 <?php renderFrontOfficeHeader($siteUrl, $companyName, null, '/logements.php'); ?>
 
 <!-- Hero container: search block -->
+
+<div class="hero-container">
+<div class="hero-content">
+<h1>Trouver un logement en location</h1>
+<div class="orange-line">&nbsp;</div>
+<p>Consultez les informations du logement <br /> et d&eacute;posez votre candidature en ligne</p>
+<pre id="iefc2" class="notranslate">[search-logements]</pre>
+<div class="hero-footer-icons">
+<div class="icon-item">⚡ R&eacute;ponse rapide</div>
+<div class="separator">&nbsp;</div>
+<div class="icon-item">📂 Dossier simplifi&eacute;</div>
+</div>
+</div>
+</div>
+
+    
 <div class="hero-container<?php echo ($filterRef !== '') ? ' hero-container--compact' : ''; ?>">
     <div class="hero-banner">
         <div class="container">
