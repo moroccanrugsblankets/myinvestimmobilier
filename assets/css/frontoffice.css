@@ -439,10 +439,20 @@ footer {
     margin: 0 auto;
 }
 
-/* ── Hero container (homepage CMS block — shared with logements.php) ─────── */
+/* ── Hero container (search block — logements.php) ───────────────────────── */
 .hero-container {
     width: 100%;
     overflow-x: hidden;
+}
+
+/* Compact variant: search results are displayed → reduce hero height */
+.hero-container--compact .hero-banner {
+    padding: 1rem 0 0.75rem;
+}
+
+.hero-container--compact .hero-banner h1,
+.hero-container--compact .hero-banner p {
+    display: none;
 }
 
 /* ── Homepage content (CMS-managed) ──────────────────────────────────────── */
