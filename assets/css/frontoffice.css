@@ -209,6 +209,7 @@ footer {
     font-size: 1.2rem;
     color: var(--fo-muted);
     flex-shrink: 0;
+    margin-right: 20px;
 }
 
 .search-logements-form .search-text {
