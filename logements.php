@@ -77,8 +77,8 @@ $statutLabels = [
 <div class="hero-container<?php echo ($filterRef !== '') ? ' hero-container--compact' : ''; ?>">
 <div class="hero-content">
     <?php if ($filterRef == ''): ?>
-<h1>Trouver un <span>logement</span> en location</h1>
-<div class="orange-line">&nbsp;</div>
+<?php /*<h1>Trouver un <span>logement</span> en location</h1>
+<div class="orange-line">&nbsp;</div>*/ ?>
 <p>Consultez les informations du logement <br /> et d&eacute;posez votre candidature en ligne</p>
     <?php endif; ?>
 <pre id="iefc2" class="notranslate"><?php echo renderSearchLogementsHtml($siteUrl); ?></pre>
