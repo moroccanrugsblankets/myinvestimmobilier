@@ -246,7 +246,7 @@ footer {
 }
 
 .search-logements-form .search-btn {
-    background: var(--fo-secondary);
+    background: #A67145;
     border: none;
     border-radius: 50%;
     width: 42px;
