@@ -1003,14 +1003,35 @@ function toBooleanParam($value) {
 }
 
 /**
- * Get admin email from config
- * @return string Admin email address
+ * Get admin email from config, falling back to the first active admin in the database
+ * @return string Admin email address, or empty string if none found
  */
 function getAdminEmail() {
-    global $config;
-    
-    // Use only config value
-    return $config['ADMIN_EMAIL'] ?? '';
+    global $config, $pdo;
+
+    // Prefer the configured value when it is set
+    $email = $config['ADMIN_EMAIL'] ?? '';
+    if (!empty($email)) {
+        return $email;
+    }
+
+    // Fallback: retrieve the first active administrator email from the database
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT email FROM administrateurs WHERE actif = TRUE AND email IS NOT NULL AND email != '' ORDER BY id ASC LIMIT 1"
+            );
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                return $row['email'];
+            }
+        } catch (Exception $e) {
+            error_log("getAdminEmail: impossible de récupérer l'email admin depuis la base de données: " . $e->getMessage());
+        }
+    }
+
+    return '';
 }
 
 /**
