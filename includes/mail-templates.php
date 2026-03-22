@@ -212,6 +212,12 @@ function sendEmail($to, $subject, $body, $attachmentPath = null, $isHtml = true,
         }
     }
 
+    // Validate that the recipient address is not empty and is a valid email
+    if (empty($to) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        error_log("sendEmail: adresse email destinataire invalide ou vide: '$to'. L'email ne peut pas être envoyé (sujet: $subject).");
+        return false;
+    }
+
     // Validate that the sender address is configured (required in all modes)
     if (empty($config['MAIL_FROM'])) {
         error_log("ERREUR: L'adresse email expéditeur (mail_from) n'est pas configurée. "
