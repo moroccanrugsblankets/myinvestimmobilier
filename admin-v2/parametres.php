@@ -50,6 +50,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: parametres.php');
         exit;
     }
+
+    // ── Upload / suppression de la signature société ──────────────────────────
+    if ($_POST['action'] === 'upload_signature_societe') {
+        $uploadFile = $_FILES['signature_societe_image'] ?? null;
+        $enabled    = !empty($_POST['signature_societe_enabled']) ? '1' : '0';
+
+        $doUpload = $uploadFile && $uploadFile['error'] !== UPLOAD_ERR_NO_FILE;
+
+        if ($doUpload) {
+            // Delete old file
+            $oldStmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_image'");
+            $oldStmt->execute();
+            $oldRow = $oldStmt->fetch(PDO::FETCH_ASSOC);
+            if ($oldRow && !empty($oldRow['valeur'])) {
+                $oldPath = dirname(__DIR__) . '/uploads/' . $oldRow['valeur'];
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+
+            // Validate file
+            $allowedMime = ['image/png', 'image/jpeg', 'image/jpg'];
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime  = $finfo->file($uploadFile['tmp_name']);
+            if (!in_array($mime, $allowedMime, true)) {
+                $_SESSION['error'] = "Format invalide. Utilisez PNG ou JPEG.";
+                header('Location: parametres.php#signature-societe');
+                exit;
+            }
+            if ($uploadFile['size'] > 2 * 1024 * 1024) {
+                $_SESSION['error'] = "Fichier trop volumineux (max 2 MB).";
+                header('Location: parametres.php#signature-societe');
+                exit;
+            }
+
+            $ext      = ($mime === 'image/png') ? 'png' : 'jpg';
+            $filename = 'company_signature_' . time() . '.' . $ext;
+            $dest     = dirname(__DIR__) . '/uploads/' . $filename;
+
+            if (!move_uploaded_file($uploadFile['tmp_name'], $dest)) {
+                $_SESSION['error'] = "Erreur lors de l'enregistrement du fichier.";
+                header('Location: parametres.php#signature-societe');
+                exit;
+            }
+
+            // Save path in parametres
+            $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('signature_societe_image', ?, 'string', 'general', 'Chemin de la signature société') ON DUPLICATE KEY UPDATE valeur = ?, updated_at = NOW()")
+                ->execute([$filename, $filename]);
+            // Also keep etat_lieux signature in sync (same image)
+            $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('signature_societe_etat_lieux_image', ?, 'string', 'general', 'Chemin de la signature société pour états des lieux') ON DUPLICATE KEY UPDATE valeur = ?, updated_at = NOW()")
+                ->execute([$filename, $filename]);
+        }
+
+        // Save enabled flags
+        $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('signature_societe_enabled', ?, 'boolean', 'general', 'Activer la signature société sur les contrats') ON DUPLICATE KEY UPDATE valeur = ?, updated_at = NOW()")
+            ->execute([$enabled, $enabled]);
+        $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('signature_societe_etat_lieux_enabled', ?, 'boolean', 'general', 'Activer la signature société sur les états des lieux') ON DUPLICATE KEY UPDATE valeur = ?, updated_at = NOW()")
+            ->execute([$enabled, $enabled]);
+
+        $_SESSION['success'] = "Signature société mise à jour.";
+        header('Location: parametres.php#signature-societe');
+        exit;
+    }
+
+    if ($_POST['action'] === 'delete_signature_societe') {
+        $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_image'");
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['valeur'])) {
+            $filePath = dirname(__DIR__) . '/uploads/' . $row['valeur'];
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+        $pdo->prepare("UPDATE parametres SET valeur = '', updated_at = NOW() WHERE cle IN ('signature_societe_image', 'signature_societe_etat_lieux_image')")->execute();
+        $_SESSION['success'] = "Signature société supprimée.";
+        header('Location: parametres.php#signature-societe');
+        exit;
+    }
 }
 
 // Groups managed on dedicated pages — hide them from this generic settings page
@@ -99,6 +178,18 @@ $parametres = [];
 foreach ($allParams as $param) {
     $parametres[$param['groupe']][] = $param;
 }
+
+// Load company signature data for the dedicated section
+$signatureSocieteImage   = '';
+$signatureSocieteEnabled = false;
+try {
+    $stmtSig = $pdo->prepare("SELECT cle, valeur FROM parametres WHERE cle IN ('signature_societe_image','signature_societe_enabled')");
+    $stmtSig->execute();
+    foreach ($stmtSig->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if ($row['cle'] === 'signature_societe_image')   $signatureSocieteImage   = $row['valeur'];
+        if ($row['cle'] === 'signature_societe_enabled') $signatureSocieteEnabled = in_array($row['valeur'], ['1', 'true', 'on'], true);
+    }
+} catch (Exception $e) { /* columns may not exist yet */ }
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -466,6 +557,70 @@ foreach ($allParams as $param) {
                 </div>
             <?php endforeach; ?>
 
+            <div class="text-end mb-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-check-circle"></i> Enregistrer les paramètres
+                </button>
+            </div>
+
+            <!-- ══ Signature Société ════════════════════════════════════════════ -->
+            </form>
+
+            <div class="param-card" id="signature-societe">
+                <h5><i class="bi bi-pen"></i> Signature Électronique de la Société</h5>
+                <p class="text-muted mb-3">
+                    Téléchargez l'image de la signature qui sera automatiquement apposée sur les contrats et les états des lieux lors de la validation.
+                </p>
+
+                <?php if (!empty($signatureSocieteImage)): ?>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Signature actuelle :</label><br>
+                    <img src="<?php echo htmlspecialchars('../uploads/' . $signatureSocieteImage); ?>"
+                         alt="Signature société"
+                         style="max-height:80px;border:1px solid #dee2e6;border-radius:6px;padding:6px;background:#fff;">
+                    <form method="POST" action="parametres.php" class="d-inline ms-3">
+                        <input type="hidden" name="action" value="delete_signature_societe">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('Supprimer la signature ?');">
+                            <i class="bi bi-trash"></i> Supprimer
+                        </button>
+                    </form>
+                </div>
+                <?php else: ?>
+                <p class="text-muted"><em>Aucune signature définie.</em></p>
+                <?php endif; ?>
+
+                <form method="POST" action="parametres.php" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="upload_signature_societe">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="signature_societe_image" class="form-label">
+                                <?php echo empty($signatureSocieteImage) ? 'Ajouter une image de signature' : 'Remplacer la signature'; ?>
+                            </label>
+                            <input type="file" class="form-control" id="signature_societe_image"
+                                   name="signature_societe_image" accept="image/png,image/jpeg,image/jpg"
+                                   <?php echo empty($signatureSocieteImage) ? 'required' : ''; ?>>
+                            <small class="text-muted">PNG ou JPEG — max 2 MB. Fond transparent recommandé (PNG).</small>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="signature_societe_enabled"
+                                       name="signature_societe_enabled" value="1"
+                                       <?php echo $signatureSocieteEnabled ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="signature_societe_enabled">
+                                    Activer l'apposition automatique sur les contrats et états des lieux
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Enregistrer la signature
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Sécurité & CAPTCHA — lien vers la page dédiée -->
             <div class="param-card">
                 <h5><i class="bi bi-shield-lock"></i> Sécurité &amp; CAPTCHA</h5>
@@ -493,13 +648,7 @@ foreach ($allParams as $param) {
                     </a>
                 </div>
             </div>
-
-            <div class="text-end">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="bi bi-check-circle"></i> Enregistrer les paramètres
-                </button>
-            </div>
-        </form>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

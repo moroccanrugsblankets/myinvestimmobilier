@@ -124,6 +124,8 @@ if (!$isPaid && !empty($_GET['session_id']) && class_exists('\Stripe\Stripe')) {
 
                     // Send confirmation email to tenant (with admin BCC)
                     sendDecompteConfirmationEmail($decompte, $config);
+                    // Mark as sent in local array to prevent duplicate send below
+                    $decompte['confirmation_email_envoye'] = 1;
                 }
             }
         } catch (Exception $e) {

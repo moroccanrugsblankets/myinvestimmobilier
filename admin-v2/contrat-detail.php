@@ -257,6 +257,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    elseif ($_POST['action'] === 'delete') {
+        // Delete contract permanently — cascades to locataires, logs, etc.
+        // Only allow deletion if the contract is in draft/annule status
+        $contratCheck = fetchOne("SELECT statut FROM contrats WHERE id = ?", [$contractId]);
+        if (!$contratCheck) {
+            $_SESSION['error'] = "Contrat introuvable.";
+            header('Location: contrats.php');
+            exit;
+        }
+
+        // Delete related records first (foreign key constraints)
+        try {
+            $pdo->beginTransaction();
+
+            // Delete linked documents and files
+            $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ?", [$contractId]);
+            foreach ($locataires as $loc) {
+                // Remove uploaded identity document files if they exist
+                foreach (['piece_identite_recto', 'piece_identite_verso'] as $col) {
+                    if (!empty($loc[$col])) {
+                        $filePath = dirname(__DIR__) . '/uploads/' . $loc[$col];
+                        if (file_exists($filePath)) {
+                            @unlink($filePath);
+                        }
+                    }
+                }
+            }
+
+            // Remove payment proof file if it exists
+            $contratData = fetchOne("SELECT justificatif_paiement FROM contrats WHERE id = ?", [$contractId]);
+            if ($contratData && !empty($contratData['justificatif_paiement'])) {
+                $filePath = dirname(__DIR__) . '/uploads/' . $contratData['justificatif_paiement'];
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+
+            // Delete locataires
+            $pdo->prepare("DELETE FROM locataires WHERE contrat_id = ?")->execute([$contractId]);
+            // Delete logs
+            try {
+                $pdo->prepare("DELETE FROM logs WHERE contrat_id = ?")->execute([$contractId]);
+            } catch (Exception $e) { /* table or column may not exist */ }
+            // Delete the contract
+            $pdo->prepare("DELETE FROM contrats WHERE id = ?")->execute([$contractId]);
+
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['error'] = "Erreur lors de la suppression : " . $e->getMessage();
+            header('Location: contrat-detail.php?id=' . $contractId);
+            exit;
+        }
+
+        $_SESSION['success'] = "Contrat supprimé avec succès.";
+        header('Location: contrats.php');
+        exit;
+    }
+
     if ($_POST['action'] === 'generate_signalement_token') {
         $locataireId = (int)($_POST['locataire_id'] ?? 0);
         if ($locataireId > 0) {
@@ -1188,6 +1247,21 @@ if ($contrat['validated_by']) {
             </div>
         </div>
         <?php endif; ?>
+
+        <!-- Supprimer le contrat (toujours visible) -->
+        <div class="detail-card mt-4">
+            <h5><i class="bi bi-trash text-danger"></i> Supprimer le Contrat</h5>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Action irréversible !</strong> La suppression efface définitivement le contrat et toutes les données associées (locataires, documents, logs). Cette action ne peut pas être annulée.
+            </div>
+            <form method="POST" action="" onsubmit="return confirm('⚠️ ATTENTION\n\nVous êtes sur le point de supprimer définitivement ce contrat.\n\nCette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument certain de vouloir continuer ?');">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash3"></i> Supprimer définitivement ce contrat
+                </button>
+            </form>
+        </div>
 
         <!-- Departure confirmation & End of contract actions -->
         <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>

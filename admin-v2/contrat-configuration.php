@@ -566,81 +566,16 @@ HTML;
             </form>
         </div>
 
-        <!-- Signature Configuration Card -->
+        <!-- Signature Configuration Card — centralisée dans Paramètres -->
         <div class="config-card">
             <h5 class="mb-3"><i class="bi bi-pen"></i> Signature Électronique de la Société</h5>
-            <p class="text-muted">
-                Téléchargez l'image de la signature de la société qui sera automatiquement ajoutée aux contrats lors de la validation finale.
-            </p>
-            
-            <form method="POST" action="" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload_signature">
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="signature_image" class="form-label">
-                                <strong>Image de la signature</strong>
-                            </label>
-                            <input 
-                                type="file" 
-                                class="form-control" 
-                                id="signature_image" 
-                                name="signature_image" 
-                                accept="image/png,image/jpeg,image/jpg"
-                                <?php echo empty($signatureImage) ? 'required' : ''; ?>>
-                            <small class="form-text text-muted">
-                                Formats acceptés : PNG, JPEG. Taille maximum : 2 MB. Recommandation : fond transparent (PNG).
-                            </small>
-                        </div>
-                        
-                        <div class="mb-3 form-check">
-                            <input 
-                                type="checkbox" 
-                                class="form-check-input" 
-                                id="signature_enabled" 
-                                name="signature_enabled"
-                                <?php echo $signatureEnabled ? 'checked' : ''; ?>>
-                            <label class="form-check-label" for="signature_enabled">
-                                Activer l'ajout automatique de la signature lors de la validation du contrat
-                            </label>
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-upload"></i> Télécharger la signature
-                            </button>
-                            <?php if (!empty($signatureImage)): ?>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteSignature()">
-                                    <i class="bi bi-trash"></i> Supprimer
-                                </button>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <?php if (!empty($signatureImage)): ?>
-                            <div class="mb-3">
-                                <label class="form-label"><strong>Aperçu actuel</strong></label>
-                                <div class="border rounded p-3 bg-light text-center" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
-                                    <img src="<?= htmlspecialchars($signatureImage) ?>" 
-                                         alt="Signature de la société" 
-                                         style="max-width: 100%; max-height: 250px; width: auto; height: auto; object-fit: contain;">
-                                </div>
-                                <small class="text-muted d-block mt-2">
-                                    <i class="bi bi-info-circle"></i> Cette signature sera ajoutée automatiquement au PDF lors de la validation du contrat.
-                                </small>
-                            </div>
-                        <?php else: ?>
-                            <div class="alert alert-warning">
-                                <i class="bi bi-exclamation-triangle"></i> 
-                                <strong>Aucune signature configurée</strong><br>
-                                Téléchargez une image de signature pour l'utiliser lors de la validation des contrats.
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </form>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                La configuration de la signature de la société a été centralisée dans
+                <a href="parametres.php#signature-societe" class="alert-link">
+                    <i class="bi bi-gear me-1"></i>Paramètres → Signature Société
+                </a>.
+            </div>
         </div>
 
         <!-- Template Configuration Card -->

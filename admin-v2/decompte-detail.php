@@ -376,42 +376,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 }
 
                 $emailVars = [
+                    'prenom'                => $decompte['locataire_prenom'] ?? '',
+                    'nom'                   => $decompte['locataire_nom'] ?? '',
                     'reference_decompte'    => $decompte['reference'],
                     'reference_signalement' => $decompte['sig_reference'],
                     'titre'                 => $decompte['sig_titre'],
                     'adresse'               => $decompte['adresse'],
+                    'logement_reference'    => $decompte['logement_reference'] ?? '',
                     'montant_total'         => number_format((float)$decompte['montant_total'], 2, ',', ' '),
                     'lignes_html'           => $lignesHtml,
                     'company'               => $companyName,
                 ];
 
-                // Envoyer aux collaborateurs attribués au signalement
-                try {
-                    $stmtCollabs = $pdo->prepare("
-                        SELECT DISTINCT collaborateur_email, collaborateur_nom
-                        FROM signalements_collaborateurs
-                        WHERE signalement_id = ? AND collaborateur_email IS NOT NULL AND collaborateur_email <> ''
-                    ");
-                    $stmtCollabs->execute([$decompte['sig_id']]);
-                    $notifCollabs = $stmtCollabs->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) {
-                    $notifCollabs = [];
-                }
-
-                $sentEmails = [];
-                foreach ($notifCollabs as $nc) {
-                    if (!in_array($nc['collaborateur_email'], $sentEmails, true)) {
-                        $sentEmails[] = $nc['collaborateur_email'];
-                        $vars = array_merge($emailVars, ['collab_nom' => $nc['collaborateur_nom']]);
-                        sendTemplatedEmail('decompte_valide_collab', $nc['collaborateur_email'], $vars, null, false, true,
-                            ['contexte' => 'decompte_valide;dec_id=' . $decompteId]);
-                    }
-                }
-                // Notifier service technique
-                $stEmail = getServiceTechniqueEmail();
-                if ($stEmail && !in_array($stEmail, $sentEmails, true)) {
-                    sendTemplatedEmail('decompte_valide_collab', $stEmail, $emailVars, null, false, false,
-                        ['contexte' => 'decompte_valide_st;dec_id=' . $decompteId]);
+                // Notifier le locataire (client) avec BCC aux administrateurs
+                $locataireEmailVal = $decompte['locataire_email'] ?? '';
+                if (!empty($locataireEmailVal)) {
+                    sendTemplatedEmail('decompte_valide_client', $locataireEmailVal, $emailVars, null, false, true,
+                        ['contexte' => 'decompte_valide_client;dec_id=' . $decompteId]);
                 }
 
                 header("Location: decompte-detail.php?id=$decompteId&success=valide");
