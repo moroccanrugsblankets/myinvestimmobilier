@@ -669,45 +669,6 @@ if ($contrat['validated_by']) {
                                     </div>
                                 <?php endif; ?>
 
-                                <!-- Lien de signalement -->
-                                <div class="mt-3 pt-3 border-top">
-                                    <strong><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Signalement d'anomalie</strong>
-                                    <?php
-                                    $sigToken = $locataire['token_signalement'] ?? null;
-                                    $siteUrlBase = rtrim($config['SITE_URL'], '/');
-                                    ?>
-                                    <?php if (!empty($sigToken)): ?>
-                                        <div class="mt-1">
-                                            <input type="text" class="form-control form-control-sm font-monospace"
-                                                   value="<?php echo htmlspecialchars($siteUrlBase . '/signalement/form.php?token=' . $sigToken); ?>"
-                                                   id="sig-link-<?php echo $locataire['id']; ?>" readonly>
-                                            <div class="d-flex gap-2 mt-1">
-                                                <button type="button" class="btn btn-outline-secondary btn-sm"
-                                                        onclick="copySignalementLink(<?php echo $locataire['id']; ?>)">
-                                                    <i class="bi bi-clipboard me-1"></i>Copier
-                                                </button>
-                                                <form method="POST" class="d-inline" onsubmit="return confirm('Régénérer le lien ? L\'ancien lien ne fonctionnera plus.');">
-                                                    <input type="hidden" name="action" value="generate_signalement_token">
-                                                    <input type="hidden" name="locataire_id" value="<?php echo $locataire['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-warning btn-sm">
-                                                        <i class="bi bi-arrow-clockwise me-1"></i>Régénérer
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="mt-1">
-                                            <small class="text-muted">Aucun lien généré.</small>
-                                            <form method="POST" class="mt-1">
-                                                <input type="hidden" name="action" value="generate_signalement_token">
-                                                <input type="hidden" name="locataire_id" value="<?php echo $locataire['id']; ?>">
-                                                <button type="submit" class="btn btn-outline-primary btn-sm">
-                                                    <i class="bi bi-link-45deg me-1"></i>Générer le lien
-                                                </button>
-                                            </form>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
                             </div>
                         </div>
                     </div>
