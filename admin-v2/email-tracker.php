@@ -475,8 +475,17 @@ $templatesList = $templatesStmt->fetchAll(PDO::FETCH_COLUMN);
 <script>
 function voirEmail(id) {
     fetch('email-tracker.php?action=view_email&id=' + id)
-        .then(r => r.json())
-        .then(data => {
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(text => {
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error('Réponse invalide du serveur');
+            }
             if (!data.success) { alert('Erreur: ' + data.error); return; }
             const e = data.email;
             document.getElementById('modalSujet').textContent        = e.sujet;
@@ -537,7 +546,7 @@ function voirEmail(id) {
 
             new bootstrap.Modal(document.getElementById('emailModal')).show();
         })
-        .catch(() => alert('Erreur de communication avec le serveur'));
+        .catch(err => alert('Erreur de communication avec le serveur : ' + err.message));
 }
 </script>
 </body>

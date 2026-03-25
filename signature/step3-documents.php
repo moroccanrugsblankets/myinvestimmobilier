@@ -213,7 +213,34 @@ $csrfToken = generateCsrfToken();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vérification d'identité - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        .upload-zone {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+            background: #f8fbff;
+        }
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: #1a6fb0;
+            background-color: #e8f4fd;
+        }
+        .upload-zone input[type="file"] { display: none; }
+        .file-preview {
+            display: flex;
+            align-items: center;
+            background: #f1f3f5;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 8px;
+        }
+        .file-preview .file-name { flex: 1; font-size: 0.9rem; word-break: break-all; }
+        .file-preview .btn-remove { flex-shrink: 0; }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
@@ -257,31 +284,35 @@ $csrfToken = generateCsrfToken();
                             <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
                         <?php endif; ?>
 
-                        <form method="POST" action="" enctype="multipart/form-data">
+                        <form method="POST" action="" enctype="multipart/form-data" id="docForm">
                             <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                             
                             <h5 class="mb-3">Locataire <?= $numeroLocataire ?></h5>
                             
-                            <div class="mb-3">
-                                <label for="piece_recto" class="form-label">
-                                    Pièce d'identité / Passport - Recto *
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">
+                                    Pièce d'identité / Passport — Recto <span class="text-danger">*</span>
                                 </label>
-                                <input type="file" class="form-control" id="piece_recto" name="piece_recto" 
-                                       accept=".jpg,.jpeg,.png,.pdf" required>
-                                <small class="form-text text-muted">
-                                    Formats acceptés : JPG, PNG, PDF - Taille max : 5 Mo
-                                </small>
+                                <div class="upload-zone" id="zone-recto" onclick="document.getElementById('piece_recto').click()">
+                                    <i class="bi bi-cloud-arrow-up fs-2 text-primary"></i>
+                                    <p class="mb-1 mt-2">Cliquez ou glissez-déposez votre fichier ici</p>
+                                    <small class="text-muted">JPG, PNG, PDF — max 5 Mo</small>
+                                    <input type="file" id="piece_recto" name="piece_recto" accept=".jpg,.jpeg,.png,.pdf" required>
+                                </div>
+                                <div id="preview-recto"></div>
                             </div>
 
-                            <div class="mb-3">
-                                <label for="piece_verso" class="form-label">
-                                    Pièce d'identité / Passport - Verso
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">
+                                    Pièce d'identité / Passport — Verso <span class="text-muted">(optionnel)</span>
                                 </label>
-                                <input type="file" class="form-control" id="piece_verso" name="piece_verso" 
-                                       accept=".jpg,.jpeg,.png,.pdf">
-                                <small class="form-text text-muted">
-                                    Formats acceptés : JPG, PNG, PDF - Taille max : 5 Mo (optionnel pour les passeports)
-                                </small>
+                                <div class="upload-zone" id="zone-verso" onclick="document.getElementById('piece_verso').click()">
+                                    <i class="bi bi-cloud-arrow-up fs-2 text-secondary"></i>
+                                    <p class="mb-1 mt-2">Cliquez ou glissez-déposez votre fichier ici</p>
+                                    <small class="text-muted">JPG, PNG, PDF — max 5 Mo (optionnel pour les passeports)</small>
+                                    <input type="file" id="piece_verso" name="piece_verso" accept=".jpg,.jpeg,.png,.pdf">
+                                </div>
+                                <div id="preview-verso"></div>
                             </div>
 
                             <div class="d-grid gap-2">
@@ -295,5 +326,62 @@ $csrfToken = generateCsrfToken();
             </div>
         </div>
     </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function() {
+    function initUploadZone(zoneId, inputId, previewId) {
+        var zone = document.getElementById(zoneId);
+        var input = document.getElementById(inputId);
+        var preview = document.getElementById(previewId);
+        if (!zone || !input || !preview) return;
+
+        function showPreview(file) {
+            preview.innerHTML = '';
+            if (!file) return;
+            var div = document.createElement('div');
+            div.className = 'file-preview';
+            div.innerHTML = '<span class="file-name">📄 ' + file.name + ' (' + (file.size/1024).toFixed(1) + ' Ko)</span>'
+                + '<button type="button" class="btn btn-sm btn-outline-danger btn-remove ms-2">✕</button>';
+            div.querySelector('.btn-remove').addEventListener('click', function() {
+                input.value = '';
+                preview.innerHTML = '';
+                zone.style.borderColor = '';
+                zone.style.backgroundColor = '';
+            });
+            preview.appendChild(div);
+            zone.style.borderColor = '#198754';
+            zone.style.backgroundColor = '#d1e7dd';
+        }
+
+        input.addEventListener('change', function() {
+            if (this.files.length) showPreview(this.files[0]);
+        });
+
+        var counter = 0;
+        zone.addEventListener('dragenter', function(e) { e.preventDefault(); counter++; zone.classList.add('drag-over'); });
+        zone.addEventListener('dragleave', function(e) { e.preventDefault(); if (--counter <= 0) { counter = 0; zone.classList.remove('drag-over'); } });
+        zone.addEventListener('dragover', function(e) { e.preventDefault(); });
+        zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            counter = 0;
+            zone.classList.remove('drag-over');
+            var files = e.dataTransfer.files;
+            if (files.length) {
+                // Assign dropped file to the hidden input via DataTransfer
+                try {
+                    var dt = new DataTransfer();
+                    dt.items.add(files[0]);
+                    input.files = dt.files;
+                } catch(ex) { /* fallback: no-op */ }
+                showPreview(files[0]);
+            }
+        });
+    }
+
+    initUploadZone('zone-recto', 'piece_recto', 'preview-recto');
+    initUploadZone('zone-verso', 'piece_verso', 'preview-verso');
+})();
+</script>
 </body>
 </html>

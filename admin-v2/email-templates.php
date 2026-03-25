@@ -190,7 +190,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         endif;
                         ?>
                         <span class="variable-tag" style="background: #27ae60;">{{signature}}</span>
-                        <p class="mt-2 mb-0 small"><strong>Note:</strong> La variable <code>{{signature}}</code> insère la signature email configurée dans les paramètres. Elle est disponible pour tous les templates.</p>
+                        <span class="variable-tag" style="background: #8e44ad;">{{company}}</span>
+                        <p class="mt-2 mb-0 small"><strong>Note:</strong> Les variables <code>{{signature}}</code> et <code>{{company}}</code> sont disponibles pour tous les templates. La signature est configurée dans les paramètres ; le nom de la société dans <a href="parametres.php">Paramètres → Général</a>.</p>
                     </div>
 
                     <form method="POST" action="email-templates.php">
@@ -253,6 +254,25 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <strong class="small">Sujet:</strong>
                             <p class="small text-muted mb-0"><?php echo htmlspecialchars($tpl['sujet']); ?></p>
                         </div>
+
+                        <?php if (!empty($tpl['variables_disponibles'])): ?>
+                        <div class="mb-3">
+                            <strong class="small">Variables :</strong><br>
+                            <?php
+                            // Support both JSON arrays and comma-separated strings
+                            $vars = json_decode($tpl['variables_disponibles'], true);
+                            if (!is_array($vars)) {
+                                $vars = array_filter(array_map('trim', explode(',', $tpl['variables_disponibles'])));
+                            }
+                            foreach ($vars as $v):
+                                if (trim($v) !== ''):
+                            ?>
+                                <span class="variable-tag" style="font-size:0.75rem;padding:2px 5px;margin:1px;">{{<?php echo htmlspecialchars(trim($v)); ?>}}</span>
+                            <?php endif; endforeach; ?>
+                            <span class="variable-tag" style="background:#27ae60;font-size:0.75rem;padding:2px 5px;margin:1px;">{{signature}}</span>
+                            <span class="variable-tag" style="background:#8e44ad;font-size:0.75rem;padding:2px 5px;margin:1px;">{{company}}</span>
+                        </div>
+                        <?php endif; ?>
                         
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted">

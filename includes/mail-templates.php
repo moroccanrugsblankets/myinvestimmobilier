@@ -324,7 +324,31 @@ function sendEmail($to, $subject, $body, $attachmentPath = null, $isHtml = true,
                 }
             }
             $signature = $signatureCache !== null ? $signatureCache : '';
-            $finalBody = str_replace('{{signature}}', $signature, $body);
+            $finalBody = str_replace('{{signature}}', $signature, $finalBody);
+        }
+
+        // Replace {{company}} placeholder if still present (not already replaced by template variables)
+        if (strpos($finalBody, '{{company}}') !== false) {
+            static $companyCache = null;
+            if ($pdo && $companyCache === null) {
+                try {
+                    $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'company_name' LIMIT 1");
+                    $stmt->execute();
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($result && !empty($result['valeur'])) {
+                        $companyCache = $result['valeur'];
+                    } else {
+                        global $config;
+                        $companyCache = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+                    }
+                } catch (Exception $e) {
+                    global $config;
+                    $companyCache = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+                }
+            }
+            $companyName = $companyCache ?? 'My Invest Immobilier';
+            $finalBody = str_replace('{{company}}', htmlspecialchars($companyName), $finalBody);
+            $subject   = str_replace('{{company}}', htmlspecialchars($companyName), $subject);
         }
         
         // Contenu
@@ -451,7 +475,24 @@ function sendEmailFallback($to, $subject, $body, $attachmentPath = null, $isHtml
                 }
             }
             $signature = $signatureFallbackCache !== null ? $signatureFallbackCache : '';
-            $finalBody = str_replace('{{signature}}', $signature, $body);
+            $finalBody = str_replace('{{signature}}', $signature, $finalBody);
+        }
+
+        // Replace {{company}} placeholder if still present
+        if (strpos($finalBody, '{{company}}') !== false) {
+            static $companyFallbackCache = null;
+            if ($pdo && $companyFallbackCache === null) {
+                try {
+                    $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'company_name' LIMIT 1");
+                    $stmt->execute();
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $companyFallbackCache = ($result && !empty($result['valeur'])) ? $result['valeur'] : ($config['COMPANY_NAME'] ?? 'My Invest Immobilier');
+                } catch (Exception $e) {
+                    $companyFallbackCache = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+                }
+            }
+            $finalBody = str_replace('{{company}}', htmlspecialchars($companyFallbackCache ?? 'My Invest Immobilier'), $finalBody);
+            $subject   = str_replace('{{company}}', htmlspecialchars($companyFallbackCache ?? 'My Invest Immobilier'), $subject);
         }
         
         if ($attachmentPath && file_exists($attachmentPath)) {

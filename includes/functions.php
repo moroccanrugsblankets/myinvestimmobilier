@@ -790,11 +790,26 @@ function replaceTemplateVariables($template, $data) {
  * @return bool Success status
  */
 function sendTemplatedEmail($templateId, $to, $variables = [], $attachmentPath = null, $isAdminEmail = false, $addAdminBcc = false, $logContext = []) {
+    global $config, $pdo;
     $template = getEmailTemplate($templateId);
     
     if (!$template) {
         error_log("Email template not found: $templateId");
         return false;
+    }
+
+    // Automatically inject 'company' if not already provided
+    if (!isset($variables['company'])) {
+        $companyName = '';
+        try {
+            $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'company_name' LIMIT 1");
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $companyName = ($row && !empty($row['valeur'])) ? $row['valeur'] : ($config['COMPANY_NAME'] ?? 'My Invest Immobilier');
+        } catch (Exception $e) {
+            $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+        }
+        $variables['company'] = $companyName;
     }
     
     // Replace variables in subject and body
@@ -872,6 +887,7 @@ function evaluateCandidature($candidature) {
     $typeRevenusAccepte = getParameter('type_revenus_accepte', 'Salaires');
     $nbOccupantsAcceptes = getParameter('nb_occupants_acceptes', ['1', '2']);
     $garantieVisaleRequise = getParameter('garantie_visale_requise', true);
+    $cdiPeriodeEssaiBloque = getParameter('cdi_periode_essai_bloque', true);
     
     $motifs = [];
     
@@ -920,8 +936,9 @@ function evaluateCandidature($candidature) {
     }
     // For 'je_ne_sais_pas': no rejection based on Visale
     
-    // RULE 6: If CDI, trial period must be passed
-    if ($candidature['statut_professionnel'] === 'CDI' && 
+    // RULE 6: If CDI, trial period must be passed (configurable via parameter)
+    if ($cdiPeriodeEssaiBloque &&
+        $candidature['statut_professionnel'] === 'CDI' && 
         isset($candidature['periode_essai']) && 
         $candidature['periode_essai'] === 'En cours') {
         $motifs[] = "Période d'essai en cours";
