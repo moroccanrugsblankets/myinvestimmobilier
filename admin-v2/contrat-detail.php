@@ -1209,21 +1209,6 @@ if ($contrat['validated_by']) {
         </div>
         <?php endif; ?>
 
-        <!-- Supprimer le contrat (toujours visible) -->
-        <div class="detail-card mt-4">
-            <h5><i class="bi bi-trash text-danger"></i> Supprimer le Contrat</h5>
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <strong>Action irréversible !</strong> La suppression efface définitivement le contrat et toutes les données associées (locataires, documents, logs). Cette action ne peut pas être annulée.
-            </div>
-            <form method="POST" action="" onsubmit="return confirm('⚠️ ATTENTION\n\nVous êtes sur le point de supprimer définitivement ce contrat.\n\nCette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument certain de vouloir continuer ?');">
-                <input type="hidden" name="action" value="delete">
-                <button type="submit" class="btn btn-outline-danger">
-                    <i class="bi bi-trash3"></i> Supprimer définitivement ce contrat
-                </button>
-            </form>
-        </div>
-
         <!-- Departure confirmation & End of contract actions -->
         <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>
         <div class="detail-card mt-4">
