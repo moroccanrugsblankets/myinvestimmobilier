@@ -347,6 +347,7 @@ try {
                                     'statuts_pro_acceptes' => 'Statuts professionnels acceptés',
                                     'type_revenus_accepte' => 'Type de revenus accepté',
                                     'nb_occupants_acceptes' => 'Nombres d\'occupants acceptés',
+                                    'cdi_periode_essai_bloque' => 'Période d\'essai',
                                     'garantie_visale_requise' => 'Garantie Visale requise',
                                     'email_signature' => 'Signature des emails',
                                     'logo_societe' => 'Logo de la société',
