@@ -350,6 +350,7 @@ try {
                                     'cdi_periode_essai_bloque' => 'Période d\'essai',
                                     'garantie_visale_requise' => 'Garantie Visale requise',
                                     'email_signature' => 'Signature des emails',
+                                    'company_name' => 'Nom de la société',
                                     'logo_societe' => 'Logo de la société',
                                     'footer_texte' => 'Texte du pied de page',
                                     'mail_from' => 'Adresse email d\'expédition',
