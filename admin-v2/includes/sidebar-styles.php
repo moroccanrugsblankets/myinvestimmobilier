@@ -30,7 +30,8 @@
     }
     .sidebar .nav-link {
         color: rgba(255,255,255,0.8);
-        padding: 12px 20px;
+        padding: 8px 20px;
+        font-size: 0.95em;
         transition: all 0.3s;
         border-left: 3px solid transparent;
     }
