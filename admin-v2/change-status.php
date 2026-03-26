@@ -80,7 +80,6 @@ if ($send_email) {
     $templateMap = [
         'accepte' => 'candidature_acceptee',
         'refuse' => 'candidature_refusee',
-        'visite_planifiee' => 'visite_planifiee',
         'refus_apres_visite' => 'statut_refus_apres_visite',
         'contrat_envoye' => 'statut_contrat_envoye',
         'contrat_signe' => 'statut_contrat_signe'

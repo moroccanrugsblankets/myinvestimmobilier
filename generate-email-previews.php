@@ -34,7 +34,7 @@ file_put_contents($demoDir . '/2-invitation-signature.html', $html2);
 echo "✓ 2-invitation-signature.html créé\n";
 
 // 3. Emails de changement de statut
-$statuts = ['Accepté', 'Refusé', 'Visite planifiée', 'Contrat envoyé', 'Contrat signé'];
+$statuts = ['Accepté', 'Refusé', 'Refus après visite', 'Contrat envoyé', 'Contrat signé'];
 foreach ($statuts as $index => $statut) {
     $html = getStatusChangeEmailHTML('Jean Dupont', $statut, 'Ceci est un commentaire de test pour le statut.');
     $filename = ($index + 3) . '-statut-' . strtolower(str_replace(' ', '-', $statut)) . '.html';

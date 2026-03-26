@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS candidatures (
     garantie_visale ENUM('Oui', 'Non', 'Je ne sais pas') NOT NULL,
     
     -- Workflow
-    statut ENUM('en_cours', 'refuse', 'accepte', 'visite_planifiee', 'contrat_envoye', 'contrat_signe') DEFAULT 'en_cours',
+    statut ENUM('en_cours', 'refuse', 'accepte', 'refus_apres_visite', 'contrat_envoye', 'contrat_signe') DEFAULT 'en_cours',
     date_soumission TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     date_reponse_auto TIMESTAMP NULL,
     date_reponse_envoyee TIMESTAMP NULL,

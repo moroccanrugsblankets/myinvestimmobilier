@@ -46,7 +46,7 @@ $logements = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stmt = $pdo->query("
     SELECT id, reference_unique, nom, prenom, email, statut
     FROM candidatures 
-    WHERE statut IN ('accepte', 'visite_planifiee')
+    WHERE statut = 'accepte'
     ORDER BY created_at DESC
 ");
 $candidatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
