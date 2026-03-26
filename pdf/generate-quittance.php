@@ -231,15 +231,12 @@ function replaceQuittanceTemplateVariables($template, $contrat, $locataires, $mo
     }*/
 
     
-        // Get signature if exists
-        $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_image'");
-        $stmt->execute();
-        $signatureData = $stmt->fetchColumn();
-        
+        // Get signature if exists and build proper URL for TCPDF
         $signatureHtml = '';
-        if ($signatureData) {
+        $signatureUrl = getCompanySignatureUrl($config, 'signature_societe_image', '');
+        if (!empty($signatureUrl)) {
             $signatureHtml = '<div><strong>Signature du bailleur :</strong><br>';
-            $signatureHtml .= '<img src="' . htmlspecialchars($signatureData) . '" alt="Signature" style="width: 80px; height: auto;">';
+            $signatureHtml .= '<img src="' . htmlspecialchars($signatureUrl) . '" alt="Signature" style="width: 80px; height: auto;">';
             $signatureHtml .= '</div>';
         }
 

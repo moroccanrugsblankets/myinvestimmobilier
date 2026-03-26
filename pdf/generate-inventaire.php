@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/mail-templates.php';
 require_once __DIR__ . '/../includes/inventaire-template.php';
 
@@ -730,11 +731,14 @@ function buildSignaturesTableInventaire($inventaire, $locataires) {
         
         // Convert base64 to physical file if needed
         $landlordSigPath = convertInventaireSignatureToPhysicalFile($landlordSigPath, 'landlord', $inventaireId);
+
+        // Normalize path: company signatures are stored as plain filenames in uploads/
+        $landlordSigPath = normalizeCompanySignaturePath($landlordSigPath);
+        $isFilePath = strpos($landlordSigPath, 'uploads/') === 0;
         
         // Update database with physical path if it was converted (check by comparing with original)
-        if (!empty($inventaireId) && $landlordSigPath !== $originalLandlordSig && 
-            preg_match('/^data:image/', $originalLandlordSig) && 
-            preg_match('/^uploads\/signatures\//', $landlordSigPath)) {
+        if ($isFilePath && !empty($inventaireId) && $landlordSigPath !== $originalLandlordSig &&
+            preg_match('/^data:image/', $originalLandlordSig)) {
             // Only update if signature was actually converted
             $paramKey = 'signature_societe_inventaire_image';
             $updateStmt = $pdo->prepare("UPDATE parametres SET valeur = ? WHERE cle = ?");
@@ -742,7 +746,7 @@ function buildSignaturesTableInventaire($inventaire, $locataires) {
             error_log("✓ Updated landlord signature in database to physical file");
         }
         
-        if (preg_match('/^uploads\/signatures\//', $landlordSigPath)) {
+        if ($isFilePath) {
             // Verify file exists before adding to PDF
             $fullPath = dirname(__DIR__) . '/' . $landlordSigPath;
             if (file_exists($fullPath)) {

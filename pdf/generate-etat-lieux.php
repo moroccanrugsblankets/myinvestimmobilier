@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/mail-templates.php';
 
 // Import the default template function
@@ -1409,9 +1410,13 @@ function buildSignaturesTableEtatLieux($contrat, $locataires, $etatLieux) {
         // Convert base64 to physical file if needed
         $etatLieuxId = $etatLieux['id'] ?? 0;
         $landlordSigPath = convertSignatureToPhysicalFile($landlordSigPath, 'landlord', $etatLieuxId);
+
+        // Normalize path: company signatures are stored as plain filenames in uploads/
+        $landlordSigPath = normalizeCompanySignaturePath($landlordSigPath);
+        $isFilePath = strpos($landlordSigPath, 'uploads/') === 0;
         
         // Update database with physical path if it was converted
-        if (!empty($etatLieuxId) && !preg_match('/^data:image/', $landlordSigPath) && preg_match('/^uploads\/signatures\//', $landlordSigPath)) {
+        if ($isFilePath && !empty($etatLieuxId) && !preg_match('/^data:image/', $landlordSigPath)) {
             // Update the parameter with the new physical path
             $paramKey = 'signature_societe_etat_lieux_image';
             $updateStmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = ?");
@@ -1426,7 +1431,7 @@ function buildSignaturesTableEtatLieux($contrat, $locataires, $etatLieux) {
             }
         }
         
-        if (preg_match('/^uploads\/signatures\//', $landlordSigPath)) {
+        if ($isFilePath) {
             // Verify file exists before adding to PDF
             $fullPath = dirname(__DIR__) . '/' . $landlordSigPath;
             if (file_exists($fullPath)) {

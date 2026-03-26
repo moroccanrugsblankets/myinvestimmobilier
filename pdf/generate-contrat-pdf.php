@@ -308,13 +308,12 @@ function buildSignaturesTable($contrat, $locataires) {
         $isSignatureEnabled = toBooleanParam($signatureEnabled);
         
         if ($isSignatureEnabled) {
-            $signatureSociete = getParameter('signature_societe_image', '');
+            $signatureUrl = getCompanySignatureUrl($config, 'signature_societe_image', '');
 
-            if (!empty($signatureSociete) && preg_match('/^uploads\/signatures\//', $signatureSociete)) {
-                $publicUrl = rtrim($config['SITE_URL'], '/') . '/' . ltrim($signatureSociete, '/');
+            if (!empty($signatureUrl)) {
                 // Consistent image sizing - remove borders and backgrounds
                 $html .= '<div style="margin: 10px 0; min-height: 60px;">';
-                $html .= '<img src="' . htmlspecialchars($publicUrl) . '" alt="Signature Société" style="width: 120px; height: auto; border: none; background: transparent;">';
+                $html .= '<img src="' . htmlspecialchars($signatureUrl) . '" alt="Signature Société" style="width: 120px; height: auto; border: none; background: transparent;">';
                 $html .= '</div>';
             }
         }

@@ -63,15 +63,13 @@ function generateDecomptePDF(int $decompteId, array $vars)
                 . '</tr></tbody></table>';
         }
 
-        // Récupérer la signature société si disponible
+        // Récupérer la signature société si disponible et construire l'URL correcte pour TCPDF
         $signatureHtml = '';
         try {
-            $stmtSig = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_image'");
-            $stmtSig->execute();
-            $signatureData = $stmtSig->fetchColumn();
-            if ($signatureData) {
+            $signatureUrl = getCompanySignatureUrl($config, 'signature_societe_image', '');
+            if (!empty($signatureUrl)) {
                 $signatureHtml = '<div><strong>Signature :</strong><br>'
-                    . '<img src="' . htmlspecialchars($signatureData) . '" alt="Signature" style="width:80px;height:auto;">'
+                    . '<img src="' . htmlspecialchars($signatureUrl) . '" alt="Signature" style="width:80px;height:auto;">'
                     . '</div>';
             }
         } catch (Exception $e) {
