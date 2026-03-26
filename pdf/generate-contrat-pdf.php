@@ -59,10 +59,23 @@ function generateContratPDF($contratId) {
             return false;
         }
 
-        // Récupérer la template HTML
-        $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'contrat_template_html'");
-        $stmt->execute();
+        // Récupérer la template HTML selon le type de contrat
+        $typeContrat = $contrat['type_contrat'] ?? 'meuble';
+        $validTypes = ['meuble', 'non_meuble', 'sur_mesure'];
+        if (!in_array($typeContrat, $validTypes)) {
+            $typeContrat = 'meuble';
+        }
+        $cleTemplate = 'contrat_template_html_' . $typeContrat;
+        $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = ?");
+        $stmt->execute([$cleTemplate]);
         $templateHtml = $stmt->fetchColumn();
+
+        // Fallback: legacy key, then hardcoded default
+        if (empty($templateHtml)) {
+            $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'contrat_template_html'");
+            $stmt->execute();
+            $templateHtml = $stmt->fetchColumn();
+        }
 
         if (empty($templateHtml)) {
             $templateHtml = getDefaultContractTemplate();

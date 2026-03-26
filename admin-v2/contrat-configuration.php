@@ -40,22 +40,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
     elseif ($_POST['action'] === 'update_template') {
-        // Check if parametres table exists and has contrat_template_html
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM parametres WHERE cle = 'contrat_template_html'");
-        $stmt->execute();
+        $type = in_array($_POST['template_type'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+            ? $_POST['template_type']
+            : 'meuble';
+        $cle = 'contrat_template_html_' . $type;
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM parametres WHERE cle = ?");
+        $stmt->execute([$cle]);
         $exists = $stmt->fetchColumn() > 0;
-        
+
         if ($exists) {
-            // Update existing
-            $stmt = $pdo->prepare("UPDATE parametres SET valeur = ?, updated_at = NOW() WHERE cle = 'contrat_template_html'");
-            $stmt->execute([$_POST['template_html']]);
+            $stmt = $pdo->prepare("UPDATE parametres SET valeur = ?, updated_at = NOW() WHERE cle = ?");
+            $stmt->execute([$_POST['template_html'], $cle]);
         } else {
-            // Insert new
-            $stmt = $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('contrat_template_html', ?, 'text', 'contrats', 'Template HTML du contrat avec variables dynamiques')");
-            $stmt->execute([$_POST['template_html']]);
+            $stmt = $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES (?, ?, 'text', 'contrats', 'Template HTML du contrat avec variables dynamiques')");
+            $stmt->execute([$cle, $_POST['template_html']]);
         }
-        
+
         $_SESSION['success'] = "Template de contrat mis à jour avec succès";
+        header('Location: contrat-configuration.php?tab=' . $type);
+        exit;
+    }
+    elseif ($_POST['action'] === 'update_preavis') {
+        $jours = max(0, (int)$_POST['preavis_annulation_jours']);
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM parametres WHERE cle = 'preavis_annulation_jours'");
+        $stmt->execute();
+        if ($stmt->fetchColumn() > 0) {
+            $stmt = $pdo->prepare("UPDATE parametres SET valeur = ?, updated_at = NOW() WHERE cle = 'preavis_annulation_jours'");
+            $stmt->execute([$jours]);
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO parametres (cle, valeur, type, groupe, description) VALUES ('preavis_annulation_jours', ?, 'integer', 'contrats', 'Préavis d''annulation en jours (0 = suppression de la période)')");
+            $stmt->execute([$jours]);
+        }
+        $_SESSION['success'] = "Critère d'annulation mis à jour avec succès";
         header('Location: contrat-configuration.php');
         exit;
     }
@@ -243,15 +260,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// Get current template
-$stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'contrat_template_html'");
-$stmt->execute();
-$template = $stmt->fetchColumn();
-
-// If no template exists, create a default one
-if (!$template) {
-    $template = getDefaultContractTemplate();
+// Get current templates (one per contract type)
+function fetchTemplate($pdo, $cle) {
+    $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = ?");
+    $stmt->execute([$cle]);
+    $val = $stmt->fetchColumn();
+    return $val ?: '';
 }
+
+$templateMeuble    = fetchTemplate($pdo, 'contrat_template_html_meuble');
+$templateNonMeuble = fetchTemplate($pdo, 'contrat_template_html_non_meuble');
+$templateSurMesure = fetchTemplate($pdo, 'contrat_template_html_sur_mesure');
+
+// Fallback: if no type-specific template yet, use the legacy template for Meublé
+if (empty($templateMeuble)) {
+    $legacy = fetchTemplate($pdo, 'contrat_template_html');
+    $templateMeuble = $legacy ?: getDefaultContractTemplateMeuble();
+}
+if (empty($templateNonMeuble)) {
+    $templateNonMeuble = getDefaultContractTemplateNonMeuble();
+}
+if (empty($templateSurMesure)) {
+    $templateSurMesure = getDefaultContractTemplateSurMesure();
+}
+
+// Active tab (from query string after save, default to meuble)
+$activeTab = in_array($_GET['tab'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+    ? $_GET['tab']
+    : 'meuble';
+
+// Préavis annulation
+$preavisAnnulation = (int)getParameter('preavis_annulation_jours', 0);
+if ($preavisAnnulation < 0) $preavisAnnulation = 0;
 
 // Get jours_avant_impaye parameter
 $joursAvantImpaye = (int)getParameter('jours_avant_impaye', 5);
@@ -279,123 +319,258 @@ $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_soci
 $stmt->execute();
 $signatureEnabled = $stmt->fetchColumn() === 'true';
 
-function getDefaultContractTemplate() {
+function getDefaultContractTemplateMeuble() {
     return <<<'HTML'
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Contrat de Bail - {{reference_unique}}</title>
+    <title>Contrat de Bail Meublé - {{reference_unique}}</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 10pt;
-            line-height: 1.5;
-            color: #000;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h1 {
-            text-align: center;
-            font-size: 14pt;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        h2 {
-            font-size: 11pt;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        h3 {
-            font-size: 10pt;
-            margin-top: 15px;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .subtitle {
-            text-align: center;
-            font-style: italic;
-            margin-bottom: 30px;
-        }
-        p {
-            margin: 8px 0;
-            text-align: justify;
-        }
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #000; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; font-size: 14pt; margin-bottom: 10px; font-weight: bold; }
+        h2 { font-size: 11pt; margin-top: 20px; margin-bottom: 10px; font-weight: bold; }
+        h3 { font-size: 10pt; margin-top: 15px; margin-bottom: 8px; font-weight: bold; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .subtitle { text-align: center; font-style: italic; margin-bottom: 30px; }
+        p { margin: 8px 0; text-align: justify; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>MY INVEST IMMOBILIER</h1>
     </div>
-    
+
     <div class="subtitle">
-        CONTRAT DE BAIL<br>
+        CONTRAT DE BAIL MEUBLÉ<br>
         (Location meublée – résidence principale)
     </div>
 
     <h2>1. Parties</h2>
-    
+
     <h3>Bailleur</h3>
     <p>My Invest Immobilier (SCI)<br>
     Représentée par : Maxime ALEXANDRE<br>
     Adresse électronique de notification : contact@myinvest-immobilier.com</p>
-    
+
     <h3>Locataire(s)</h3>
     <p>{{locataires_info}}</p>
 
     <h2>2. Désignation du logement</h2>
-    
-    <p><strong>Adresse :</strong><br>
-    {{adresse}}</p>
-    
-    <p><strong>Type :</strong> {{type}} - Logement meublé<br>
+
+    <p><strong>Adresse :</strong><br>{{adresse}}</p>
+
+    <p><strong>Type :</strong> {{type}} — Logement meublé<br>
     <strong>Surface habitable :</strong> ~ {{surface}} m²<br>
     <strong>Usage :</strong> Résidence principale<br>
     <strong>Parking :</strong> {{parking}}</p>
 
+    <p>Le logement est loué meublé conformément au décret n°2015-981. La liste des meubles et équipements fournis est annexée au présent contrat.</p>
+
     <h2>3. Durée</h2>
-    
+
     <p>Le présent contrat est conclu pour une durée de 1 an, à compter du : <strong>{{date_prise_effet}}</strong></p>
-    
     <p>Il est renouvelable par tacite reconduction.</p>
 
     <h2>4. Conditions financières</h2>
-    
+
     <p><strong>Loyer mensuel hors charges :</strong> {{loyer}} €<br>
     <strong>Provision sur charges mensuelles :</strong> {{charges}} €<br>
     <strong>Total mensuel :</strong> {{loyer_total}} €</p>
-    
     <p><strong>Modalité de paiement :</strong> mensuel, payable d'avance, au plus tard le 5 de chaque mois.</p>
 
     <h2>5. Dépôt de garantie</h2>
-    
-    <p>Le dépôt de garantie, d'un montant de <strong>{{depot_garantie}} €</strong> (correspondant à deux mois de loyer hors charges), est versé à la signature du présent contrat.</p>
+
+    <p>Le dépôt de garantie, d'un montant de <strong>{{depot_garantie}} €</strong> (deux mois de loyer hors charges), est versé à la signature du présent contrat.</p>
 
     <h2>6. Coordonnées bancaires</h2>
-    
+
     <p><strong>IBAN :</strong> {{iban}}<br>
     <strong>BIC :</strong> {{bic}}<br>
     <strong>Titulaire :</strong> MY INVEST IMMOBILIER</p>
 
     <h2>7. Signatures</h2>
-    
+
     <p>Fait à Annemasse, le {{date_signature}}</p>
-    
     {{signatures_table}}
 
-    <div class="footer" style="margin-top: 40px; font-size: 8pt; text-align: center; color: #666;">
+    <div style="margin-top: 40px; font-size: 8pt; text-align: center; color: #666;">
         <p>Document généré électroniquement par My Invest Immobilier</p>
-        <p>Contrat de bail - Référence : {{reference_unique}}</p>
+        <p>Contrat de bail meublé — Référence : {{reference_unique}}</p>
     </div>
 </body>
 </html>
 HTML;
+}
+
+function getDefaultContractTemplateNonMeuble() {
+    return <<<'HTML'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrat de Bail Non Meublé - {{reference_unique}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #000; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; font-size: 14pt; margin-bottom: 10px; font-weight: bold; }
+        h2 { font-size: 11pt; margin-top: 20px; margin-bottom: 10px; font-weight: bold; }
+        h3 { font-size: 10pt; margin-top: 15px; margin-bottom: 8px; font-weight: bold; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .subtitle { text-align: center; font-style: italic; margin-bottom: 30px; }
+        p { margin: 8px 0; text-align: justify; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MY INVEST IMMOBILIER</h1>
+    </div>
+
+    <div class="subtitle">
+        CONTRAT DE BAIL NON MEUBLÉ<br>
+        (Location vide – résidence principale)
+    </div>
+
+    <h2>1. Parties</h2>
+
+    <h3>Bailleur</h3>
+    <p>My Invest Immobilier (SCI)<br>
+    Représentée par : Maxime ALEXANDRE<br>
+    Adresse électronique de notification : contact@myinvest-immobilier.com</p>
+
+    <h3>Locataire(s)</h3>
+    <p>{{locataires_info}}</p>
+
+    <h2>2. Désignation du logement</h2>
+
+    <p><strong>Adresse :</strong><br>{{adresse}}</p>
+
+    <p><strong>Type :</strong> {{type}} — Logement non meublé<br>
+    <strong>Surface habitable :</strong> ~ {{surface}} m²<br>
+    <strong>Usage :</strong> Résidence principale<br>
+    <strong>Parking :</strong> {{parking}}</p>
+
+    <p>Le logement est loué vide (non meublé) conformément à la loi n°89-462 du 6 juillet 1989.</p>
+
+    <h2>3. Durée</h2>
+
+    <p>Le présent contrat est conclu pour une durée de 3 ans, à compter du : <strong>{{date_prise_effet}}</strong></p>
+    <p>Il est renouvelable par tacite reconduction.</p>
+
+    <h2>4. Conditions financières</h2>
+
+    <p><strong>Loyer mensuel hors charges :</strong> {{loyer}} €<br>
+    <strong>Provision sur charges mensuelles :</strong> {{charges}} €<br>
+    <strong>Total mensuel :</strong> {{loyer_total}} €</p>
+    <p><strong>Modalité de paiement :</strong> mensuel, payable d'avance, au plus tard le 5 de chaque mois.</p>
+
+    <h2>5. Dépôt de garantie</h2>
+
+    <p>Le dépôt de garantie, d'un montant de <strong>{{depot_garantie}} €</strong> (un mois de loyer hors charges), est versé à la signature du présent contrat.</p>
+
+    <h2>6. Coordonnées bancaires</h2>
+
+    <p><strong>IBAN :</strong> {{iban}}<br>
+    <strong>BIC :</strong> {{bic}}<br>
+    <strong>Titulaire :</strong> MY INVEST IMMOBILIER</p>
+
+    <h2>7. Signatures</h2>
+
+    <p>Fait à Annemasse, le {{date_signature}}</p>
+    {{signatures_table}}
+
+    <div style="margin-top: 40px; font-size: 8pt; text-align: center; color: #666;">
+        <p>Document généré électroniquement par My Invest Immobilier</p>
+        <p>Contrat de bail non meublé — Référence : {{reference_unique}}</p>
+    </div>
+</body>
+</html>
+HTML;
+}
+
+function getDefaultContractTemplateSurMesure() {
+    return <<<'HTML'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrat Sur Mesure - {{reference_unique}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #000; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; font-size: 14pt; margin-bottom: 10px; font-weight: bold; }
+        h2 { font-size: 11pt; margin-top: 20px; margin-bottom: 10px; font-weight: bold; }
+        h3 { font-size: 10pt; margin-top: 15px; margin-bottom: 8px; font-weight: bold; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .subtitle { text-align: center; font-style: italic; margin-bottom: 30px; }
+        p { margin: 8px 0; text-align: justify; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MY INVEST IMMOBILIER</h1>
+    </div>
+
+    <div class="subtitle">
+        CONTRAT DE LOCATION SUR MESURE<br>
+        (Conditions particulières)
+    </div>
+
+    <h2>1. Parties</h2>
+
+    <h3>Bailleur</h3>
+    <p>My Invest Immobilier (SCI)<br>
+    Représentée par : Maxime ALEXANDRE<br>
+    Adresse électronique de notification : contact@myinvest-immobilier.com</p>
+
+    <h3>Locataire(s)</h3>
+    <p>{{locataires_info}}</p>
+
+    <h2>2. Désignation du logement</h2>
+
+    <p><strong>Adresse :</strong><br>{{adresse}}</p>
+
+    <p><strong>Type :</strong> {{type}}<br>
+    <strong>Surface habitable :</strong> ~ {{surface}} m²<br>
+    <strong>Parking :</strong> {{parking}}</p>
+
+    <h2>3. Durée</h2>
+
+    <p>Le présent contrat prend effet le : <strong>{{date_prise_effet}}</strong></p>
+    <p>Les conditions particulières de durée sont définies d'un commun accord entre les parties.</p>
+
+    <h2>4. Conditions financières</h2>
+
+    <p><strong>Loyer mensuel hors charges :</strong> {{loyer}} €<br>
+    <strong>Provision sur charges mensuelles :</strong> {{charges}} €<br>
+    <strong>Total mensuel :</strong> {{loyer_total}} €</p>
+    <p><strong>Modalité de paiement :</strong> selon les modalités définies entre les parties.</p>
+
+    <h2>5. Dépôt de garantie</h2>
+
+    <p>Le dépôt de garantie, d'un montant de <strong>{{depot_garantie}} €</strong>, est versé à la signature du présent contrat selon les conditions convenues.</p>
+
+    <h2>6. Coordonnées bancaires</h2>
+
+    <p><strong>IBAN :</strong> {{iban}}<br>
+    <strong>BIC :</strong> {{bic}}<br>
+    <strong>Titulaire :</strong> MY INVEST IMMOBILIER</p>
+
+    <h2>7. Signatures</h2>
+
+    <p>Fait à Annemasse, le {{date_signature}}</p>
+    {{signatures_table}}
+
+    <div style="margin-top: 40px; font-size: 8pt; text-align: center; color: #666;">
+        <p>Document généré électroniquement par My Invest Immobilier</p>
+        <p>Contrat sur mesure — Référence : {{reference_unique}}</p>
+    </div>
+</body>
+</html>
+HTML;
+}
+
+// Keep legacy function for backward compatibility
+function getDefaultContractTemplate() {
+    return getDefaultContractTemplateMeuble();
 }
 ?>
 <!DOCTYPE html>
@@ -578,7 +753,43 @@ HTML;
             </div>
         </div>
 
-        <!-- Template Configuration Card -->
+        <!-- Critères d'annulation -->
+        <div class="config-card">
+            <h5 class="mb-3"><i class="bi bi-x-octagon"></i> Critères d'annulation</h5>
+            <p class="text-muted">
+                Configurez le préavis requis pour l'annulation d'un contrat. Mettez la valeur à 0 pour supprimer la période de préavis obligatoire.
+            </p>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_preavis">
+                <div class="row align-items-end">
+                    <div class="col-md-6">
+                        <label for="preavis_annulation_jours" class="form-label">
+                            <strong>Préavis d'annulation (en jours)</strong>
+                        </label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="preavis_annulation_jours"
+                            name="preavis_annulation_jours"
+                            min="0"
+                            max="365"
+                            value="<?= htmlspecialchars($preavisAnnulation) ?>"
+                            required>
+                        <small class="form-text text-muted">
+                            Nombre de jours de préavis requis avant l'annulation effective d'un contrat.
+                            <strong>0 = suppression de la période</strong> (annulation immédiate possible).
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Template Configuration Card — onglets par type de contrat -->
         <div class="config-card">
             <div class="variables-info">
                 <h6><i class="bi bi-info-circle"></i> Variables disponibles</h6>
@@ -602,38 +813,106 @@ HTML;
                     <span class="variable-tag" onclick="copyVariable('{{bic}}')">{{bic}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{date_signature}}')">{{date_signature}}</span>
                 </div>
-                <p class="mt-3 mb-0 small"><strong>Note importante :</strong> Ce template HTML est utilisé pour l'affichage et la configuration uniquement. <strong>Le PDF du contrat est généré par un processus séparé</strong> qui utilise une mise en page prédéfinie. Les modifications de ce template n'auront aucun effet sur le format du PDF final.</p>
             </div>
 
-            <form method="POST" action="">
-                <input type="hidden" name="action" value="update_template">
-                
-                <div class="mb-3">
-                    <label for="template_html" class="form-label">
-                        <strong>Template HTML du Contrat</strong>
-                    </label>
-                    <textarea 
-                        class="form-control code-editor" 
-                        id="template_html" 
-                        name="template_html" 
-                        required><?= htmlspecialchars($template) ?></textarea>
-                    <small class="form-text text-muted">
-                        Modifiez le code HTML ci-dessus. Les variables seront remplacées automatiquement lors de la génération du contrat.
-                    </small>
+            <!-- Tab navigation -->
+            <ul class="nav nav-tabs mt-3 mb-3" id="templateTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link <?= $activeTab === 'meuble' ? 'active' : '' ?>"
+                            id="tab-meuble" data-bs-toggle="tab" data-bs-target="#pane-meuble"
+                            type="button" role="tab">
+                        <i class="bi bi-house-fill"></i> Meublé
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link <?= $activeTab === 'non_meuble' ? 'active' : '' ?>"
+                            id="tab-non-meuble" data-bs-toggle="tab" data-bs-target="#pane-non-meuble"
+                            type="button" role="tab">
+                        <i class="bi bi-house"></i> Non meublé
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link <?= $activeTab === 'sur_mesure' ? 'active' : '' ?>"
+                            id="tab-sur-mesure" data-bs-toggle="tab" data-bs-target="#pane-sur-mesure"
+                            type="button" role="tab">
+                        <i class="bi bi-pencil-square"></i> Sur mesure
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="templateTabContent">
+                <!-- Meublé -->
+                <div class="tab-pane fade <?= $activeTab === 'meuble' ? 'show active' : '' ?>"
+                     id="pane-meuble" role="tabpanel">
+                    <form method="POST" action="">
+                        <input type="hidden" name="action" value="update_template">
+                        <input type="hidden" name="template_type" value="meuble">
+                        <div class="mb-3">
+                            <textarea class="form-control code-editor" id="template_meuble"
+                                      name="template_html" required><?= htmlspecialchars($templateMeuble) ?></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="showPreview('template_meuble')">
+                                <i class="bi bi-eye"></i> Prévisualiser
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetToDefault('meuble')">
+                                <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Enregistrer le Template
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="showPreview()">
-                        <i class="bi bi-eye"></i> Prévisualiser
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefault()">
-                        <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser par défaut
-                    </button>
+                <!-- Non meublé -->
+                <div class="tab-pane fade <?= $activeTab === 'non_meuble' ? 'show active' : '' ?>"
+                     id="pane-non-meuble" role="tabpanel">
+                    <form method="POST" action="">
+                        <input type="hidden" name="action" value="update_template">
+                        <input type="hidden" name="template_type" value="non_meuble">
+                        <div class="mb-3">
+                            <textarea class="form-control code-editor" id="template_non_meuble"
+                                      name="template_html" required><?= htmlspecialchars($templateNonMeuble) ?></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="showPreview('template_non_meuble')">
+                                <i class="bi bi-eye"></i> Prévisualiser
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetToDefault('non_meuble')">
+                                <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+
+                <!-- Sur mesure -->
+                <div class="tab-pane fade <?= $activeTab === 'sur_mesure' ? 'show active' : '' ?>"
+                     id="pane-sur-mesure" role="tabpanel">
+                    <form method="POST" action="">
+                        <input type="hidden" name="action" value="update_template">
+                        <input type="hidden" name="template_type" value="sur_mesure">
+                        <div class="mb-3">
+                            <textarea class="form-control code-editor" id="template_sur_mesure"
+                                      name="template_html" required><?= htmlspecialchars($templateSurMesure) ?></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="showPreview('template_sur_mesure')">
+                                <i class="bi bi-eye"></i> Prévisualiser
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetToDefault('sur_mesure')">
+                                <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <div class="config-card" id="preview-card" style="display: none;">
@@ -684,12 +963,12 @@ HTML;
             });
         }
 
-        function showPreview() {
-            const template = document.getElementById('template_html').value;
+        function showPreview(editorId) {
+            const editorInstance = tinymce.get(editorId);
+            const template = editorInstance ? editorInstance.getContent() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
-            
-            // Replace variables with sample data
+
             let preview = template
                 .replace(/\{\{reference_unique\}\}/g, 'BAIL-2024-001')
                 .replace(/\{\{locataires_info\}\}/g, 'Jean DUPONT, né(e) le 01/01/1990<br>Email : jean.dupont@example.com')
@@ -708,26 +987,33 @@ HTML;
                 .replace(/\{\{iban\}\}/g, 'FR76 1027 8021 6000 0206 1834 585')
                 .replace(/\{\{bic\}\}/g, 'CMCIFR')
                 .replace(/\{\{date_signature\}\}/g, '15/12/2023');
-            
+
             previewContent.innerHTML = preview;
             previewCard.style.display = 'block';
             previewCard.scrollIntoView({ behavior: 'smooth' });
         }
 
-        function resetToDefault() {
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser le template à sa valeur par défaut ? Toutes vos modifications seront perdues.')) {
-                location.href = '?reset=1';
+        const defaultTemplates = {
+            meuble:     <?= json_encode(getDefaultContractTemplateMeuble()) ?>,
+            non_meuble: <?= json_encode(getDefaultContractTemplateNonMeuble()) ?>,
+            sur_mesure: <?= json_encode(getDefaultContractTemplateSurMesure()) ?>
+        };
+
+        function resetToDefault(type) {
+            if (confirm('Réinitialiser ce template à sa valeur par défaut ? Toutes vos modifications seront perdues.')) {
+                const idMap = { meuble: 'template_meuble', non_meuble: 'template_non_meuble', sur_mesure: 'template_sur_mesure' };
+                const editorId = idMap[type];
+                const editorInstance = tinymce.get(editorId);
+                if (editorInstance) {
+                    editorInstance.setContent(defaultTemplates[type]);
+                } else {
+                    document.getElementById(editorId).value = defaultTemplates[type];
+                }
             }
         }
 
-        // Handle reset
-        <?php if (isset($_GET['reset'])): ?>
-        document.getElementById('template_html').value = <?= json_encode(getDefaultContractTemplate()) ?>;
-        <?php endif; ?>
-
-        // Initialize TinyMCE on the contract template editor
-        tinymce.init({
-            selector: 'textarea.code-editor',
+        // Initialize TinyMCE on all three contract template editors
+        const tinyMceConfig = {
             height: 500,
             menubar: true,
             plugins: [
@@ -739,19 +1025,15 @@ HTML;
             content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
             branding: false,
             promotion: false,
-            // Preserve full HTML document structure including <html>, <head>, <style> tags
             verify_html: false,
             extended_valid_elements: 'style,link[href|rel],head,html[lang],meta[*],body[*]',
             valid_children: '+body[style],+head[style]',
-            // Don't remove tags or attributes
             forced_root_block: false,
-            // Preserve DOCTYPE and full document structure
-            doctype: '<!DOCTYPE html>',
-            setup: function(editor) {
-                editor.on('init', function() {
-                    console.log('TinyMCE initialized successfully on contract template');
-                });
-            }
+            doctype: '<!DOCTYPE html>'
+        };
+
+        ['template_meuble', 'template_non_meuble', 'template_sur_mesure'].forEach(function(id) {
+            tinymce.init(Object.assign({}, tinyMceConfig, { selector: '#' + id }));
         });
     </script>
 </body>

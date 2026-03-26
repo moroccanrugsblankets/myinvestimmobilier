@@ -95,6 +95,7 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             <small>Immobilier</small>
         <?php endif; ?>
     </div>
+    <div class="sidebar-nav">
     <ul class="nav flex-column mt-4">
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'index.php' ? 'active' : ''; ?>" href="index.php">
@@ -106,26 +107,31 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                 <i class="bi bi-house-door"></i> Logements
             </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'candidatures.php' ? 'active' : ''; ?>" href="candidatures.php">
                 <i class="bi bi-file-earmark-text"></i> Candidatures
             </a>
-            <?php if ($active_menu === 'candidatures.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'candidatures.php' ? 'open' : ''; ?>"
+                    data-target="submenu-candidatures" aria-label="Déplier sous-menu Candidatures">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-candidatures" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'candidatures.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'candidatures-configuration.php' ? 'active' : ''; ?>" href="candidatures-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-gear"></i> Configuration
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'contrats.php' ? 'active' : ''; ?>" href="contrats.php">
                 <i class="bi bi-file-earmark-check"></i> Contrats
             </a>
-            <?php if ($active_menu === 'contrats.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'contrats.php' ? 'open' : ''; ?>"
+                    data-target="submenu-contrats" aria-label="Déplier sous-menu Contrats">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-contrats" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'contrats.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'contrats-clotures.php' ? 'active' : ''; ?>" href="contrats-clotures.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-archive"></i> Contrats clôturés
@@ -152,42 +158,48 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'etats-lieux.php' ? 'active' : ''; ?>" href="etats-lieux.php">
                 <i class="bi bi-clipboard-check"></i> États des lieux
             </a>
-            <?php if ($active_menu === 'etats-lieux.php' && $current_page !== 'finalize-etat-lieux.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'etats-lieux.php' ? 'open' : ''; ?>"
+                    data-target="submenu-etats-lieux" aria-label="Déplier sous-menu États des lieux">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-etats-lieux" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'etats-lieux.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'etat-lieux-configuration.php' ? 'active' : ''; ?>" href="etat-lieux-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-gear"></i> Configuration
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'inventaires.php' ? 'active' : ''; ?>" href="inventaires.php">
                 <i class="bi bi-box-seam"></i> Inventaire
             </a>
-            <?php if ($active_menu === 'inventaires.php' && $current_page !== 'finalize-inventaire.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'inventaires.php' ? 'open' : ''; ?>"
+                    data-target="submenu-inventaires" aria-label="Déplier sous-menu Inventaire">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-inventaires" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'inventaires.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'inventaire-configuration.php' ? 'active' : ''; ?>" href="inventaire-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-gear"></i> Configuration
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'gestion-loyers.php' ? 'active' : ''; ?>" href="gestion-loyers.php">
                 <i class="bi bi-cash-stack"></i> Gestion des Loyers
             </a>
-            <?php if ($active_menu === 'gestion-loyers.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'gestion-loyers.php' ? 'open' : ''; ?>"
+                    data-target="submenu-loyers" aria-label="Déplier sous-menu Gestion des Loyers">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-loyers" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'gestion-loyers.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'configuration-rappels-loyers.php' ? 'active' : ''; ?>" href="configuration-rappels-loyers.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-gear"></i> Configuration Rappels
@@ -199,14 +211,16 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'signalements.php' ? 'active' : ''; ?>" href="signalements.php">
                 <i class="bi bi-exclamation-triangle"></i> Signalements
             </a>
-            <?php if ($active_menu === 'signalements.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'signalements.php' ? 'open' : ''; ?>"
+                    data-target="submenu-signalements" aria-label="Déplier sous-menu Signalements">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-signalements" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'signalements.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'collaborateurs.php' ? 'active' : ''; ?>" href="collaborateurs.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-people"></i> Collaborateurs
@@ -223,7 +237,6 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'email-templates.php' ? 'active' : ''; ?>" href="email-templates.php">
@@ -235,26 +248,31 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                 <i class="bi bi-envelope-check"></i> Suivi des Emails
             </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'parametres.php' ? 'active' : ''; ?>" href="parametres.php">
                 <i class="bi bi-gear"></i> Paramètres
             </a>
-            <?php if ($active_menu === 'parametres.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'parametres.php' ? 'open' : ''; ?>"
+                    data-target="submenu-parametres" aria-label="Déplier sous-menu Paramètres">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-parametres" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'parametres.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'recaptcha-configuration.php' ? 'active' : ''; ?>" href="recaptcha-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-shield-lock"></i> Sécurité &amp; CAPTCHA
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
-        <li class="nav-item">
+        <li class="nav-item nav-item-with-submenu">
             <a class="nav-link <?php echo $active_menu === 'pages-frontoffice.php' ? 'active' : ''; ?>" href="pages-frontoffice.php">
                 <i class="bi bi-layout-text-window-reverse"></i> Site public
             </a>
-            <?php if ($active_menu === 'pages-frontoffice.php'): ?>
-            <ul class="nav flex-column ms-3">
+            <button class="submenu-toggle <?php echo $active_menu === 'pages-frontoffice.php' ? 'open' : ''; ?>"
+                    data-target="submenu-frontoffice" aria-label="Déplier sous-menu Site public">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <ul id="submenu-frontoffice" class="nav flex-column ms-3 submenu <?php echo $active_menu === 'pages-frontoffice.php' ? 'show' : ''; ?>">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'pages-frontoffice.php' ? 'active' : ''; ?>" href="pages-frontoffice.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-file-richtext"></i> Pages
@@ -271,7 +289,6 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                     </a>
                 </li>
             </ul>
-            <?php endif; ?>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'cron-jobs.php' ? 'active' : ''; ?>" href="cron-jobs.php">
@@ -289,6 +306,7 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
             </a>
         </li>
     </ul>
+    </div>
     <a href="logout.php" class="btn btn-outline-light logout-btn">
         <i class="bi bi-box-arrow-right"></i> Déconnexion
     </a>
@@ -313,12 +331,10 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebarOverlay.classList.remove('active');
     });
     
-    // Close sidebar when clicking on a menu link
-    // This is harmless on desktop and ensures proper behavior on all screen sizes
+    // Close sidebar when clicking on a menu link (mobile only)
     const menuLinks = sidebar.querySelectorAll('.nav-link');
     menuLinks.forEach(function(link) {
         link.addEventListener('click', function() {
-            // Only close if sidebar is in mobile mode (has active class)
             if (sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
                 sidebarOverlay.classList.remove('active');
@@ -326,10 +342,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Submenu toggle arrows
+    sidebar.querySelectorAll('.submenu-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetId = btn.getAttribute('data-target');
+            const submenu = document.getElementById(targetId);
+            if (!submenu) return;
+            const isOpen = submenu.classList.contains('show');
+            submenu.classList.toggle('show', !isOpen);
+            btn.classList.toggle('open', !isOpen);
+        });
+    });
+
     // Auto-dismiss alerts after 5 seconds
     setTimeout(function() {
         document.querySelectorAll('.alert-success, .alert-danger, .alert-warning, .alert-info').forEach(function(alert) {
-            // Use Bootstrap's dismiss method if available, otherwise fade out manually
             if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
                 var bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
                 bsAlert.close();

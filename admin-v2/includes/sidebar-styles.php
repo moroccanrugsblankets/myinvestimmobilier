@@ -14,11 +14,14 @@
         color: white;
         z-index: 1000;
         transition: transform 0.3s ease-in-out;
+        display: flex;
+        flex-direction: column;
     }
     .sidebar .logo {
         padding: 20px;
         text-align: center;
         border-bottom: 1px solid rgba(255,255,255,0.1);
+        flex-shrink: 0;
     }
     .sidebar .logo h4 {
         margin: 10px 0 5px 0;
@@ -27,6 +30,12 @@
     }
     .sidebar .logo small {
         color: #bdc3c7;
+    }
+    /* Scrollable nav area that leaves room for the logout button */
+    .sidebar .sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 10px;
     }
     .sidebar .nav-link {
         color: rgba(255,255,255,0.8);
@@ -49,16 +58,55 @@
         margin-right: 10px;
         width: 20px;
     }
+    /* Submenu toggle wrapper: keeps the main link and arrow side-by-side */
+    .sidebar .nav-item-with-submenu {
+        position: relative;
+    }
+    .sidebar .nav-item-with-submenu > .nav-link {
+        padding-right: 36px; /* room for the arrow button */
+    }
+    .sidebar .submenu-toggle {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.6);
+        cursor: pointer;
+        padding: 4px 6px;
+        font-size: 0.75rem;
+        line-height: 1;
+        transition: color 0.2s, transform 0.2s;
+        z-index: 1;
+    }
+    .sidebar .submenu-toggle:hover {
+        color: white;
+    }
+    .sidebar .submenu-toggle.open .bi-chevron-right {
+        transform: rotate(90deg);
+        display: inline-block;
+    }
+    .sidebar .submenu-toggle .bi-chevron-right {
+        display: inline-block;
+        transition: transform 0.25s;
+    }
+    /* Submenu collapsed/expanded state */
+    .sidebar ul.submenu {
+        display: none;
+    }
+    .sidebar ul.submenu.show {
+        display: flex;
+        flex-direction: column;
+    }
     .main-content {
         margin-left: 250px;
         padding: 30px;
         transition: margin-left 0.3s ease-in-out;
     }
     .logout-btn {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        right: 20px;
+        flex-shrink: 0;
+        margin: 0 20px 20px 20px;
     }
     
     /* Mobile menu toggle button */
@@ -113,14 +161,6 @@
         
         .sidebar-overlay.active {
             display: block;
-        }
-        
-        .logout-btn {
-            position: relative;
-            bottom: auto;
-            left: auto;
-            right: auto;
-            margin: 20px;
         }
     }
 </style>
