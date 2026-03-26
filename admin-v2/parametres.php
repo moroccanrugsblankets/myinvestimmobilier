@@ -166,7 +166,7 @@ $clesExclues = [
     'delai_reponse_unite',           // → candidatures-configuration.php
     'jours_ouvres_debut',            // → candidatures-configuration.php
     'jours_ouvres_fin',              // → candidatures-configuration.php
-    'cdi_periode_essai_bloque',              // → Deleted
+    //'cdi_periode_essai_bloque',              // → Deleted
 ];
 $placeholdersCles = implode(',', array_fill(0, count($clesExclues), '?'));
 $placeholders  = implode(',', array_fill(0, count($groupesExclus), '?'));
