@@ -8,6 +8,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/contract-templates.php';
 
 // Style CSS pour les images de signature (sans bordures)
 define('SIGNATURE_IMG_STYLE', 'width: 25mm; height: auto; display: block; margin-bottom: 15mm; border: none; outline: none; box-shadow: none; background: transparent;');
@@ -30,13 +31,13 @@ function generateContratPDF($contratId) {
             SELECT c.*, 
                    l.reference,
                    l.adresse,
-                   
                    l.type,
                    l.surface,
                    l.loyer,
                    l.charges,
                    l.depot_garantie,
-                   l.parking
+                   l.parking,
+                   l.type_contrat as logement_type_contrat
             FROM contrats c
             INNER JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
@@ -60,8 +61,12 @@ function generateContratPDF($contratId) {
         }
 
         // Récupérer la template HTML selon le type de contrat
-        $typeContrat = $contrat['type_contrat'] ?? 'meuble';
+        // Priorité : type du contrat, puis type du logement, puis 'meuble' par défaut
         $validTypes = ['meuble', 'non_meuble', 'sur_mesure'];
+        $typeContrat = $contrat['type_contrat'] ?? '';
+        if (!in_array($typeContrat, $validTypes)) {
+            $typeContrat = $contrat['logement_type_contrat'] ?? '';
+        }
         if (!in_array($typeContrat, $validTypes)) {
             $typeContrat = 'meuble';
         }
@@ -70,7 +75,7 @@ function generateContratPDF($contratId) {
         $stmt->execute([$cleTemplate]);
         $templateHtml = $stmt->fetchColumn();
 
-        // Fallback: legacy key, then hardcoded default
+        // Fallback: legacy key, then type-specific hardcoded default
         if (empty($templateHtml)) {
             $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'contrat_template_html'");
             $stmt->execute();
@@ -78,7 +83,7 @@ function generateContratPDF($contratId) {
         }
 
         if (empty($templateHtml)) {
-            $templateHtml = getDefaultContractTemplate();
+            $templateHtml = getDefaultContractTemplateByType($typeContrat);
         }
 
         // Remplacer les variables
@@ -88,9 +93,10 @@ function generateContratPDF($contratId) {
         $html = injectSignatures($html, $contrat, $locataires);
 
         // Générer le PDF
+        $typeContratLabel = getTypeContratLabel($typeContrat);
         $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
-        $pdf->SetTitle('Contrat de Bail - ' . $contrat['reference_unique']);
+        $pdf->SetTitle('Contrat de Bail (' . $typeContratLabel . ') - ' . $contrat['reference_unique']);
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->setPrintHeader(false);
@@ -257,6 +263,7 @@ function replaceContratTemplateVariables($template, $contrat, $locataires) {
         '{{depot_garantie}}' => $depotGarantie,
         '{{iban}}' => htmlspecialchars($iban),
         '{{bic}}' => htmlspecialchars($bic),
+        '{{type_contrat_label}}' => htmlspecialchars(getTypeContratLabel($contrat['type_contrat'] ?? $contrat['logement_type_contrat'] ?? 'meuble')),
     ];
 
     $html = str_replace(array_keys($vars), array_values($vars), $template);
@@ -372,68 +379,4 @@ function buildSignaturesTable($contrat, $locataires) {
     return $html;
 }
 
-/**
- * Template HTML par défaut
- */
-function getDefaultContractTemplate() {
-    return <<<'HTML'
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Contrat de Bail - {{reference_unique}}</title>
-    <style>
-        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #000; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { text-align: center; font-size: 14pt; margin-bottom: 10px; font-weight: bold; }
-        h2 { font-size: 11pt; margin-top: 20px; margin-bottom: 10px; font-weight: bold; }
-        h3 { font-size: 10pt; margin-top: 15px; margin-bottom: 8px; font-weight: bold; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .subtitle { text-align: center; font-style: italic; margin-bottom: 30px; }
-        p { margin: 8px 0; text-align: justify; }
-    </style>
-</head>
-<body>
-    <div class="header"><h1>MY INVEST IMMOBILIER</h1></div>
-    <div class="subtitle">CONTRAT DE BAIL<br>(Location meublée – résidence principale)</div>
 
-    <h2>1. Parties</h2>
-    <h3>Bailleur</h3>
-    <p>My Invest Immobilier (SCI)<br>Représentée par : Maxime ALEXANDRE<br>Email : contact@myinvest-immobilier.com</p>
-
-    <h3>Locataire(s)</h3>
-    <p>{{locataires_info}}</p>
-
-    <h2>2. Désignation du logement</h2>
-    <p><strong>Adresse :</strong><br>{{adresse}}</p>
-    <p><strong>Type :</strong> {{type}} - Logement meublé<br>
-       <strong>Surface :</strong> ~ {{surface}} m²<br>
-       <strong>Usage :</strong> Résidence principale<br>
-       <strong>Parking :</strong> {{parking}}</p>
-
-    <h2>3. Durée</h2>
-    <p>Contrat conclu pour 1 an à compter du : <strong>{{date_prise_effet}}</strong></p>
-    <p>Renouvelable par tacite reconduction.</p>
-
-    <h2>4. Conditions financières</h2>
-    <p><strong>Loyer hors charges :</strong> {{loyer}} €<br>
-       <strong>Charges :</strong> {{charges}} €<br>
-       <strong>Total :</strong> {{loyer_total}} €</p>
-
-    <h2>5. Dépôt de garantie</h2>
-    <p>Montant : <strong>{{depot_garantie}} €</strong></p>
-
-    <h2>6. Coordonnées bancaires</h2>
-    <p><strong>IBAN :</strong> {{iban}}<br><strong>BIC :</strong> {{bic}}<br><strong>Titulaire :</strong> MY INVEST IMMOBILIER</p>
-
-    <h2>7. Signatures</h2>
-    <p>Fait à Annemasse, le {{date_signature}}</p>
-    {{signatures_table}}
-
-    <div class="footer" style="margin-top:40px; font-size:8pt; text-align:center; color:#666;">
-        <p>Document généré électroniquement par My Invest Immobilier</p>
-        <p>Contrat de bail - Référence : {{reference_unique}}</p>
-    </div>
-</body>
-</html>
-HTML;
-}
