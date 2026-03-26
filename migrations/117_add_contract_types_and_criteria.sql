@@ -4,7 +4,7 @@
 
 -- Ajout de la colonne type_contrat dans la table contrats
 ALTER TABLE contrats
-    ADD COLUMN IF NOT EXISTS type_contrat ENUM('meuble','non_meuble','sur_mesure') NOT NULL DEFAULT 'meuble'
+    ADD COLUMN  type_contrat ENUM('meuble','non_meuble','sur_mesure') NOT NULL DEFAULT 'meuble'
     AFTER nb_locataires;
 
 -- Templates HTML par type de contrat (vides par défaut, seront remplis depuis le code PHP)
