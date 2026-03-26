@@ -364,19 +364,21 @@ function generateBailHTML($contrat, $locataires) {
     if ($isValidated && $isSignatureEnabled && !empty($signatureImage)) {
         error_log("PDF Generation Bail HTML: Signature agence AJOUTÉE au HTML");
         
+        // Normalize the path: company signatures are stored as plain filenames in uploads/
+        $normalizedPath = normalizeCompanySignaturePath($signatureImage);
+
         // Check if signature is a file path or a data URI
-        // A file path should not start with 'data:' and should contain 'uploads/signatures/'
-        $isFilePath = (strpos($signatureImage, 'data:') !== 0 && strpos($signatureImage, 'uploads/signatures/') !== false);
+        $isFilePath = (strpos($normalizedPath, 'data:') !== 0 && strpos($normalizedPath, 'uploads/') === 0);
         
         if ($isFilePath) {
             // Signature is stored as a file path
             $baseDir = dirname(__DIR__);
-            $absolutePath = $baseDir . '/' . $signatureImage;
+            $absolutePath = $baseDir . '/' . $normalizedPath;
             
             if (file_exists($absolutePath)) {
-                error_log("PDF Generation Bail: ✓ Utilisation du fichier physique existant: $signatureImage");
+                error_log("PDF Generation Bail: ✓ Utilisation du fichier physique existant: $normalizedPath");
                 // Use relative path from pdf/ directory
-                $relativePath = '../' . $signatureImage;
+                $relativePath = '../' . $normalizedPath;
                 $html .= '
                 <p><strong>Signature électronique</strong></p>
                 <img src="' . htmlspecialchars($relativePath) . '" alt="Signature Société" class="company-signature" style="max-width: 50px; max-height: 25px; border: none; border-width: 0; border-style: none; border-color: transparent; outline: none; outline-width: 0; padding: 0; background: transparent; margin-bottom: 10px;"><br>

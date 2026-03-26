@@ -1005,6 +1005,73 @@ function getParametreValue($cle) {
 }
 
 /**
+ * Normalise le chemin brut de la signature société tel que stocké en base de données.
+ *
+ * La signature peut être stockée comme simple nom de fichier (ex: company_signature_xxx.png)
+ * ou comme chemin relatif déjà préfixé par uploads/ ou uploads/signatures/.
+ * Cette fonction retourne toujours un chemin relatif commençant par uploads/.
+ *
+ * @param string $rawPath Valeur brute issue de la table parametres
+ * @return string Chemin relatif normalisé (ex: uploads/company_signature_xxx.png)
+ */
+function normalizeCompanySignaturePath(string $rawPath): string {
+    if (empty($rawPath) || strpos($rawPath, 'data:image') === 0) {
+        return $rawPath;
+    }
+    // Already a relative path with uploads/ prefix — return as-is
+    if (strpos($rawPath, 'uploads/') === 0) {
+        return $rawPath;
+    }
+    // Just a filename — prepend uploads/
+    return 'uploads/' . $rawPath;
+}
+
+/**
+ * Retourne l'URL absolue (publique) de la signature société configurée dans les paramètres.
+ *
+ * Gère les cas suivants :
+ *  - Fichier stocké comme nom seul : company_signature_xxx.png  → uploads/company_signature_xxx.png
+ *  - Fichier avec préfixe uploads/ ou uploads/signatures/ (anciens formats)
+ *  - Data URI base64 (héritage)
+ *
+ * @param array  $config     Configuration applicative (doit contenir SITE_URL)
+ * @param string $paramKey   Clé du paramètre d'image (défaut : signature_societe_image)
+ * @param string $enabledKey Clé du paramètre d'activation (défaut : signature_societe_enabled).
+ *                           Passer une chaîne vide pour ignorer la vérification d'activation.
+ * @return string URL absolue ou data URI, chaîne vide si indisponible/désactivée
+ */
+function getCompanySignatureUrl(array $config, string $paramKey = 'signature_societe_image', string $enabledKey = 'signature_societe_enabled'): string {
+    // Check enabled flag if a key is provided
+    if (!empty($enabledKey)) {
+        $enabled = getParameter($enabledKey, false);
+        if (!toBooleanParam($enabled)) {
+            return '';
+        }
+    }
+
+    $rawPath = getParameter($paramKey, '');
+    if (empty($rawPath)) {
+        return '';
+    }
+
+    // Handle legacy base64 data URIs
+    if (strpos($rawPath, 'data:image') === 0) {
+        return $rawPath;
+    }
+
+    $relPath = normalizeCompanySignaturePath($rawPath);
+
+    // Verify the file exists on disk
+    $baseDir = dirname(__DIR__);
+    if (!file_exists($baseDir . '/' . $relPath)) {
+        error_log("getCompanySignatureUrl: fichier signature introuvable : {$baseDir}/{$relPath}");
+        return '';
+    }
+
+    return rtrim($config['SITE_URL'], '/') . '/' . $relPath;
+}
+
+/**
  * Convert a parameter value to boolean
  * Handles both boolean and string 'true'/'false' values for consistency
  * @param mixed $value The value to convert (can be bool, string, or null)
