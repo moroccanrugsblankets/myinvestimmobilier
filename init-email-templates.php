@@ -147,7 +147,7 @@ $templates = [
         'description' => 'Email envoyé au candidat si sa candidature est refusée automatiquement'
     ],
     [
-        'identifiant' => 'statut_visite_planifiee',
+        'identifiant' => 'visite_planifiee',
         'nom' => 'Visite planifiée',
         'sujet' => 'Visite de logement planifiée - My Invest Immobilier',
         'corps_html' => '<!DOCTYPE html>
@@ -182,6 +182,43 @@ $templates = [
 </html>',
         'variables_disponibles' => '["nom", "prenom", "email", "commentaire"]',
         'description' => 'Email envoyé au candidat quand une visite est planifiée'
+    ],
+    [
+        'identifiant' => 'statut_refus_apres_visite',
+        'nom' => 'Refus après visite',
+        'sujet' => 'Suite à votre visite - My Invest Immobilier',
+        'corps_html' => '<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0;">
+    <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">My Invest Immobilier</h1>
+        </div>
+        <div style="padding: 30px;">
+            <p style="margin: 15px 0;">Bonjour {{nom}},</p>
+
+            <p style="margin: 15px 0;">Nous vous remercions d\'avoir visité le logement <strong>{{logement}}</strong> et du temps que vous nous avez consacré.</p>
+
+            <p style="margin: 15px 0;">Après examen de votre dossier, nous sommes au regret de vous informer que nous ne sommes pas en mesure de donner suite à votre candidature.</p>
+
+            <p style="margin: 15px 0;">{{commentaire}}</p>
+
+            <p style="margin: 15px 0;">Nous vous souhaitons bonne chance dans vos recherches.</p>
+
+            {{signature}}
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #e9ecef;">
+            <p>My Invest Immobilier - Gestion locative professionnelle</p>
+        </div>
+    </div>
+</body>
+</html>',
+        'variables_disponibles' => '["nom", "prenom", "logement", "commentaire"]',
+        'description' => 'Email envoyé au candidat lorsque sa candidature est refusée après une visite'
     ],
     [
         'identifiant' => 'statut_contrat_envoye',

@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidature_id = (int)$_POST['candidature_id'];
     $nb_locataires = (int)$_POST['nb_locataires'];
     $date_prise_effet = $_POST['date_prise_effet'];
+    $type_contrat = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+        ? $_POST['type_contrat']
+        : 'meuble';
     
     // Generate unique reference
     $reference_unique = 'BAIL-' . strtoupper(uniqid());
@@ -64,12 +67,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $expiryHours = getParameter('delai_expiration_lien_contrat', 24);
     $date_expiration = date('Y-m-d H:i:s', strtotime('+' . $expiryHours . ' hours'));
     
-    // Create contract
-    $stmt = $pdo->prepare("
-        INSERT INTO contrats (reference_unique, candidature_id, logement_id, statut, date_creation, date_expiration, date_prise_effet, nb_locataires)
-        VALUES (?, ?, ?, 'en_attente', NOW(), ?, ?, ?)
-    ");
-    $stmt->execute([$reference_unique, $candidature_id, $logement_id, $date_expiration, $date_prise_effet, $nb_locataires]);
+    // Create contract (include type_contrat if column exists)
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO contrats (reference_unique, candidature_id, logement_id, statut, date_creation, date_expiration, date_prise_effet, nb_locataires, type_contrat)
+            VALUES (?, ?, ?, 'en_attente', NOW(), ?, ?, ?, ?)
+        ");
+        $stmt->execute([$reference_unique, $candidature_id, $logement_id, $date_expiration, $date_prise_effet, $nb_locataires, $type_contrat]);
+    } catch (PDOException $e) {
+        // Fallback if type_contrat column doesn't exist yet (migration not run)
+        error_log("generer-contrat: type_contrat column missing, falling back: " . $e->getMessage());
+        $stmt = $pdo->prepare("
+            INSERT INTO contrats (reference_unique, candidature_id, logement_id, statut, date_creation, date_expiration, date_prise_effet, nb_locataires)
+            VALUES (?, ?, ?, 'en_attente', NOW(), ?, ?, ?)
+        ");
+        $stmt->execute([$reference_unique, $candidature_id, $logement_id, $date_expiration, $date_prise_effet, $nb_locataires]);
+    }
     $contrat_id = $pdo->lastInsertId();
     
     // Note: Property status will be updated when contract is signed/active, not here
@@ -275,6 +288,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="date" name="date_prise_effet" class="form-control" required 
                                min="<?php echo date('Y-m-d'); ?>">
                         <small class="form-text text-muted">Date d'entrée dans le logement</small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Type de contrat *</label>
+                        <select name="type_contrat" class="form-select" required>
+                            <option value="meuble">Meublé</option>
+                            <option value="non_meuble">Non meublé</option>
+                            <option value="sur_mesure">Sur mesure</option>
+                        </select>
+                        <small class="form-text text-muted">Détermine le modèle de contrat utilisé</small>
                     </div>
 
                     <div class="col-12">
