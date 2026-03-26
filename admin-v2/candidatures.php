@@ -138,7 +138,6 @@ try {
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Référence</th>
                                 <th>Candidat</th>
                                 <th>Contact</th>
                                 <th>Situation</th>
@@ -152,7 +151,6 @@ try {
                         <tbody>
                             <?php foreach ($candidatures as $cand): ?>
                             <tr>
-                                <td><code><?php echo htmlspecialchars($cand['reference_unique'] ?? 'N/A'); ?></code></td>
                                 <td>
                                     <strong><?php echo htmlspecialchars($cand['prenom'] . ' ' . $cand['nom']); ?></strong>
                                 </td>
