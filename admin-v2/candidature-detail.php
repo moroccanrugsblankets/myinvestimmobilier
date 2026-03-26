@@ -119,7 +119,8 @@ function getStatusBadge($status) {
         'en_cours' => 'En cours',
         'accepte' => 'Accepté',
         'refuse' => 'Refusé',
-        'visite_planifiee' => 'Visite planifiée',
+        'visite_planifiee' => 'Refus après visite',
+        'refus_apres_visite' => 'Refus après visite',
         'contrat_envoye' => 'Contrat envoyé',
         'contrat_signe' => 'Contrat signé'
     ];
@@ -130,7 +131,7 @@ function getStatusBadge($status) {
         'En cours' => 'bg-primary',
         'Accepté' => 'bg-success',
         'Refusé' => 'bg-danger',
-        'Visite planifiée' => 'bg-info',
+        'Refus après visite' => 'bg-danger',
         'Contrat envoyé' => 'bg-warning',
         'Contrat signé' => 'bg-dark'
     ];
@@ -604,7 +605,7 @@ function getStatusBadge($status) {
                                 <option value="en_cours" <?php echo $candidature['statut'] === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
                                 <option value="accepte" <?php echo $candidature['statut'] === 'accepte' ? 'selected' : ''; ?>>Accepté</option>
                                 <option value="refuse" <?php echo $candidature['statut'] === 'refuse' ? 'selected' : ''; ?>>Refusé</option>
-                                <option value="visite_planifiee" <?php echo $candidature['statut'] === 'visite_planifiee' ? 'selected' : ''; ?>>Visite planifiée</option>
+                                <option value="refus_apres_visite" <?php echo $candidature['statut'] === 'refus_apres_visite' || $candidature['statut'] === 'visite_planifiee' ? 'selected' : ''; ?>>Refus après visite</option>
                                 <option value="contrat_envoye" <?php echo $candidature['statut'] === 'contrat_envoye' ? 'selected' : ''; ?>>Contrat envoyé</option>
                                 <option value="contrat_signe" <?php echo $candidature['statut'] === 'contrat_signe' ? 'selected' : ''; ?>>Contrat signé</option>
                             </select>

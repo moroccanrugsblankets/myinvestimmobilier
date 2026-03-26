@@ -9,9 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 try {
+                    $typeContratAdd = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+                        ? $_POST['type_contrat']
+                        : 'meuble';
                     $stmt = $pdo->prepare("
-                        INSERT INTO logements (reference, adresse, type, surface, loyer, charges, depot_garantie, parking, statut, date_disponibilite, lien_externe, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disponible', ?, ?, NOW())
+                        INSERT INTO logements (reference, adresse, type, surface, loyer, charges, depot_garantie, parking, statut, date_disponibilite, lien_externe, type_contrat, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disponible', ?, ?, ?, NOW())
                     ");
                     $stmt->execute([
                         $_POST['reference'],
@@ -23,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_POST['depot_garantie'],
                         $_POST['parking'],
                         !empty($_POST['date_disponibilite']) ? $_POST['date_disponibilite'] : null,
-                        !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null
+                        !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
+                        $typeContratAdd,
                     ]);
                     $_SESSION['success'] = "Logement ajouté avec succès";
                 } catch (PDOException $e) {
@@ -49,10 +53,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ];
                     $dbStatut = $statutMap[$_POST['statut']] ?? strtolower($_POST['statut']);
                     
+                    $typeContratEdit = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+                        ? $_POST['type_contrat']
+                        : 'meuble';
+
                     $stmt = $pdo->prepare("
                         UPDATE logements SET 
                             reference = ?, adresse = ?, type = ?, surface = ?,
-                            loyer = ?, charges = ?, depot_garantie = ?, parking = ?, statut = ?, date_disponibilite = ?, lien_externe = ?
+                            loyer = ?, charges = ?, depot_garantie = ?, parking = ?, statut = ?, date_disponibilite = ?, lien_externe = ?, type_contrat = ?
                         WHERE id = ?
                     ");
                     $stmt->execute([
@@ -67,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $dbStatut,
                         !empty($_POST['date_disponibilite']) ? $_POST['date_disponibilite'] : null,
                         !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
+                        $typeContratEdit,
                         $_POST['logement_id']
                     ]);
                     $_SESSION['success'] = "Logement modifié avec succès";
@@ -192,7 +201,7 @@ if ($statut_filter && isset($statut_ui_to_db_map[$statut_filter])) {
 // Build query - explicitly select columns we need
 $sql = "SELECT l.id, l.reference, l.adresse, l.type, l.surface, l.loyer, l.charges, 
         l.depot_garantie, l.parking, l.statut, l.date_disponibilite, l.created_at, l.updated_at,
-        l.lien_externe,
+        l.lien_externe, l.type_contrat,
         COALESCE(l.default_cles_appartement, 2) as default_cles_appartement,
         COALESCE(l.default_cles_boite_lettres, 1) as default_cles_boite_lettres,
         l.default_etat_piece_principale,
@@ -449,6 +458,7 @@ $stats = [
                                             data-statut="<?php echo htmlspecialchars($logement['statut_ui']); ?>"
                                             data-date-disponibilite="<?php echo htmlspecialchars($logement['date_disponibilite'] ?? ''); ?>"
                                             data-lien-externe="<?php echo htmlspecialchars($logement['lien_externe'] ?? ''); ?>"
+                                            data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>"
                                             data-bs-toggle="modal" 
                                             data-bs-target="#editLogementModal">
                                         <i class="bi bi-pencil"></i>
@@ -572,6 +582,14 @@ $stats = [
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Type de contrat *</label>
+                                <select name="type_contrat" class="form-select" required>
+                                    <option value="meuble">Meublé</option>
+                                    <option value="non_meuble">Non meublé</option>
+                                    <option value="sur_mesure">Sur mesure</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Date de disponibilité</label>
                                 <input type="date" name="date_disponibilite" class="form-control">
                             </div>
@@ -648,6 +666,14 @@ $stats = [
                                 <select name="parking" id="edit_parking" class="form-select">
                                     <option value="Aucun">Aucun</option>
                                     <option value="1 place">1 place</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Type de contrat *</label>
+                                <select name="type_contrat" id="edit_type_contrat" class="form-select" required>
+                                    <option value="meuble">Meublé</option>
+                                    <option value="non_meuble">Non meublé</option>
+                                    <option value="sur_mesure">Sur mesure</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -871,6 +897,7 @@ $stats = [
                 document.getElementById('edit_charges').value = this.dataset.charges;
                 document.getElementById('edit_depot').value = this.dataset.depot;
                 document.getElementById('edit_parking').value = this.dataset.parking;
+                document.getElementById('edit_type_contrat').value = this.dataset.typeContrat || 'meuble';
                 document.getElementById('edit_statut').value = this.dataset.statut;
                 document.getElementById('edit_date_disponibilite').value = this.dataset.dateDisponibilite || '';
                 document.getElementById('edit_lien_externe').value = this.dataset.lienExterne || '';

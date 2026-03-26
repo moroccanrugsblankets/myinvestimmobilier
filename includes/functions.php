@@ -858,7 +858,8 @@ function formatStatut($statut) {
         'en_cours' => 'En cours',
         'refuse' => 'Refusé',
         'accepte' => 'Accepté',
-        'visite_planifiee' => 'Visite planifiée',
+        'visite_planifiee' => 'Refus après visite',
+        'refus_apres_visite' => 'Refus après visite',
         'contrat_envoye' => 'Envoyé',
         'contrat_signe' => 'Signé'
     ];

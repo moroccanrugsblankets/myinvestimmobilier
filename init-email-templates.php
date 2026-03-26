@@ -148,8 +148,8 @@ $templates = [
     ],
     [
         'identifiant' => 'visite_planifiee',
-        'nom' => 'Visite planifiée',
-        'sujet' => 'Visite de logement planifiée - My Invest Immobilier',
+        'nom' => 'Refus après visite',
+        'sujet' => 'Suite à votre visite - My Invest Immobilier',
         'corps_html' => '<!DOCTYPE html>
 <html lang="fr">
 <head>

@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     conditions_visite   = ?,
                     video_youtube       = ?,
                     lien_externe        = ?,
+                    type_contrat        = ?,
                     updated_at          = NOW()
                 WHERE id = ?
             ");
@@ -72,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['conditions_visite'] ?? '',
                 !empty($_POST['video_youtube']) ? trim($_POST['video_youtube']) : null,
                 !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
+                in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure']) ? $_POST['type_contrat'] : 'meuble',
                 $logement_id,
             ]);
         } catch (PDOException $e) {
@@ -524,6 +526,15 @@ unset($_SESSION['success'], $_SESSION['error']);
                                 <label class="form-label fw-semibold">Lien externe (annonce)</label>
                                 <input type="url" name="lien_externe" class="form-control" placeholder="https://..."
                                        value="<?php echo htmlspecialchars($logement['lien_externe'] ?? ''); ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Type de contrat <span class="text-danger">*</span></label>
+                                <select name="type_contrat" class="form-select" required>
+                                    <option value="meuble" <?php echo ($logement['type_contrat'] ?? 'meuble') === 'meuble' ? 'selected' : ''; ?>>Meublé</option>
+                                    <option value="non_meuble" <?php echo ($logement['type_contrat'] ?? '') === 'non_meuble' ? 'selected' : ''; ?>>Non meublé</option>
+                                    <option value="sur_mesure" <?php echo ($logement['type_contrat'] ?? '') === 'sur_mesure' ? 'selected' : ''; ?>>Sur mesure</option>
+                                </select>
+                                <div class="form-text">Détermine le modèle de contrat utilisé lors de la génération.</div>
                             </div>
 
                             <!-- Description -->

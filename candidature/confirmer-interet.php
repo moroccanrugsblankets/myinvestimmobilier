@@ -24,8 +24,8 @@ if (isset($_GET['ref'])) {
         if (!$candidature) {
             $error = "Candidature non trouvée ou déjà traitée.";
         } elseif (isset($_POST['confirmer'])) {
-            // Update status to "Visite planifiée"
-            $updateStmt = $pdo->prepare("UPDATE candidatures SET statut = 'Visite planifiée', date_confirmation_interet = NOW() WHERE id = ?");
+            // Update status to "Refus après visite"
+            $updateStmt = $pdo->prepare("UPDATE candidatures SET statut = 'refus_apres_visite', date_confirmation_interet = NOW() WHERE id = ?");
             $updateStmt->execute([$candidature['id']]);
             
             // Log the action

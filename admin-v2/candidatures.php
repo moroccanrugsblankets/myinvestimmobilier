@@ -116,7 +116,7 @@ try {
                             <option value="en_cours" <?php echo $filter_statut === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
                             <option value="refuse" <?php echo $filter_statut === 'refuse' ? 'selected' : ''; ?>>Refusé</option>
                             <option value="accepte" <?php echo $filter_statut === 'accepte' ? 'selected' : ''; ?>>Accepté</option>
-                            <option value="visite_planifiee" <?php echo $filter_statut === 'visite_planifiee' ? 'selected' : ''; ?>>Visite planifiée</option>
+                            <option value="refus_apres_visite" <?php echo $filter_statut === 'refus_apres_visite' ? 'selected' : ''; ?>>Refus après visite</option>
                             <option value="contrat_envoye" <?php echo $filter_statut === 'contrat_envoye' ? 'selected' : ''; ?>>Contrat envoyé</option>
                             <option value="contrat_signe" <?php echo $filter_statut === 'contrat_signe' ? 'selected' : ''; ?>>Contrat signé</option>
                         </select>
