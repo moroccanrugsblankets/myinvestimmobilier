@@ -918,7 +918,8 @@ if ($contrat['validated_by']) {
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-		
+
+		<?php if ($contrat['statut'] === 'valide'): ?>
 		<!-- État des lieux Section -->
 		<div class="detail-card mt-4">
             <?php
@@ -1002,7 +1003,7 @@ if ($contrat['validated_by']) {
         </div>
 
         <!-- Inventaire Section -->
-        <?php if ($contrat['statut'] === 'valide'): ?>
+        
         <div class="detail-card mt-4">
             <h5><i class="bi bi-clipboard-check"></i> Inventaire</h5>
             <?php
