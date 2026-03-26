@@ -21,8 +21,8 @@ if (!$candidature_id || !$nouveau_statut) {
     exit;
 }
 
-// Get current candidature
-$stmt = $pdo->prepare("SELECT * FROM candidatures WHERE id = ?");
+// Get current candidature (with logement reference for email templates)
+$stmt = $pdo->prepare("SELECT c.*, l.reference as logement_reference FROM candidatures c LEFT JOIN logements l ON c.logement_id = l.id WHERE c.id = ?");
 $stmt->execute([$candidature_id]);
 $candidature = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -93,6 +93,7 @@ if ($send_email) {
             'nom' => $candidature['nom'],
             'prenom' => $candidature['prenom'],
             'email' => $candidature['email'],
+            'logement' => $candidature['logement_reference'] ?? '',
             'commentaire' => $commentaire ? '<p style="margin: 15px 0;"><strong>Note :</strong> ' . nl2br(htmlspecialchars($commentaire)) . '</p>' : ''
         ];
         
