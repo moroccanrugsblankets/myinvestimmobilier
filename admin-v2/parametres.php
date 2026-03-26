@@ -166,7 +166,7 @@ $clesExclues = [
     'delai_reponse_unite',           // → candidatures-configuration.php
     'jours_ouvres_debut',            // → candidatures-configuration.php
     'jours_ouvres_fin',              // → candidatures-configuration.php
-    //'cdi_periode_essai_bloque',              // → Deleted
+    'cdi_periode_essai_bloque',              // → Deleted
 ];
 $placeholdersCles = implode(',', array_fill(0, count($clesExclues), '?'));
 $placeholders  = implode(',', array_fill(0, count($groupesExclus), '?'));
@@ -348,7 +348,6 @@ try {
                                     'statuts_pro_acceptes' => 'Statuts professionnels acceptés',
                                     'type_revenus_accepte' => 'Type de revenus accepté',
                                     'nb_occupants_acceptes' => 'Nombres d\'occupants acceptés',
-                                    'cdi_periode_essai_bloque' => 'Période d\'essai',
                                     'garantie_visale_requise' => 'Garantie Visale requise',
                                     'email_signature' => 'Signature des emails',
                                     'company_name' => 'Nom de la société',
