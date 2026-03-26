@@ -452,8 +452,11 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold">Type</label>
-                                <input type="text" name="type" class="form-control"
-                                       value="<?php echo htmlspecialchars($logement['type']); ?>" placeholder="T1, T2, Studio…" maxlength="50">
+                                <select name="type" class="form-select">
+                                    <option value="">Sélectionner...</option>
+                                    <option value="T1 Bis" <?php echo $logement['type'] === 'T1 Bis' ? 'selected' : ''; ?>>T1 Bis</option>
+                                    <option value="T2" <?php echo $logement['type'] === 'T2' ? 'selected' : ''; ?>>T2</option>
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold">Surface (m²)</label>

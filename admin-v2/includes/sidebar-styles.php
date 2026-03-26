@@ -67,17 +67,19 @@
     }
     .sidebar .submenu-toggle {
         position: absolute;
-        top: 50%;
+        top: 0;
         right: 8px;
-        transform: translateY(-50%);
+        height: 37px; /* aligns with nav-link height so arrow stays at main item level */
+        display: flex;
+        align-items: center;
         background: transparent;
         border: none;
         color: rgba(255,255,255,0.6);
         cursor: pointer;
-        padding: 4px 6px;
+        padding: 0 6px;
         font-size: 0.75rem;
         line-height: 1;
-        transition: color 0.2s, transform 0.2s;
+        transition: color 0.2s;
         z-index: 1;
     }
     .sidebar .submenu-toggle:hover {
