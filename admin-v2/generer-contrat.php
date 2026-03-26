@@ -15,7 +15,7 @@ if ($candidature_id) {
     $stmt = $pdo->prepare("
         SELECT c.*, l.id as logement_id, l.reference as logement_reference, 
                l.adresse as logement_adresse, l.type as logement_type,
-               l.loyer, l.charges, l.depot_garantie
+               l.loyer, l.charges, l.depot_garantie, l.type_contrat as logement_type_contrat
         FROM candidatures c
         LEFT JOIN logements l ON c.logement_id = l.id
         WHERE c.id = ?
@@ -32,7 +32,8 @@ if ($candidature_id) {
             'type' => $candidature['logement_type'],
             'loyer' => $candidature['loyer'],
             'charges' => $candidature['charges'],
-            'depot_garantie' => $candidature['depot_garantie']
+            'depot_garantie' => $candidature['depot_garantie'],
+            'type_contrat' => $candidature['logement_type_contrat'] ?? 'meuble',
         ];
     }
 }
@@ -223,6 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <input type="hidden" id="hidden_loyer" value="<?php echo $logement_from_candidature['loyer']; ?>">
                                 <input type="hidden" id="hidden_charges" value="<?php echo $logement_from_candidature['charges']; ?>">
                                 <input type="hidden" id="hidden_depot" value="<?php echo $logement_from_candidature['depot_garantie']; ?>">
+                                <input type="hidden" id="hidden_type_contrat" value="<?php echo htmlspecialchars($logement_from_candidature['type_contrat']); ?>">
                                 <small class="form-text text-muted">Logement associé à la candidature</small>
                             <?php else: ?>
                                 <select name="logement_id" class="form-select" required id="logement_select">
@@ -231,7 +233,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <option value="<?php echo $logement['id']; ?>"
                                                 data-loyer="<?php echo $logement['loyer']; ?>"
                                                 data-charges="<?php echo $logement['charges']; ?>"
-                                                data-depot="<?php echo $logement['depot_garantie']; ?>">
+                                                data-depot="<?php echo $logement['depot_garantie']; ?>"
+                                                data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>">
                                             <?php echo htmlspecialchars($logement['reference']); ?>
                                             (<?php echo htmlspecialchars($logement['type']); ?> - <?php echo $logement['loyer']; ?>€/mois)
                                         </option>
@@ -264,7 +267,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <option value="<?php echo $logement['id']; ?>"
                                             data-loyer="<?php echo $logement['loyer']; ?>"
                                             data-charges="<?php echo $logement['charges']; ?>"
-                                            data-depot="<?php echo $logement['depot_garantie']; ?>">
+                                            data-depot="<?php echo $logement['depot_garantie']; ?>"
+                                            data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>">
                                         <?php echo htmlspecialchars($logement['reference']); ?>
                                         (<?php echo htmlspecialchars($logement['type']); ?> - <?php echo $logement['loyer']; ?>€/mois)
                                     </option>
@@ -370,6 +374,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('preview_total').textContent = total.toFixed(2);
                 document.getElementById('preview_depot').textContent = depot.toFixed(2);
                 document.getElementById('preview_card').style.display = 'block';
+
+                // Auto-select type_contrat based on logement
+                const typeContrat = option.dataset.typeContrat || 'meuble';
+                const typeSelect = document.querySelector('[name="type_contrat"]');
+                if (typeSelect) { typeSelect.value = typeContrat; }
             } else {
                 document.getElementById('preview_card').style.display = 'none';
             }
@@ -392,6 +401,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('preview_total').textContent = total.toFixed(2);
                 document.getElementById('preview_depot').textContent = depot.toFixed(2);
                 document.getElementById('preview_card').style.display = 'block';
+
+                // Auto-select type_contrat from candidature logement
+                const hiddenTypeContrat = document.getElementById('hidden_type_contrat');
+                if (hiddenTypeContrat && hiddenTypeContrat.value) {
+                    const typeSelect = document.querySelector('[name="type_contrat"]');
+                    if (typeSelect) { typeSelect.value = hiddenTypeContrat.value; }
+                }
             }
         });
     </script>
