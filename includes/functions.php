@@ -859,8 +859,8 @@ function formatStatut($statut) {
         'refuse' => 'Refusé',
         'accepte' => 'Accepté',
         'visite_planifiee' => 'Visite planifiée',
-        'contrat_envoye' => 'Contrat envoyé',
-        'contrat_signe' => 'Contrat signé'
+        'contrat_envoye' => 'Envoyé',
+        'contrat_signe' => 'Signé'
     ];
     
     return $mapping[$statut] ?? ucfirst(str_replace('_', ' ', $statut));
