@@ -140,8 +140,6 @@ try {
                             <tr>
                                 <th>Candidat</th>
                                 <th>Contact</th>
-                                <th>Situation</th>
-                                <th>Revenus</th>
                                 <th>Logement</th>
                                 <th>Date</th>
                                 <th>Statut</th>
@@ -160,8 +158,6 @@ try {
                                         <i class="bi bi-telephone"></i> <?php echo htmlspecialchars($cand['telephone']); ?>
                                     </small>
                                 </td>
-                                <td><small><?php echo htmlspecialchars($cand['statut_professionnel']); ?></small></td>
-                                <td><small><?php echo htmlspecialchars(formatRevenus($cand['revenus_mensuels'] ?? null)); ?></small></td>
                                 <td>
                                     <?php if ($cand['logement_ref']): ?>
                                         <small><?php echo htmlspecialchars($cand['logement_ref']); ?></small>
