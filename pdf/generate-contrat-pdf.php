@@ -299,7 +299,7 @@ function buildSignaturesTable($contrat, $locataires) {
     $html .= '<tbody><tr>';
 
     // Bailleur column
-    $html .= '<td style="width: ' . $colWidth . '%; vertical-align: top; text-align: center; padding: 10px; border: 1px solid #333; background: transparent; font-size: 10pt;">';
+    $html .= '<td style="width: ' . $colWidth . '%; vertical-align: top; text-align: center; padding: 10px; background: transparent; font-size: 10pt;">';
     $html .= '<p style="margin: 0 0 8px 0; font-weight: bold;">Le bailleur :</p>';
     
     if ($contrat['statut'] === 'valide') {
@@ -330,7 +330,7 @@ function buildSignaturesTable($contrat, $locataires) {
 
     // Locataires columns
     foreach ($locataires as $i => $loc) {
-        $html .= '<td style="width: ' . $colWidth . '%; vertical-align: top; text-align: center; padding: 10px; border: 1px solid #333; background: transparent; font-size: 10pt;">';
+        $html .= '<td style="width: ' . $colWidth . '%; vertical-align: top; text-align: center; padding: 10px; background: transparent; font-size: 10pt;">';
 
         // Tenant label
         if ($nbCols === 2) {
