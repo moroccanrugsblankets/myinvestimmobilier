@@ -1146,7 +1146,7 @@ if ($contrat['validated_by']) {
         <?php endif; ?>
 
         <!-- Action Section for signed contracts -->
-        <?php //if ($contrat['statut'] === 'signe'): ?>
+        <?php if ($contrat['statut'] === 'signe'): ?>
         <div class="action-section">
             <h5><i class="bi bi-clipboard-check"></i> Actions de Vérification</h5>
             <p>Le contrat a été signé par le client. Vous devez maintenant vérifier les informations et:</p>
@@ -1208,7 +1208,7 @@ if ($contrat['validated_by']) {
                 </div>
             </div>
         </div>
-        <?php //endif; ?>
+        <?php endif; ?>
 
         <!-- Departure confirmation & End of contract actions -->
         <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>
