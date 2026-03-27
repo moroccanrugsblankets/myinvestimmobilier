@@ -295,7 +295,7 @@ function buildSignaturesTable($contrat, $locataires) {
     // Use border="1" and cellspacing="0" for consistent cell rendering
     // Explicit width and height for consistent layout
     // Reduced padding for more compact signature table
-    $html = '<table cellspacing="0" cellpadding="10" border="1" style="width: 100%; border-collapse: collapse; margin-top: 20px; background: transparent;">';
+    $html = '<table cellspacing="0" cellpadding="10" border="0" style="width: 100%; border-collapse: collapse; margin-top: 20px; background: transparent;">';
     $html .= '<tbody><tr>';
 
     // Bailleur column
