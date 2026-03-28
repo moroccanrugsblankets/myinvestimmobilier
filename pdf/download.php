@@ -40,9 +40,12 @@ $extension = pathinfo($filepath, PATHINFO_EXTENSION);
 $mimeType = $extension === 'pdf' ? 'application/pdf' : 'text/html';
 $filename = basename($filepath);
 
-// Envoyer les headers pour le téléchargement
+// Déterminer le mode d'affichage : inline (view=1) ou téléchargement forcé (défaut)
+$viewMode = isset($_GET['view']) && $_GET['view'] === '1' ? 'inline' : 'attachment';
+
+// Envoyer les headers
 header('Content-Type: ' . $mimeType);
-header('Content-Disposition: attachment; filename="' . $filename . '"');
+header('Content-Disposition: ' . $viewMode . '; filename="' . $filename . '"');
 header('Content-Length: ' . filesize($filepath));
 header('Cache-Control: no-cache, must-revalidate');
 header('Pragma: no-cache');

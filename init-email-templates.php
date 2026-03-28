@@ -436,7 +436,11 @@ $templates = [
             
             <p>Nous vous remercions pour votre confiance.</p>
             
-            <p>Veuillez trouver ci-joint une copie du <strong>contrat de bail dûment complété</strong>.</p>
+            <p>Veuillez trouver ci-dessous le lien pour consulter votre <strong>contrat de bail dûment complété</strong> :</p>
+            
+            <p style="text-align: center;">
+                <a href="{{lien_contrat_signe}}" style="display: inline-block; padding: 12px 30px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;">📄 Voir le contrat signé</a>
+            </p>
             
             <div style="background: #e8f4f8; border-left: 4px solid #3498db; padding: 15px; margin: 20px 0; border-radius: 4px;">
                 <strong>📋 Référence du contrat :</strong> {{reference}}
@@ -479,8 +483,8 @@ $templates = [
     </div>
 </body>
 </html>',
-        'variables_disponibles' => '["nom", "prenom", "reference", "depot_garantie", "lien_upload", "lien_telechargement_dpe"]',
-        'description' => 'Email HTML envoyé au client lors de la finalisation du contrat avec le PDF joint'
+        'variables_disponibles' => '["nom", "prenom", "reference", "depot_garantie", "lien_upload", "lien_contrat_signe", "lien_telechargement_dpe"]',
+        'description' => 'Email HTML envoyé au client lors de la finalisation du contrat avec lien vers le contrat (sans PJ)'
     ],
     [
         'identifiant' => 'contrat_finalisation_admin',
