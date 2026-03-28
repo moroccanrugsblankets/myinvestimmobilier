@@ -144,6 +144,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     // Préparer le lien pour l'upload du justificatif
                                     $lienUpload = $config['SITE_URL'] . '/envoyer-justificatif.php?token=' . $contrat['token_signature'];
                                     
+                                    // Préparer le lien vers le contrat signé (visualisation en ligne)
+                                    $lienContratSigne = $config['SITE_URL'] . '/pdf/download.php?contrat_id=' . $contratId . '&view=1';
+
                                     // Préparer les variables pour le template
                                     $variables = [
                                         'nom' => $locataire['nom'],
@@ -151,11 +154,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         'reference' => $contrat['reference_unique'],
                                         'depot_garantie' => formatMontant($contrat['depot_garantie']),
                                         'lien_upload' => $lienUpload,
+                                        'lien_contrat_signe' => $lienContratSigne,
                                         'lien_telechargement_dpe' => (!empty($contrat['dpe_file']) && strpos($contrat['dpe_file'], '..') === false && strpos($contrat['dpe_file'], '/') !== 0) ? rtrim($config['SITE_URL'], '/') . '/' . $contrat['dpe_file'] : '',
                                     ];
                                     
-                                    // Envoyer l'email de confirmation avec le contrat PDF
-                                    sendTemplatedEmail('contrat_finalisation_client', $locataire['email'], $variables, $pdfPath, false, false);
+                                    // Envoyer l'email de confirmation sans PJ (lien dans le corps)
+                                    sendTemplatedEmail('contrat_finalisation_client', $locataire['email'], $variables, null, false, false);
                                     
                                     // Envoyer l'email de demande de justificatif de paiement (en parallèle) avec admin en BCC
                                     sendTemplatedEmail('demande_justificatif_paiement', $locataire['email'], $variables, null, false, true);

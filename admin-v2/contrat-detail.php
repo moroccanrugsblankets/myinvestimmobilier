@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     'logement' => $contrat['reference'] . ' - ' . $contrat['adresse'],
                     'date_prise_effet' => date('d/m/Y', strtotime($contrat['date_prise_effet'])),
                     'depot_garantie' => number_format($contrat['depot_garantie'], 2, ',', ' '),
-                    'lien_telecharger' => BASE_URL . '/pdf/download.php?contrat_id=' . $contractId,
+                    'lien_telecharger' => BASE_URL . '/pdf/download.php?contrat_id=' . $contractId . '&view=1',
                     'lien_procedure_depart' => BASE_URL . '/signature/procedure-depart.php?token=' . urlencode($contrat['reference_unique']),
                     'lien_telechargement_dpe' => (!empty($contrat['dpe_file']) && strpos($contrat['dpe_file'], '..') === false && strpos($contrat['dpe_file'], '/') !== 0) ? rtrim($config['SITE_URL'], '/') . '/' . $contrat['dpe_file'] : '',
                 ], null, true, false, ['contexte' => 'contrat_id=' . $contractId]);
