@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidature_info = $stmt->fetch(PDO::FETCH_ASSOC);
     
     // Get logement info for email
-    $stmt = $pdo->prepare("SELECT adresse FROM logements WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT adresse, COALESCE(duree_garantie, 1) as duree_garantie, COALESCE(dpe_file, '') as dpe_file FROM logements WHERE id = ?");
     $stmt->execute([$logement_id]);
     $logement_info = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -135,11 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'email' => $candidature_info['email'],
             'adresse' => $logement_info['adresse'],
             'lien_signature' => $signature_link,
-            'date_expiration_lien_contrat' => $date_expiration_formatted
+            'date_expiration_lien_contrat' => $date_expiration_formatted,
+            'duree_garantie' => (int)($logement_info['duree_garantie'] ?? 1) . ' mois',
         ];
         
+        // Attach DPE file if available
+        $dpeAttachment = null;
+        if (!empty($logement_info['dpe_file'])) {
+            $dpePath = dirname(__DIR__) . '/' . $logement_info['dpe_file'];
+            if (file_exists($dpePath)) {
+                $dpeAttachment = ['path' => $dpePath, 'name' => 'DPE.pdf'];
+            }
+        }
+        
         // Envoyer l'email d'invitation avec le template de la base de données
-        $emailSent = sendTemplatedEmail('contrat_signature', $candidature_info['email'], $variables, null, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
+        $emailSent = sendTemplatedEmail('contrat_signature', $candidature_info['email'], $variables, $dpeAttachment, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
         
         if ($emailSent) {
             // Log email sending success

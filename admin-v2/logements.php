@@ -12,9 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $typeContratAdd = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
                         ? $_POST['type_contrat']
                         : 'meuble';
+                    $dureeGarantieAdd = in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3])
+                        ? (int)$_POST['duree_garantie']
+                        : 1;
                     $stmt = $pdo->prepare("
-                        INSERT INTO logements (reference, adresse, type, surface, loyer, charges, depot_garantie, parking, statut, date_disponibilite, lien_externe, type_contrat, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disponible', ?, ?, ?, NOW())
+                        INSERT INTO logements (reference, adresse, type, surface, loyer, charges, depot_garantie, parking, statut, date_disponibilite, lien_externe, type_contrat, duree_garantie, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disponible', ?, ?, ?, ?, NOW())
                     ");
                     $stmt->execute([
                         $_POST['reference'],
@@ -28,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         !empty($_POST['date_disponibilite']) ? $_POST['date_disponibilite'] : null,
                         !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
                         $typeContratAdd,
+                        $dureeGarantieAdd,
                     ]);
                     $_SESSION['success'] = "Logement ajouté avec succès";
                 } catch (PDOException $e) {
@@ -57,10 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? $_POST['type_contrat']
                         : 'meuble';
 
+                    $dureeGarantieEdit = in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3])
+                        ? (int)$_POST['duree_garantie']
+                        : 1;
+
                     $stmt = $pdo->prepare("
                         UPDATE logements SET 
                             reference = ?, adresse = ?, type = ?, surface = ?,
-                            loyer = ?, charges = ?, depot_garantie = ?, parking = ?, statut = ?, date_disponibilite = ?, lien_externe = ?, type_contrat = ?
+                            loyer = ?, charges = ?, depot_garantie = ?, parking = ?, statut = ?, date_disponibilite = ?, lien_externe = ?, type_contrat = ?, duree_garantie = ?
                         WHERE id = ?
                     ");
                     $stmt->execute([
@@ -76,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         !empty($_POST['date_disponibilite']) ? $_POST['date_disponibilite'] : null,
                         !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
                         $typeContratEdit,
+                        $dureeGarantieEdit,
                         $_POST['logement_id']
                     ]);
                     $_SESSION['success'] = "Logement modifié avec succès";
@@ -201,7 +210,7 @@ if ($statut_filter && isset($statut_ui_to_db_map[$statut_filter])) {
 // Build query - explicitly select columns we need
 $sql = "SELECT l.id, l.reference, l.adresse, l.type, l.surface, l.loyer, l.charges, 
         l.depot_garantie, l.parking, l.statut, l.date_disponibilite, l.created_at, l.updated_at,
-        l.lien_externe, l.type_contrat,
+        l.lien_externe, l.type_contrat, COALESCE(l.duree_garantie, 1) as duree_garantie,
         COALESCE(l.default_cles_appartement, 2) as default_cles_appartement,
         COALESCE(l.default_cles_boite_lettres, 1) as default_cles_boite_lettres,
         l.default_etat_piece_principale,
@@ -459,6 +468,7 @@ $stats = [
                                             data-date-disponibilite="<?php echo htmlspecialchars($logement['date_disponibilite'] ?? ''); ?>"
                                             data-lien-externe="<?php echo htmlspecialchars($logement['lien_externe'] ?? ''); ?>"
                                             data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>"
+                                            data-duree-garantie="<?php echo (int)($logement['duree_garantie'] ?? 1); ?>"
                                             data-bs-toggle="modal" 
                                             data-bs-target="#editLogementModal">
                                         <i class="bi bi-pencil"></i>
@@ -590,6 +600,15 @@ $stats = [
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Durée de garantie</label>
+                                <select name="duree_garantie" class="form-select">
+                                    <option value="0">0 mois</option>
+                                    <option value="1" selected>1 mois</option>
+                                    <option value="2">2 mois</option>
+                                    <option value="3">3 mois</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Date de disponibilité</label>
                                 <input type="date" name="date_disponibilite" class="form-control">
                             </div>
@@ -674,6 +693,15 @@ $stats = [
                                     <option value="meuble">Meublé</option>
                                     <option value="non_meuble">Non meublé</option>
                                     <option value="sur_mesure">Sur mesure</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Durée de garantie</label>
+                                <select name="duree_garantie" id="edit_duree_garantie" class="form-select">
+                                    <option value="0">0 mois</option>
+                                    <option value="1">1 mois</option>
+                                    <option value="2">2 mois</option>
+                                    <option value="3">3 mois</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -898,6 +926,7 @@ $stats = [
                 document.getElementById('edit_depot').value = this.dataset.depot;
                 document.getElementById('edit_parking').value = this.dataset.parking;
                 document.getElementById('edit_type_contrat').value = this.dataset.typeContrat || 'meuble';
+                document.getElementById('edit_duree_garantie').value = this.dataset.dureeGarantie ?? '1';
                 document.getElementById('edit_statut').value = this.dataset.statut;
                 document.getElementById('edit_date_disponibilite').value = this.dataset.dateDisponibilite || '';
                 document.getElementById('edit_lien_externe').value = this.dataset.lienExterne || '';
