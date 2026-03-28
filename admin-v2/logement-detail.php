@@ -34,6 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_infos') {
         $uploadErrors = [];
         try {
+            $typeContrat = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
+                ? $_POST['type_contrat'] : 'meuble';
+            // duree_garantie is computed automatically from type_contrat (no UI field)
+            $dureeGarantie = getDureeGarantie($typeContrat);
+
             $stmt = $pdo->prepare("
                 UPDATE logements SET
                     reference           = ?,
@@ -54,6 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     lien_externe        = ?,
                     type_contrat        = ?,
                     duree_garantie      = ?,
+                    dpe_classe          = ?,
+                    dpe_ges             = ?,
+                    dpe_numero          = ?,
+                    dpe_valable_jusqu_a = ?,
                     updated_at          = NOW()
                 WHERE id = ?
             ");
@@ -74,8 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['conditions_visite'] ?? '',
                 !empty($_POST['video_youtube']) ? trim($_POST['video_youtube']) : null,
                 !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
-                in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure']) ? $_POST['type_contrat'] : 'meuble',
-                in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3]) ? (int)$_POST['duree_garantie'] : 1,
+                $typeContrat,
+                $dureeGarantie,
+                !empty($_POST['dpe_classe']) && in_array($_POST['dpe_classe'], ['A','B','C','D','E','F','G'])
+                    ? $_POST['dpe_classe'] : null,
+                !empty($_POST['dpe_ges']) ? trim(strip_tags($_POST['dpe_ges'])) : null,
+                !empty($_POST['dpe_numero']) ? trim(strip_tags($_POST['dpe_numero'])) : null,
+                !empty($_POST['dpe_valable_jusqu_a']) ? trim(strip_tags($_POST['dpe_valable_jusqu_a'])) : null,
                 $logement_id,
             ]);
         } catch (PDOException $e) {
@@ -158,6 +172,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $msg = 'Logement enregistré avec succès.';
         if ($uploaded > 0) $msg .= ' ' . $uploaded . ' photo(s)/vidéo(s) ajoutée(s).';
+
+        // Handle DPE file upload
+        if (isset($_FILES['dpe_document']) && $_FILES['dpe_document']['error'] === UPLOAD_ERR_OK) {
+            $dpeFile     = $_FILES['dpe_document'];
+            $dpeMime     = mime_content_type($dpeFile['tmp_name']) ?: 'application/octet-stream';
+            $dpeHandle   = fopen($dpeFile['tmp_name'], 'rb');
+            $dpeMagic    = $dpeHandle ? fread($dpeHandle, 4) : '';
+            if ($dpeHandle) fclose($dpeHandle);
+
+            if ($dpeMime !== 'application/pdf' || $dpeMagic !== '%PDF') {
+                $uploadErrors[] = 'Le fichier DPE doit être un PDF valide.';
+            } elseif ($dpeFile['size'] > 10 * 1024 * 1024) {
+                $uploadErrors[] = 'Le fichier DPE ne doit pas dépasser 10 Mo.';
+            } else {
+                $dpeUploadDir = __DIR__ . '/../uploads/dpe/';
+                if (!is_dir($dpeUploadDir)) { mkdir($dpeUploadDir, 0755, true); }
+                // Delete old DPE file
+                $oldDpe = $pdo->prepare("SELECT dpe_file FROM logements WHERE id = ?");
+                $oldDpe->execute([$logement_id]);
+                $oldDpePath = $oldDpe->fetchColumn();
+                if (!empty($oldDpePath)) {
+                    $oldFull = __DIR__ . '/../' . $oldDpePath;
+                    if (file_exists($oldFull)) { @unlink($oldFull); }
+                }
+                $dpeFilename = 'dpe_' . $logement_id . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.pdf';
+                if (move_uploaded_file($dpeFile['tmp_name'], $dpeUploadDir . $dpeFilename)) {
+                    $pdo->prepare("UPDATE logements SET dpe_file = ? WHERE id = ?")
+                        ->execute(['uploads/dpe/' . $dpeFilename, $logement_id]);
+                    $msg .= ' Document DPE enregistré.';
+                } else {
+                    $uploadErrors[] = 'Impossible de sauvegarder le fichier DPE.';
+                }
+            }
+        }
+
+        // Handle DPE file deletion
+        if (!empty($_POST['delete_dpe_file'])) {
+            $oldDpe = $pdo->prepare("SELECT dpe_file FROM logements WHERE id = ?");
+            $oldDpe->execute([$logement_id]);
+            $oldDpePath = $oldDpe->fetchColumn();
+            if (!empty($oldDpePath)) {
+                $oldFull = __DIR__ . '/../' . $oldDpePath;
+                if (file_exists($oldFull)) { @unlink($oldFull); }
+            }
+            $pdo->prepare("UPDATE logements SET dpe_file = NULL WHERE id = ?")
+                ->execute([$logement_id]);
+        }
+
         $_SESSION['success'] = $msg;
         if (!empty($uploadErrors)) {
             $_SESSION['error'] = implode(' | ', $uploadErrors);
@@ -536,17 +598,80 @@ unset($_SESSION['success'], $_SESSION['error']);
                                     <option value="non_meuble" <?php echo ($logement['type_contrat'] ?? '') === 'non_meuble' ? 'selected' : ''; ?>>Non meublé</option>
                                     <option value="sur_mesure" <?php echo ($logement['type_contrat'] ?? '') === 'sur_mesure' ? 'selected' : ''; ?>>Sur mesure</option>
                                 </select>
-                                <div class="form-text">Détermine le modèle de contrat utilisé lors de la génération.</div>
+                                <div class="form-text">Détermine le modèle de contrat. La durée de garantie est calculée automatiquement (meublé/sur mesure : 2 mois, non meublé : 1 mois).</div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold">Durée de garantie</label>
-                                <select name="duree_garantie" class="form-select">
-                                    <option value="0" <?php echo (int)($logement['duree_garantie'] ?? 1) === 0 ? 'selected' : ''; ?>>0 mois</option>
-                                    <option value="1" <?php echo (int)($logement['duree_garantie'] ?? 1) === 1 ? 'selected' : ''; ?>>1 mois</option>
-                                    <option value="2" <?php echo (int)($logement['duree_garantie'] ?? 1) === 2 ? 'selected' : ''; ?>>2 mois</option>
-                                    <option value="3" <?php echo (int)($logement['duree_garantie'] ?? 1) === 3 ? 'selected' : ''; ?>>3 mois</option>
+
+                            <!-- DPE -->
+                            <div class="col-12">
+                                <hr class="my-1">
+                                <h6 class="text-muted small text-uppercase mb-3"><i class="bi bi-lightning-charge me-1"></i>DPE (Diagnostic de Performance Énergétique)</h6>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Classe DPE</label>
+                                <select name="dpe_classe" class="form-select">
+                                    <option value="">-- Sélectionner --</option>
+                                    <?php foreach (['A','B','C','D','E','F','G'] as $cls): ?>
+                                    <option value="<?php echo $cls; ?>" <?php echo ($logement['dpe_classe'] ?? '') === $cls ? 'selected' : ''; ?>><?php echo $cls; ?></option>
+                                    <?php endforeach; ?>
                                 </select>
-                                <div class="form-text">Durée utilisée dans le contrat et l'email d'invitation.</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">GES</label>
+                                <input type="text" name="dpe_ges" class="form-control" placeholder="Ex : 12 kgCO₂/m².an"
+                                       value="<?php echo htmlspecialchars($logement['dpe_ges'] ?? ''); ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Numéro</label>
+                                <input type="text" name="dpe_numero" class="form-control" placeholder="N° du certificat DPE"
+                                       value="<?php echo htmlspecialchars($logement['dpe_numero'] ?? ''); ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Valable jusqu'au</label>
+                                <input type="text" name="dpe_valable_jusqu_a" class="form-control" placeholder="Ex : 01/01/2034"
+                                       value="<?php echo htmlspecialchars($logement['dpe_valable_jusqu_a'] ?? ''); ?>">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Document DPE (PDF)</label>
+                                <?php if (!empty($logement['dpe_file'])): ?>
+                                <div class="d-flex align-items-center gap-3 mb-2" id="dpeCurrentFile">
+                                    <span class="text-success small">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i>
+                                        <a href="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/' . $logement['dpe_file']); ?>"
+                                           target="_blank" rel="noopener noreferrer">
+                                            <?php echo htmlspecialchars(basename($logement['dpe_file'])); ?>
+                                        </a>
+                                    </span>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="btnDeleteDpe">
+                                        <i class="bi bi-trash me-1"></i>Supprimer
+                                    </button>
+                                    <input type="hidden" name="delete_dpe_file" id="deleteDpeInput" value="">
+                                </div>
+                                <?php endif; ?>
+                                <!-- Drop zone for DPE -->
+                                <div class="drop-zone" id="dpeDropZone" style="max-width:480px;">
+                                    <input type="file" id="dpeFileInput" name="dpe_document" accept="application/pdf">
+                                    <i class="bi bi-file-earmark-pdf fs-3 text-muted d-block mb-1"></i>
+                                    <p class="mb-1 fw-semibold small">Glissez votre fichier PDF ici</p>
+                                    <p class="mb-2 text-muted" style="font-size:.75rem;">ou</p>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="dpeBtnBrowse">
+                                        <i class="bi bi-folder2-open me-1"></i>Parcourir
+                                    </button>
+                                    <p class="mt-2 mb-0 text-muted" style="font-size:.7rem;">PDF uniquement — Max 10 Mo</p>
+                                </div>
+                                <!-- Preview of selected DPE file -->
+                                <div id="dpePreview" class="mt-2" style="display:none;">
+                                    <div class="new-file-preview-item d-inline-flex" style="max-width:420px;">
+                                        <div class="new-file-video-icon"><i class="bi bi-file-earmark-pdf text-white fs-5"></i></div>
+                                        <div class="new-file-info ms-2">
+                                            <div class="new-file-name" id="dpeFileName"></div>
+                                            <div class="new-file-size" id="dpeFileSize"></div>
+                                        </div>
+                                        <button type="button" class="btn-remove-new-photo ms-2" id="btnRemoveDpePreview" title="Retirer">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-text">Le document DPE est joint au lien de téléchargement dans les e-mails de contrat.</div>
                             </div>
 
                             <!-- Description -->
@@ -1036,5 +1161,82 @@ function copyLink(inputId, btn) {
 
 }());
 </script>
-</body>
-</html>
+<script>
+// ── DPE file upload: single file with preview and delete ────────────────────
+(function () {
+    'use strict';
+
+    var dpeDropZone  = document.getElementById('dpeDropZone');
+    var dpeInput     = document.getElementById('dpeFileInput');
+    var dpeBrowse    = document.getElementById('dpeBtnBrowse');
+    var dpePreview   = document.getElementById('dpePreview');
+    var dpeFileName  = document.getElementById('dpeFileName');
+    var dpeFileSize  = document.getElementById('dpeFileSize');
+    var btnRemove    = document.getElementById('btnRemoveDpePreview');
+    var btnDeleteDpe = document.getElementById('btnDeleteDpe');
+    var deleteDpeIn  = document.getElementById('deleteDpeInput');
+    var dpeCurrentEl = document.getElementById('dpeCurrentFile');
+    var MAX_SIZE     = 10 * 1024 * 1024;
+
+    function formatBytes(b) {
+        if (b < 1024) return b + ' o';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' Ko';
+        return (b / 1048576).toFixed(1) + ' Mo';
+    }
+
+    function showPreview(file) {
+        if (dpeFileName) dpeFileName.textContent = file.name;
+        if (dpeFileSize) dpeFileSize.textContent = formatBytes(file.size);
+        if (dpePreview)  dpePreview.style.display = '';
+        if (dpeDropZone) dpeDropZone.style.display = 'none';
+    }
+
+    function clearPreview() {
+        if (dpeInput) { dpeInput.value = ''; }
+        if (dpePreview) dpePreview.style.display = 'none';
+        if (dpeDropZone) dpeDropZone.style.display = '';
+    }
+
+    function selectFile(file) {
+        if (!file) return;
+        if (file.type !== 'application/pdf') {
+            alert('Seuls les fichiers PDF sont acceptés pour le DPE.');
+            clearPreview();
+            return;
+        }
+        if (file.size > MAX_SIZE) {
+            alert('Le fichier DPE ne doit pas dépasser 10 Mo.');
+            clearPreview();
+            return;
+        }
+        showPreview(file);
+    }
+
+    if (dpeDropZone) {
+        dpeBrowse && dpeBrowse.addEventListener('click', function () { dpeInput && dpeInput.click(); });
+        dpeDropZone.addEventListener('click', function (e) { if (e.target === dpeDropZone) dpeInput && dpeInput.click(); });
+        dpeDropZone.addEventListener('dragover', function (e) { e.preventDefault(); dpeDropZone.classList.add('drag-over'); });
+        dpeDropZone.addEventListener('dragleave', function () { dpeDropZone.classList.remove('drag-over'); });
+        dpeDropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dpeDropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) selectFile(e.dataTransfer.files[0]);
+        });
+    }
+
+    dpeInput && dpeInput.addEventListener('change', function () {
+        if (dpeInput.files.length > 0) selectFile(dpeInput.files[0]);
+    });
+
+    btnRemove && btnRemove.addEventListener('click', function () {
+        clearPreview();
+    });
+
+    // Delete existing DPE file
+    btnDeleteDpe && btnDeleteDpe.addEventListener('click', function () {
+        if (!confirm('Supprimer le document DPE actuel ?')) return;
+        if (deleteDpeIn) deleteDpeIn.value = '1';
+        if (dpeCurrentEl) dpeCurrentEl.style.display = 'none';
+    });
+}());
+</script>

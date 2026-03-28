@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidature_info = $stmt->fetch(PDO::FETCH_ASSOC);
     
     // Get logement info for email
-    $stmt = $pdo->prepare("SELECT adresse, COALESCE(duree_garantie, 1) as duree_garantie, COALESCE(dpe_file, '') as dpe_file FROM logements WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT adresse, type_contrat, COALESCE(dpe_file, '') as dpe_file FROM logements WHERE id = ?");
     $stmt->execute([$logement_id]);
     $logement_info = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -127,6 +127,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Format expiration date for email (e.g., "02/02/2026 à 15:30")
         $date_expiration_formatted = date('d/m/Y à H:i', strtotime($date_expiration));
+
+        // Compute duree_garantie dynamically from type_contrat
+        $dureeGarantie = getDureeGarantie($logement_info['type_contrat'] ?? 'meuble') . ' mois';
+
+        // Generate a secure download link for the DPE file (no direct attachment)
+        $lienDpe = '';
+        if (!empty($logement_info['dpe_file'])) {
+            $dpePath = dirname(__DIR__) . '/' . $logement_info['dpe_file'];
+            $tokenUrl = createDocumentToken($dpePath, 'dpe', 'DPE.pdf');
+            if ($tokenUrl) {
+                $lienDpe = $tokenUrl;
+            }
+        }
         
         // Préparer les variables pour le template
         $variables = [
@@ -136,20 +149,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'adresse' => $logement_info['adresse'],
             'lien_signature' => $signature_link,
             'date_expiration_lien_contrat' => $date_expiration_formatted,
-            'duree_garantie' => (int)($logement_info['duree_garantie'] ?? 1) . ' mois',
+            'duree_garantie' => $dureeGarantie,
+            'lien_telechargement_dpe' => $lienDpe,
         ];
         
-        // Attach DPE file if available
-        $dpeAttachment = null;
-        if (!empty($logement_info['dpe_file'])) {
-            $dpePath = dirname(__DIR__) . '/' . $logement_info['dpe_file'];
-            if (file_exists($dpePath)) {
-                $dpeAttachment = ['path' => $dpePath, 'name' => 'DPE.pdf'];
-            }
-        }
-        
-        // Envoyer l'email d'invitation avec le template de la base de données
-        $emailSent = sendTemplatedEmail('contrat_signature', $candidature_info['email'], $variables, $dpeAttachment, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
+        // Send invitation email (no attachment – DPE download link is in the template variable)
+        $emailSent = sendTemplatedEmail('contrat_signature', $candidature_info['email'], $variables, null, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
         
         if ($emailSent) {
             // Log email sending success

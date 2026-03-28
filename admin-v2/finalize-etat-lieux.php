@@ -63,6 +63,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Prepare email data with template variables
                 $typeLabel = $etat['type'] === 'entree' ? "d'entrée" : "de sortie";
                 $templateId = $etat['type'] === 'entree' ? 'etat_lieux_entree_envoye' : 'etat_lieux_sortie_envoye';
+
+                // Generate a secure download token for the PDF (no direct attachment)
+                $lienTelechargement = '';
+                $tokenUrl = createDocumentToken($pdfPath, 'etat_lieux', 'etat_lieux_' . $etat['type'] . '.pdf');
+                if ($tokenUrl) {
+                    $lienTelechargement = $tokenUrl;
+                }
                 
                 // Send email to each tenant with admin in BCC
                 $emailsSent = [];
@@ -79,16 +86,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         'adresse' => $etat['adresse'],
                         'date_etat' => date('d/m/Y', strtotime($etat['date_etat'])),
                         'reference' => $etat['reference_unique'] ?? 'N/A',
-                        'type' => $typeLabel
+                        'type' => $typeLabel,
+                        'lien_telechargement' => $lienTelechargement,
                     ];
                     
                     // Sanitize email for logging to prevent log injection
                     $safeEmail = str_replace(["\r", "\n"], '', $tenant['email']);
                     error_log("Sending email to tenant: " . $safeEmail . " with template: $templateId");
                     
-                    // Send email to tenant using template with admin in BCC (copy)
-                    // Parameters: templateId, toEmail, variables, attachment, isAdminEmail=false, addAdminBcc=true
-                    $emailSent = sendTemplatedEmail($templateId, $tenant['email'], $emailVariables, $pdfPath, false, true, ['contexte' => 'etat_lieux_id=' . $id]);
+                    // Send email to tenant using template with admin in BCC (no attachment)
+                    $emailSent = sendTemplatedEmail($templateId, $tenant['email'], $emailVariables, null, false, true, ['contexte' => 'etat_lieux_id=' . $id]);
                     
                     if ($emailSent) {
                         $emailsSent[] = $tenant['email'];
