@@ -53,7 +53,8 @@ $contrat = fetchOne("
            l.loyer,
            l.charges,
            l.depot_garantie,
-           l.parking
+           l.parking,
+           COALESCE(l.dpe_file, '') as dpe_file
     FROM contrats c 
     INNER JOIN logements l ON c.logement_id = l.id 
     WHERE c.id = ?
@@ -149,7 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         'prenom' => $locataire['prenom'],
                                         'reference' => $contrat['reference_unique'],
                                         'depot_garantie' => formatMontant($contrat['depot_garantie']),
-                                        'lien_upload' => $lienUpload
+                                        'lien_upload' => $lienUpload,
+                                        'lien_telechargement_dpe' => (!empty($contrat['dpe_file']) && strpos($contrat['dpe_file'], '..') === false && strpos($contrat['dpe_file'], '/') !== 0) ? rtrim($config['SITE_URL'], '/') . '/' . $contrat['dpe_file'] : '',
                                     ];
                                     
                                     // Envoyer l'email de confirmation avec le contrat PDF
