@@ -556,56 +556,7 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
                 </p>
             </div>
 
-            <!-- DPE section -->
-            <?php
-            $hasDpe = !empty($logement['dpe_classe']) || !empty($logement['dpe_ges']) || !empty($logement['dpe_numero']) || !empty($logement['dpe_valable_jusqu_a']) || !empty($logement['dpe_file']);
-            $dpeColors = ['A'=>'#00b050','B'=>'#00cc44','C'=>'#80cc00','D'=>'#ffcc00','E'=>'#ff8c00','F'=>'#ff4500','G'=>'#cc0000'];
-            ?>
-            <?php if ($hasDpe): ?>
-            <div class="section-card">
-                <div class="section-title"><i class="bi bi-lightning-charge me-1"></i>DPE – Diagnostic de Performance Énergétique</div>
-                <ul class="list-unstyled mb-0 small">
-                    <?php if (!empty($logement['dpe_classe'])): ?>
-                    <li class="d-flex justify-content-between py-1 border-bottom">
-                        <span class="text-muted">Classe DPE</span>
-                        <strong>
-                            <span class="badge" style="background:<?php echo $dpeColors[$logement['dpe_classe']] ?? '#6c757d'; ?>;font-size:.9rem;padding:.4em .7em;">
-                                <?php echo htmlspecialchars($logement['dpe_classe']); ?>
-                            </span>
-                        </strong>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (!empty($logement['dpe_ges'])): ?>
-                    <li class="d-flex justify-content-between py-1 border-bottom">
-                        <span class="text-muted">GES</span>
-                        <strong><?php echo htmlspecialchars($logement['dpe_ges']); ?></strong>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (!empty($logement['dpe_numero'])): ?>
-                    <li class="d-flex justify-content-between py-1 border-bottom">
-                        <span class="text-muted">Numéro</span>
-                        <strong><?php echo htmlspecialchars($logement['dpe_numero']); ?></strong>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (!empty($logement['dpe_valable_jusqu_a'])): ?>
-                    <li class="d-flex justify-content-between py-1 <?php echo empty($logement['dpe_file']) ? '' : 'border-bottom'; ?>">
-                        <span class="text-muted">Valable jusqu'au</span>
-                        <strong><?php echo htmlspecialchars($logement['dpe_valable_jusqu_a']); ?></strong>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (!empty($logement['dpe_file'])): ?>
-                    <?php /*
-                    <li class="py-1">
-                        <a href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/' . $logement['dpe_file']); ?>"
-                           class="btn btn-outline-success btn-sm w-100" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-file-earmark-pdf me-1"></i>Télécharger le DPE
-                        </a>
-                    </li>
-                    */  ?>
-                    <?php endif; ?>
-                </ul>
-            </div>
-            <?php endif; ?>
+            
 
             <!-- Informations logement -->
             <div class="section-card">
