@@ -38,7 +38,11 @@ function generateContratPDF($contratId) {
                    l.depot_garantie,
                    l.parking,
                    l.type_contrat as logement_type_contrat,
-                   COALESCE(l.duree_garantie, 1) as duree_garantie
+                   COALESCE(l.duree_garantie, 1) as duree_garantie,
+                   l.dpe_classe,
+                   l.dpe_ges,
+                   l.dpe_numero,
+                   l.dpe_valable_jusqu_a
             FROM contrats c
             INNER JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
@@ -266,6 +270,10 @@ function replaceContratTemplateVariables($template, $contrat, $locataires) {
         '{{bic}}' => htmlspecialchars($bic),
         '{{type_contrat_label}}' => htmlspecialchars(getTypeContratLabel($contrat['type_contrat'] ?? $contrat['logement_type_contrat'] ?? 'meuble')),
         '{{duree_garantie}}' => htmlspecialchars(getDureeGarantie($contrat['type_contrat'] ?? $contrat['logement_type_contrat'] ?? 'meuble') . ' mois'),
+        '{{dpe_classe}}' => htmlspecialchars($contrat['dpe_classe'] ?? ''),
+        '{{ges_classe}}' => htmlspecialchars($contrat['dpe_ges'] ?? ''),
+        '{{dpe_numero}}' => htmlspecialchars($contrat['dpe_numero'] ?? ''),
+        '{{dpe_validite}}' => htmlspecialchars($contrat['dpe_valable_jusqu_a'] ?? ''),
     ];
 
     $html = str_replace(array_keys($vars), array_values($vars), $template);

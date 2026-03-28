@@ -714,6 +714,10 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
                     <span class="variable-tag" onclick="copyVariable('{{bic}}')">{{bic}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{date_signature}}')">{{date_signature}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{duree_garantie}}')">{{duree_garantie}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{dpe_classe}}')">{{dpe_classe}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{ges_classe}}')">{{ges_classe}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{dpe_numero}}')">{{dpe_numero}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{dpe_validite}}')">{{dpe_validite}}</span>
                 </div>
             </div>
 
@@ -888,7 +892,11 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
                 .replace(/\{\{depot_garantie\}\}/g, '1,700.00')
                 .replace(/\{\{iban\}\}/g, 'FR76 1027 8021 6000 0206 1834 585')
                 .replace(/\{\{bic\}\}/g, 'CMCIFR')
-                .replace(/\{\{date_signature\}\}/g, '15/12/2023');
+                .replace(/\{\{date_signature\}\}/g, '15/12/2023')
+                .replace(/\{\{dpe_classe\}\}/g, 'C')
+                .replace(/\{\{ges_classe\}\}/g, 'D')
+                .replace(/\{\{dpe_numero\}\}/g, '2024-XXXX-XXXX-XXXX')
+                .replace(/\{\{dpe_validite\}\}/g, '01/01/2034');
 
             previewContent.innerHTML = preview;
             previewCard.style.display = 'block';
