@@ -414,7 +414,7 @@ $templates = [
     </div>
 </body>
 </html>',
-        'variables_disponibles' => '["nom", "prenom", "email", "adresse", "lien_signature"]',
+        'variables_disponibles' => '["nom", "prenom", "email", "adresse", "lien_signature", "date_expiration_lien_contrat", "duree_garantie", "lien_telechargement_dpe"]',
         'description' => 'Email envoyé au locataire pour l\'inviter à signer le contrat de bail en ligne'
     ],
     [
@@ -479,7 +479,7 @@ $templates = [
     </div>
 </body>
 </html>',
-        'variables_disponibles' => '["nom", "prenom", "reference", "depot_garantie"]',
+        'variables_disponibles' => '["nom", "prenom", "reference", "depot_garantie", "lien_upload", "lien_telechargement_dpe"]',
         'description' => 'Email HTML envoyé au client lors de la finalisation du contrat avec le PDF joint'
     ],
     [
@@ -879,17 +879,16 @@ foreach ($templates as $template) {
         
         if ($existing) {
             if ($reset) {
-                // Update existing template
+                // Update existing template (preserve corps_html as it may have been customized)
                 $stmt = $pdo->prepare("
                     UPDATE email_templates 
-                    SET nom = ?, sujet = ?, corps_html = ?, variables_disponibles = ?, 
+                    SET nom = ?, sujet = ?, variables_disponibles = ?, 
                         description = ?, actif = 1, updated_at = NOW()
                     WHERE identifiant = ?
                 ");
                 $stmt->execute([
                     $template['nom'],
                     $template['sujet'],
-                    $template['corps_html'],
                     $template['variables_disponibles'],
                     $template['description'],
                     $template['identifiant']

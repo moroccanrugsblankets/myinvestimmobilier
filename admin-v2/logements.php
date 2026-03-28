@@ -12,9 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $typeContratAdd = in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure'])
                         ? $_POST['type_contrat']
                         : 'meuble';
-                    $dureeGarantieAdd = in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3])
-                        ? (int)$_POST['duree_garantie']
-                        : 1;
+                    $dureeGarantieAdd = ($typeContratAdd === 'non_meuble') ? 1 : 2;
                     $stmt = $pdo->prepare("
                         INSERT INTO logements (reference, adresse, type, surface, loyer, charges, depot_garantie, parking, statut, date_disponibilite, lien_externe, type_contrat, duree_garantie, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disponible', ?, ?, ?, ?, NOW())
@@ -61,9 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? $_POST['type_contrat']
                         : 'meuble';
 
-                    $dureeGarantieEdit = in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3])
-                        ? (int)$_POST['duree_garantie']
-                        : 1;
+                    $dureeGarantieEdit = ($typeContratEdit === 'non_meuble') ? 1 : 2;
 
                     $stmt = $pdo->prepare("
                         UPDATE logements SET 
@@ -468,7 +464,6 @@ $stats = [
                                             data-date-disponibilite="<?php echo htmlspecialchars($logement['date_disponibilite'] ?? ''); ?>"
                                             data-lien-externe="<?php echo htmlspecialchars($logement['lien_externe'] ?? ''); ?>"
                                             data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>"
-                                            data-duree-garantie="<?php echo (int)($logement['duree_garantie'] ?? 1); ?>"
                                             data-bs-toggle="modal" 
                                             data-bs-target="#editLogementModal">
                                         <i class="bi bi-pencil"></i>
@@ -600,15 +595,6 @@ $stats = [
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Durée de garantie</label>
-                                <select name="duree_garantie" class="form-select">
-                                    <option value="0">0 mois</option>
-                                    <option value="1" selected>1 mois</option>
-                                    <option value="2">2 mois</option>
-                                    <option value="3">3 mois</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Date de disponibilité</label>
                                 <input type="date" name="date_disponibilite" class="form-control">
                             </div>
@@ -693,15 +679,6 @@ $stats = [
                                     <option value="meuble">Meublé</option>
                                     <option value="non_meuble">Non meublé</option>
                                     <option value="sur_mesure">Sur mesure</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Durée de garantie</label>
-                                <select name="duree_garantie" id="edit_duree_garantie" class="form-select">
-                                    <option value="0">0 mois</option>
-                                    <option value="1">1 mois</option>
-                                    <option value="2">2 mois</option>
-                                    <option value="3">3 mois</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -926,7 +903,6 @@ $stats = [
                 document.getElementById('edit_depot').value = this.dataset.depot;
                 document.getElementById('edit_parking').value = this.dataset.parking;
                 document.getElementById('edit_type_contrat').value = this.dataset.typeContrat || 'meuble';
-                document.getElementById('edit_duree_garantie').value = this.dataset.dureeGarantie ?? '1';
                 document.getElementById('edit_statut').value = this.dataset.statut;
                 document.getElementById('edit_date_disponibilite').value = this.dataset.dateDisponibilite || '';
                 document.getElementById('edit_lien_externe').value = this.dataset.lienExterne || '';

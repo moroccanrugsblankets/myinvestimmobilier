@@ -131,13 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Compute duree_garantie dynamically from type_contrat
         $dureeGarantie = getDureeGarantie($logement_info['type_contrat'] ?? 'meuble') . ' mois';
 
-        // Generate a secure download link for the DPE file (no direct attachment)
+        // Generate a direct link to the DPE file on the server
         $lienDpe = '';
         if (!empty($logement_info['dpe_file'])) {
-            $dpePath = dirname(__DIR__) . '/' . $logement_info['dpe_file'];
-            $tokenUrl = createDocumentToken($dpePath, 'dpe', 'DPE.pdf');
-            if ($tokenUrl) {
-                $lienDpe = $tokenUrl;
+            $dpeFile = $logement_info['dpe_file'];
+            // Validate: no path traversal, must be a relative path
+            if (strpos($dpeFile, '..') === false && strpos($dpeFile, '/') !== 0) {
+                $lienDpe = rtrim($config['SITE_URL'], '/') . '/' . $dpeFile;
             }
         }
         
