@@ -445,6 +445,22 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
                         <div class="info-label">Disponible dès</div>
                     </div>
                     <?php endif; ?>
+
+                    <?php 
+                    $dpeColors = ['A'=>'#00b050','B'=>'#00cc44','C'=>'#80cc00','D'=>'#ffcc00','E'=>'#ff8c00','F'=>'#ff4500','G'=>'#cc0000'];
+                    ?>
+
+                    <?php if (!empty($logement['dpe_classe']) && $isDisponible): ?>
+                   
+                    <div class="info-item">
+                        <div class="info-value" style="font-size:.95rem;"><strong>
+                            <span class="badge" style="background:<?php echo $dpeColors[$logement['dpe_classe']] ?? '#6c757d'; ?>;font-size:.9rem;padding:.4em .7em;">
+                                <?php echo htmlspecialchars($logement['dpe_classe']); ?>
+                            </span>
+                        </strong></div>
+                        <div class="info-label">Classe DPE</div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
