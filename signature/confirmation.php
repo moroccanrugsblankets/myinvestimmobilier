@@ -59,7 +59,7 @@ if (isset($_SESSION['signature_token'])) {
                                     </ul>
                                 </li>
                                 <li class="mb-2">
-                                    <strong>Effectuez le virement du dépôt de garantie</strong> (correspondant à deux mois de loyer) 
+                                    <strong>Effectuez le virement du dépôt de garantie</strong> 
                                     sur le compte suivant :
                                     <div class="mt-2 p-3 bg-light rounded">
                                         <strong><?= $config['BANK_NAME'] ?></strong><br>
