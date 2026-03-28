@@ -578,12 +578,14 @@ renderFrontOfficeHeader($siteUrl, $companyName, $extraNav ?: null);
                     </li>
                     <?php endif; ?>
                     <?php if (!empty($logement['dpe_file'])): ?>
+                    <?php /*
                     <li class="py-1">
                         <a href="<?php echo htmlspecialchars(rtrim($siteUrl, '/') . '/' . $logement['dpe_file']); ?>"
                            class="btn btn-outline-success btn-sm w-100" target="_blank" rel="noopener noreferrer">
                             <i class="bi bi-file-earmark-pdf me-1"></i>Télécharger le DPE
                         </a>
                     </li>
+                    */  ?>
                     <?php endif; ?>
                 </ul>
             </div>
