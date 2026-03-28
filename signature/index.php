@@ -129,7 +129,7 @@ $csrfToken = generateCsrfToken();
                             <ol>
                                 <li>La signature du contrat de bail en ligne</li>
                                 <li>La transmission d'une pièce d'identité en cours de validité (carte nationale d'identité ou passeport)</li>
-                                <li>Le règlement immédiat du dépôt de garantie, correspondant à deux mois de loyer, par virement bancaire instantané</li>
+                                <li>Le règlement immédiat du dépôt de garantie, par virement bancaire instantané</li>
                             </ol>
                             <p>
                                 La prise d'effet du bail ainsi que la remise des clés interviendront uniquement après réception complète de l'ensemble des éléments ci-dessus.
