@@ -16,6 +16,8 @@ $contrat_id = (int)$_GET['id'];
 // Récupérer les informations du contrat
 $stmt = $pdo->prepare("
     SELECT c.*, l.reference, l.adresse, l.loyer, l.charges, l.depot_garantie,
+           COALESCE(l.duree_garantie, 1) as duree_garantie,
+           COALESCE(l.dpe_file, '') as dpe_file,
            ca.nom, ca.prenom, ca.email
     FROM contrats c
     JOIN logements l ON c.logement_id = l.id
@@ -67,11 +69,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'email' => $email_principal,
             'adresse' => $contrat['adresse'],
             'lien_signature' => $signature_link,
-            'date_expiration_lien_contrat' => $date_expiration_formatted
+            'date_expiration_lien_contrat' => $date_expiration_formatted,
+            'duree_garantie' => (int)($contrat['duree_garantie'] ?? 1) . ' mois',
         ];
         
+        // Attach DPE file if available
+        $dpeAttachment = null;
+        if (!empty($contrat['dpe_file'])) {
+            $dpePath = dirname(__DIR__) . '/' . $contrat['dpe_file'];
+            if (file_exists($dpePath)) {
+                $dpeAttachment = ['path' => $dpePath, 'name' => 'DPE.pdf'];
+            }
+        }
+
         // Envoyer l'email d'invitation avec le template de la base de données
-        $emailSent = sendTemplatedEmail('contrat_signature', $email_principal, $variables, null, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
+        $emailSent = sendTemplatedEmail('contrat_signature', $email_principal, $variables, $dpeAttachment, true, false, ['contexte' => 'contrat_id=' . $contrat_id]);
         
         if (!$emailSent) {
             error_log("Erreur lors de l'envoi de l'email de signature à $email_principal");

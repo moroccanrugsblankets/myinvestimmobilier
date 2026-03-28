@@ -53,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     video_youtube       = ?,
                     lien_externe        = ?,
                     type_contrat        = ?,
+                    duree_garantie      = ?,
                     updated_at          = NOW()
                 WHERE id = ?
             ");
@@ -74,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 !empty($_POST['video_youtube']) ? trim($_POST['video_youtube']) : null,
                 !empty($_POST['lien_externe']) ? trim($_POST['lien_externe']) : null,
                 in_array($_POST['type_contrat'] ?? '', ['meuble', 'non_meuble', 'sur_mesure']) ? $_POST['type_contrat'] : 'meuble',
+                in_array((int)($_POST['duree_garantie'] ?? 1), [0, 1, 2, 3]) ? (int)$_POST['duree_garantie'] : 1,
                 $logement_id,
             ]);
         } catch (PDOException $e) {
@@ -535,6 +537,16 @@ unset($_SESSION['success'], $_SESSION['error']);
                                     <option value="sur_mesure" <?php echo ($logement['type_contrat'] ?? '') === 'sur_mesure' ? 'selected' : ''; ?>>Sur mesure</option>
                                 </select>
                                 <div class="form-text">Détermine le modèle de contrat utilisé lors de la génération.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Durée de garantie</label>
+                                <select name="duree_garantie" class="form-select">
+                                    <option value="0" <?php echo (int)($logement['duree_garantie'] ?? 1) === 0 ? 'selected' : ''; ?>>0 mois</option>
+                                    <option value="1" <?php echo (int)($logement['duree_garantie'] ?? 1) === 1 ? 'selected' : ''; ?>>1 mois</option>
+                                    <option value="2" <?php echo (int)($logement['duree_garantie'] ?? 1) === 2 ? 'selected' : ''; ?>>2 mois</option>
+                                    <option value="3" <?php echo (int)($logement['duree_garantie'] ?? 1) === 3 ? 'selected' : ''; ?>>3 mois</option>
+                                </select>
+                                <div class="form-text">Durée utilisée dans le contrat et l'email d'invitation.</div>
                             </div>
 
                             <!-- Description -->

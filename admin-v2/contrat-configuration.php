@@ -259,6 +259,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: contrat-configuration.php');
         exit;
     }
+    elseif ($_POST['action'] === 'upload_dpe') {
+        $logement_id_dpe = (int)($_POST['logement_id'] ?? 0);
+        if ($logement_id_dpe <= 0) {
+            $_SESSION['error'] = "Logement invalide.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        if (!isset($_FILES['dpe_file']) || $_FILES['dpe_file']['error'] !== UPLOAD_ERR_OK) {
+            $_SESSION['error'] = "Erreur lors du téléchargement du fichier DPE.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        $file = $_FILES['dpe_file'];
+        // Validate MIME type (PDF only)
+        $mimeType = mime_content_type($file['tmp_name']) ?: 'application/octet-stream';
+        if ($mimeType !== 'application/pdf') {
+            $_SESSION['error'] = "Seuls les fichiers PDF sont acceptés pour le DPE.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        // Validate magic bytes (PDF signature: %PDF)
+        $handle = fopen($file['tmp_name'], 'rb');
+        $magic = $handle ? fread($handle, 4) : '';
+        if ($handle) fclose($handle);
+        if ($magic !== '%PDF') {
+            $_SESSION['error'] = "Le fichier fourni n'est pas un PDF valide.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        // Max 10 MB
+        if ($file['size'] > 10 * 1024 * 1024) {
+            $_SESSION['error'] = "Le fichier DPE ne doit pas dépasser 10 Mo.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        $baseDir = dirname(__DIR__);
+        $uploadsDir = $baseDir . '/uploads/dpe';
+        if (!is_dir($uploadsDir)) {
+            if (!mkdir($uploadsDir, 0755, true)) {
+                $_SESSION['error'] = "Impossible de créer le répertoire pour les fichiers DPE.";
+                header('Location: contrat-configuration.php#dpe');
+                exit;
+            }
+        }
+        // Delete old DPE file if one exists
+        $stmtOld = $pdo->prepare("SELECT dpe_file FROM logements WHERE id = ?");
+        $stmtOld->execute([$logement_id_dpe]);
+        $oldDpe = $stmtOld->fetchColumn();
+        if (!empty($oldDpe)) {
+            $oldPath = $baseDir . '/' . $oldDpe;
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+        // Save new DPE file with a random component to prevent filename enumeration
+        $filename = 'dpe_' . $logement_id_dpe . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.pdf';
+        $filepath = $uploadsDir . '/' . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            $_SESSION['error'] = "Impossible de sauvegarder le fichier DPE.";
+            header('Location: contrat-configuration.php#dpe');
+            exit;
+        }
+        $relativePath = 'uploads/dpe/' . $filename;
+        $pdo->prepare("UPDATE logements SET dpe_file = ? WHERE id = ?")->execute([$relativePath, $logement_id_dpe]);
+        $_SESSION['success'] = "Fichier DPE enregistré avec succès.";
+        header('Location: contrat-configuration.php#dpe');
+        exit;
+    }
+    elseif ($_POST['action'] === 'delete_dpe') {
+        $logement_id_dpe = (int)($_POST['logement_id'] ?? 0);
+        if ($logement_id_dpe > 0) {
+            $stmtOld = $pdo->prepare("SELECT dpe_file FROM logements WHERE id = ?");
+            $stmtOld->execute([$logement_id_dpe]);
+            $oldDpe = $stmtOld->fetchColumn();
+            if (!empty($oldDpe)) {
+                $oldPath = dirname(__DIR__) . '/' . $oldDpe;
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $pdo->prepare("UPDATE logements SET dpe_file = NULL WHERE id = ?")->execute([$logement_id_dpe]);
+            $_SESSION['success'] = "Fichier DPE supprimé avec succès.";
+        }
+        header('Location: contrat-configuration.php#dpe');
+        exit;
+    }
 }
 
 // Get current templates (one per contract type)
@@ -319,6 +405,9 @@ if (!empty($signatureImage) &&
 $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'signature_societe_enabled'");
 $stmt->execute();
 $signatureEnabled = $stmt->fetchColumn() === 'true';
+
+// Fetch all logements with their DPE info for the DPE upload section
+$logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '') as dpe_file FROM logements WHERE deleted_at IS NULL ORDER BY reference ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 <!DOCTYPE html>
@@ -537,6 +626,70 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
             </form>
         </div>
 
+        <!-- DPE (Diagnostic de Performance Énergétique) -->
+        <div class="config-card" id="dpe">
+            <h5 class="mb-3"><i class="bi bi-file-earmark-pdf text-danger"></i> DPE — Diagnostic de Performance Énergétique</h5>
+            <p class="text-muted">
+                Associez le fichier DPE (PDF) à chaque logement. Ce fichier sera automatiquement joint en pièce jointe lors de l'envoi de l'email d'invitation à signer le contrat.
+            </p>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Référence</th>
+                            <th>Adresse</th>
+                            <th>DPE actuel</th>
+                            <th>Uploader / Remplacer</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($logementsDpe as $log): ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($log['reference']) ?></strong></td>
+                            <td><?= htmlspecialchars($log['adresse']) ?></td>
+                            <td>
+                                <?php if (!empty($log['dpe_file'])): ?>
+                                    <a href="/<?= htmlspecialchars($log['dpe_file']) ?>" target="_blank" class="text-success">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i>Voir le DPE
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted"><i class="bi bi-dash"></i> Aucun</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <form method="POST" enctype="multipart/form-data" class="d-flex align-items-center gap-2">
+                                    <input type="hidden" name="action" value="upload_dpe">
+                                    <input type="hidden" name="logement_id" value="<?= (int)$log['id'] ?>">
+                                    <input type="file" name="dpe_file" accept="application/pdf" class="form-control form-control-sm" required style="max-width:250px;">
+                                    <button type="submit" class="btn btn-sm btn-primary text-nowrap">
+                                        <i class="bi bi-upload"></i> Enregistrer
+                                    </button>
+                                </form>
+                            </td>
+                            <td>
+                                <?php if (!empty($log['dpe_file'])): ?>
+                                    <form method="POST" onsubmit="return confirm('Supprimer le DPE de ce logement ?');">
+                                        <input type="hidden" name="action" value="delete_dpe">
+                                        <input type="hidden" name="logement_id" value="<?= (int)$log['id'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i> Supprimer
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($logementsDpe)): ?>
+                        <tr><td colspan="5" class="text-center text-muted">Aucun logement trouvé.</td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Template Configuration Card — onglets par type de contrat -->
         <div class="config-card">
             <div class="variables-info">
@@ -560,6 +713,7 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <span class="variable-tag" onclick="copyVariable('{{iban}}')">{{iban}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{bic}}')">{{bic}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{date_signature}}')">{{date_signature}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{duree_garantie}}')">{{duree_garantie}}</span>
                 </div>
             </div>
 
