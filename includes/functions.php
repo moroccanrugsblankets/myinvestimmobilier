@@ -1322,3 +1322,55 @@ function processShortcodes(string $html, \PDO $pdo, string $siteUrl): string
     return $html;
 }
 
+/**
+ * Compute duree_garantie (in months) dynamically from type_contrat.
+ * - meuble    → 2 mois
+ * - non_meuble → 1 mois
+ * - sur_mesure → 2 mois
+ *
+ * @param string $type_contrat  Value from logements.type_contrat
+ * @return int Number of months
+ */
+function getDureeGarantie(string $type_contrat): int {
+    return ($type_contrat === 'non_meuble') ? 1 : 2;
+}
+
+/**
+ * Create a secure, expiring download token for a document.
+ *
+ * Inserts a record into the document_tokens table and returns the public URL
+ * (SITE_URL/telecharger.php?token=xxx) that can be embedded in emails.
+ *
+ * @param string $filePath    Absolute path to the file on disk
+ * @param string $type        Document type label, e.g. 'dpe', 'quittance', 'etat_lieux', 'inventaire', 'bilan'
+ * @param string $fileName    Suggested download filename (e.g. 'DPE.pdf')
+ * @param int    $expiryDays  Token validity in days (default 30)
+ * @return string|null  Public download URL, or null on failure
+ */
+function createDocumentToken(string $filePath, string $type, string $fileName = '', int $expiryDays = 30): ?string {
+    global $pdo, $config;
+
+    if (!file_exists($filePath)) {
+        error_log("createDocumentToken: file not found: $filePath");
+        return null;
+    }
+
+    try {
+        $token     = bin2hex(random_bytes(32));
+        $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiryDays} days"));
+        $safeName  = $fileName ?: basename($filePath);
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO document_tokens (token, file_path, file_name, type, expires_at)
+             VALUES (?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([$token, $filePath, $safeName, $type, $expiresAt]);
+
+        $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
+        return $siteUrl . '/telecharger.php?token=' . $token;
+    } catch (Exception $e) {
+        error_log("createDocumentToken error: " . $e->getMessage());
+        return null;
+    }
+}
+

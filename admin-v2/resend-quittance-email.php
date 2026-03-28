@@ -85,20 +85,29 @@ if ($result) {
 $emailsSent = 0;
 $emailsFailed = 0;
 
+// Generate a secure download token for the quittance PDF (no direct attachment)
+$lienQuittance = '';
+if ($pdfPath && file_exists($pdfPath)) {
+    $qTokenUrl = createDocumentToken($pdfPath, 'quittance', 'quittance_' . $periode . '.pdf');
+    if ($qTokenUrl) {
+        $lienQuittance = $qTokenUrl;
+    }
+}
+
 // Send email to each tenant
 foreach ($locataires as $locataire) {
-    // Send email to tenant with PDF attachment and BCC to administrators
-    // Parameters: templateId, to, variables, attachmentPath, isAdminEmail=false, addAdminBcc=true
+    // Send email to tenant with BCC to administrators (no direct attachment)
     $emailSent = sendTemplatedEmail('quittance_envoyee', $locataire['email'], [
-        'locataire_nom' => $locataire['nom'],
-        'locataire_prenom' => $locataire['prenom'],
-        'adresse' => $quittance['logement_adresse'],
-        'periode' => $periode,
-        'montant_loyer' => $montantLoyer,
-        'montant_charges' => $montantCharges,
-        'montant_total' => $montantTotal,
-        'signature' => getParameter('email_signature', '')
-    ], $pdfPath, false, true, ['contexte' => 'quittance_id=' . $quittance_id]);
+        'locataire_nom'                 => $locataire['nom'],
+        'locataire_prenom'              => $locataire['prenom'],
+        'adresse'                       => $quittance['logement_adresse'],
+        'periode'                       => $periode,
+        'montant_loyer'                 => $montantLoyer,
+        'montant_charges'               => $montantCharges,
+        'montant_total'                 => $montantTotal,
+        'signature'                     => getParameter('email_signature', ''),
+        'lien_telechargement_quittance' => $lienQuittance,
+    ], null, false, true, ['contexte' => 'quittance_id=' . $quittance_id]);
     
     if ($emailSent) {
         $emailsSent++;

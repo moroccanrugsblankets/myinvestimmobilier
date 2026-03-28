@@ -154,6 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             // Prepare email variables
             // Note: 'signature' variable will be automatically replaced by sendTemplatedEmail via replaceTemplateVariables
+            // Generate a secure download token for the bilan PDF (no direct attachment)
+            $lienBilan = '';
+            $bTokenUrl = createDocumentToken($pdfPath, 'bilan', 'bilan_logement.pdf');
+            if ($bTokenUrl) {
+                $lienBilan = $bTokenUrl;
+            }
+
             $emailVariables = [
                 'locataire_nom' => $locataireNom,
                 'adresse' => $emailData['logement_adresse'] ?? '',
@@ -168,7 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'total_solde_debiteur' => number_format($totalSoldeDebiteur, 2, ',', ' ') . ' €',
                 'total_solde_crediteur' => number_format($totalSoldeCrediteur, 2, ',', ' ') . ' €',
                 'montant_a_restituer' => number_format($montantARestituer, 2, ',', ' ') . ' €',
-                'reste_du' => number_format($resteDu, 2, ',', ' ') . ' €'
+                'reste_du' => number_format($resteDu, 2, ',', ' ') . ' €',
+                'lien_telechargement_bilan' => $lienBilan,
             ];
             
             // Send email to each recipient
@@ -177,12 +185,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             foreach ($recipientEmails as $email) {
                 try {
-                    // Send email with admin BCC to ensure admins receive a copy
+                    // Send email with admin BCC (no direct attachment)
                     $sent = sendTemplatedEmail(
                         'bilan_logement',
                         $email,
                         $emailVariables,
-                        $pdfPath,
+                        null,  // no attachment
                         false, // isAdminEmail
                         true   // addAdminBcc - ensures admins receive a copy
                     );

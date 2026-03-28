@@ -194,19 +194,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $montantLoyer = number_format((float)$contrat['loyer'], 2, ',', ' ');
         $montantCharges = number_format((float)$contrat['charges'], 2, ',', ' ');
         $montantTotal = number_format((float)$contrat['loyer'] + (float)$contrat['charges'], 2, ',', ' ');
+
+        // Generate a secure download token for the quittance PDF (no direct attachment)
+        $lienQuittance = '';
+        $qTokenUrl = createDocumentToken($result['filepath'], 'quittance', 'quittance_' . $periode . '.pdf');
+        if ($qTokenUrl) {
+            $lienQuittance = $qTokenUrl;
+        }
         
         // Send email to each tenant
         foreach ($locataires as $locataire) {
             $emailSent = sendTemplatedEmail('quittance_envoyee', $locataire['email'], [
-                'locataire_nom' => $locataire['nom'],
-                'locataire_prenom' => $locataire['prenom'],
-                'adresse' => $contrat['adresse'],
-                'periode' => $periode,
-                'montant_loyer' => $montantLoyer,
-                'montant_charges' => $montantCharges,
-                'montant_total' => $montantTotal,
-                'signature' => getParameter('email_signature', '')
-            ], $result['filepath'], false, true, ['contexte' => 'quittance_id=' . $result['quittance_id']]); // false = not admin email, true = add admin BCC
+                'locataire_nom'                 => $locataire['nom'],
+                'locataire_prenom'              => $locataire['prenom'],
+                'adresse'                       => $contrat['adresse'],
+                'periode'                       => $periode,
+                'montant_loyer'                 => $montantLoyer,
+                'montant_charges'               => $montantCharges,
+                'montant_total'                 => $montantTotal,
+                'signature'                     => getParameter('email_signature', ''),
+                'lien_telechargement_quittance' => $lienQuittance,
+            ], null, false, true, ['contexte' => 'quittance_id=' . $result['quittance_id']]);
             
             if (!$emailSent) {
                 error_log("Erreur envoi email quittance à " . $locataire['email']);

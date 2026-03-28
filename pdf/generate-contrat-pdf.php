@@ -265,7 +265,7 @@ function replaceContratTemplateVariables($template, $contrat, $locataires) {
         '{{iban}}' => htmlspecialchars($iban),
         '{{bic}}' => htmlspecialchars($bic),
         '{{type_contrat_label}}' => htmlspecialchars(getTypeContratLabel($contrat['type_contrat'] ?? $contrat['logement_type_contrat'] ?? 'meuble')),
-        '{{duree_garantie}}' => htmlspecialchars((int)($contrat['duree_garantie'] ?? 1) . ' mois'),
+        '{{duree_garantie}}' => htmlspecialchars(getDureeGarantie($contrat['type_contrat'] ?? $contrat['logement_type_contrat'] ?? 'meuble') . ' mois'),
     ];
 
     $html = str_replace(array_keys($vars), array_values($vars), $template);

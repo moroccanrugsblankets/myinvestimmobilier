@@ -494,24 +494,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($quittanceResult === false) {
                         error_log("Erreur génération PDF quittance pour contrat #$contratIdPaiement, période $periodeNom");
                     } else {
+                        // Generate a secure download token for the quittance PDF (no direct attachment)
+                        $lienQuittance = '';
+                        $qTokenUrl = createDocumentToken($quittanceResult['filepath'], 'quittance', 'quittance_' . $periodeNom . '.pdf');
+                        if ($qTokenUrl) {
+                            $lienQuittance = $qTokenUrl;
+                        }
                         foreach ($locatairesPaiement as $loc) {
                             if (!empty($loc['email'])) {
                                 $emailSent = sendTemplatedEmail(
                                     'quittance_envoyee',
                                     $loc['email'],
                                     [
-                                        'locataire_nom'    => $loc['nom'],
-                                        'locataire_prenom' => $loc['prenom'],
-                                        'adresse'          => $paymentInfo['adresse'],
-                                        'periode'          => $periodeNom,
-                                        'montant_loyer'    => $montantLoyerFmt,
-                                        'montant_charges'  => $montantChargesFmt,
-                                        'montant_total'    => $montantTotalFmt,
-                                        'signature'        => getParameter('email_signature', '')
+                                        'locataire_nom'              => $loc['nom'],
+                                        'locataire_prenom'           => $loc['prenom'],
+                                        'adresse'                    => $paymentInfo['adresse'],
+                                        'periode'                    => $periodeNom,
+                                        'montant_loyer'              => $montantLoyerFmt,
+                                        'montant_charges'            => $montantChargesFmt,
+                                        'montant_total'              => $montantTotalFmt,
+                                        'signature'                  => getParameter('email_signature', ''),
+                                        'lien_telechargement_quittance' => $lienQuittance,
                                     ],
-                                    $quittanceResult['filepath'],
+                                    null,  // no direct attachment
                                     false,
-                                    true  // addAdminBcc: copie automatique à l'administrateur
+                                    true   // addAdminBcc
                                 );
                                 if (!$emailSent) {
                                     error_log("Erreur envoi email quittance à " . $loc['email']);
