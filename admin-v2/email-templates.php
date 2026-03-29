@@ -381,6 +381,10 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             valid_children: '+body[style],+head[style]',
             // Don't remove tags or attributes
             forced_root_block: false,
+            // --- Configuration pour forcer les liens absolus ---
+            relative_urls: false,
+            remove_script_host: false,
+            convert_urls: false,
             // Preserve DOCTYPE and full document structure
             doctype: '<!DOCTYPE html>',
             setup: function(editor) {
