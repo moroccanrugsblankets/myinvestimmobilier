@@ -71,9 +71,13 @@ $suggestedName = $doc['file_name'] ?: basename($realPath);
 $safeFileName  = preg_replace('/[^\w\s\-\.àâäéèêëïîôöùûüÿçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/u', '_', $suggestedName);
 $safeFileName  = str_replace(["\r", "\n"], '', $safeFileName);
 
+// Determine disposition: inline for safe known types, attachment otherwise
+$inlineMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+$disposition = in_array($mimeType, $inlineMimeTypes, true) ? 'inline' : 'attachment';
+
 // Stream the file
 header('Content-Type: ' . $mimeType);
-header('Content-Disposition: attachment; filename="' . $safeFileName . '"');
+header('Content-Disposition: ' . $disposition . '; filename="' . $safeFileName . '"');
 header('Content-Length: ' . filesize($realPath));
 header('Cache-Control: no-cache, must-revalidate');
 header('Pragma: no-cache');
