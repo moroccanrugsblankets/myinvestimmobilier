@@ -15,6 +15,7 @@ uploads/logements/*
 pdf/*
 !pdf/generate-bail.php
 !pdf/generate-bilan-logement.php
+!pdf/generate-caution-solidaire.php
 !pdf/generate-contrat-pdf.php
 !pdf/generate-decompte.php
 !pdf/generate-etat-lieux.php
