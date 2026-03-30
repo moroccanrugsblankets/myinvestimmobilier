@@ -1374,3 +1374,201 @@ function createDocumentToken(string $filePath, string $type, string $fileName = 
     }
 }
 
+
+// ===========================================================
+// MODULE GARANT / GARANTIE
+// ===========================================================
+
+/**
+ * Créer un enregistrement garant et générer un token unique.
+ *
+ * @param int    $contratId      ID du contrat concerné
+ * @param string $typeGarantie   'visale' ou 'caution_solidaire'
+ * @param array  $data           Données du garant (nom, prenom, email, …)
+ * @return array|false ['id' => int, 'token' => string] ou false en cas d'erreur
+ */
+function createGarant(int $contratId, string $typeGarantie, array $data = []) {
+    global $pdo;
+
+    $token = bin2hex(random_bytes(32));
+
+    $stmt = $pdo->prepare("
+        INSERT INTO garants (
+            contrat_id, type_garantie, token_garant,
+            nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
+            numero_visale,
+            date_envoi_invitation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ");
+
+    $result = $stmt->execute([
+        $contratId,
+        $typeGarantie,
+        $token,
+        $data['nom']            ?? null,
+        $data['prenom']         ?? null,
+        $data['date_naissance'] ?? null,
+        $data['email']          ?? null,
+        $data['telephone']      ?? null,
+        $data['adresse']        ?? null,
+        $data['ville']          ?? null,
+        $data['code_postal']    ?? null,
+        $data['numero_visale']  ?? null,
+    ]);
+
+    if (!$result) {
+        return false;
+    }
+
+    $id = (int)$pdo->lastInsertId();
+    logAction($contratId, 'creation_garant', "Type: $typeGarantie, Token: $token");
+
+    return ['id' => $id, 'token' => $token];
+}
+
+/**
+ * Récupérer un garant par son token.
+ *
+ * @param string $token
+ * @return array|false
+ */
+function getGarantByToken(string $token) {
+    return fetchOne("
+        SELECT g.*,
+               c.reference_unique  AS reference_contrat,
+               c.statut            AS statut_contrat,
+               l.adresse           AS adresse_logement,
+               l.reference         AS reference_logement,
+               l.loyer,
+               l.charges
+        FROM garants g
+        INNER JOIN contrats c ON g.contrat_id = c.id
+        INNER JOIN logements l ON c.logement_id = l.id
+        WHERE g.token_garant = ?
+    ", [$token]);
+}
+
+/**
+ * Récupérer le garant actif d'un contrat (dernier enregistrement).
+ *
+ * @param int $contratId
+ * @return array|false
+ */
+function getGarantByContratId(int $contratId) {
+    return fetchOne("
+        SELECT * FROM garants
+        WHERE contrat_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ", [$contratId]);
+}
+
+/**
+ * Mettre à jour le statut d'un garant.
+ *
+ * @param int    $garantId
+ * @param string $statut
+ * @return bool
+ */
+function updateGarantStatut(int $garantId, string $statut): bool {
+    $dateColMap = [
+        'engage'          => 'date_engagement',
+        'signe'           => 'date_signature',
+        'documents_recus' => 'date_documents',
+    ];
+    $dateCol = $dateColMap[$statut] ?? null;
+
+    if ($dateCol) {
+        $stmt = executeQuery(
+            "UPDATE garants SET statut = ?, $dateCol = NOW() WHERE id = ?",
+            [$statut, $garantId]
+        );
+    } else {
+        $stmt = executeQuery(
+            "UPDATE garants SET statut = ? WHERE id = ?",
+            [$statut, $garantId]
+        );
+    }
+
+    return $stmt !== false;
+}
+
+/**
+ * Enregistrer la signature électronique d'un garant.
+ *
+ * @param int    $garantId
+ * @param string $signatureData  Données base64 de la signature
+ * @param int    $certifieExact  1 si case cochée
+ * @return bool
+ */
+function saveGarantSignature(int $garantId, string $signatureData, int $certifieExact = 1): bool {
+    global $config;
+
+    // Décoder le base64 et sauvegarder en fichier JPEG
+    if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,(.+)$/s', $signatureData, $matches)) {
+        error_log("saveGarantSignature: format de données invalide pour garant ID $garantId");
+        return false;
+    }
+
+    $imageData = base64_decode($matches[2]);
+    if ($imageData === false) {
+        error_log("saveGarantSignature: décodage base64 échoué pour garant ID $garantId");
+        return false;
+    }
+
+    $sigDir = $config['UPLOAD_DIR'] . 'signatures/';
+    if (!is_dir($sigDir)) {
+        mkdir($sigDir, 0755, true);
+    }
+
+    $filename  = 'garant_' . bin2hex(random_bytes(16)) . '.jpg';
+    $filepath  = $sigDir . $filename;
+
+    if (file_put_contents($filepath, $imageData) === false) {
+        error_log("saveGarantSignature: impossible d'écrire le fichier $filepath");
+        return false;
+    }
+
+    $relativePath = 'uploads/signatures/' . $filename;
+
+    $stmt = executeQuery(
+        "UPDATE garants
+         SET signature_data = ?, signature_ip = ?, signature_timestamp = NOW(), certifie_exact = ?, statut = 'signe', date_signature = NOW()
+         WHERE id = ?",
+        [$relativePath, getClientIp(), $certifieExact, $garantId]
+    );
+
+    return $stmt !== false;
+}
+
+/**
+ * Obtenir le libellé d'un statut garant.
+ *
+ * @param string $statut
+ * @return string
+ */
+function formatGarantStatut(string $statut): string {
+    $labels = [
+        'en_attente_garant' => 'En attente du garant',
+        'engage'            => 'Garant engagé',
+        'signe'             => 'Document signé',
+        'documents_recus'   => 'Documents reçus',
+    ];
+    return $labels[$statut] ?? ucfirst(str_replace('_', ' ', $statut));
+}
+
+/**
+ * Obtenir la classe Bootstrap badge pour un statut garant.
+ *
+ * @param string $statut
+ * @return string
+ */
+function getGarantStatutBadgeClass(string $statut): string {
+    $classes = [
+        'en_attente_garant' => 'bg-warning text-dark',
+        'engage'            => 'bg-info',
+        'signe'             => 'bg-primary',
+        'documents_recus'   => 'bg-success',
+    ];
+    return $classes[$statut] ?? 'bg-secondary';
+}
