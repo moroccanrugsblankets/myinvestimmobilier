@@ -55,8 +55,24 @@ function generateCautionSolidairePDF(int $garantId) {
             SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1
         ", [$garant['contrat_id']]);
 
-        // Construire le HTML du document
-        $html = buildCautionSolidaireHTML($garant, $locataire, $config);
+        // Construire le HTML du document (template personnalisé ou défaut)
+        $customTemplate = null;
+        try {
+            $tplStmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'caution_template_html'");
+            $tplStmt->execute();
+            $tplRow = $tplStmt->fetchColumn();
+            if ($tplRow && trim($tplRow) !== '') {
+                $customTemplate = $tplRow;
+            }
+        } catch (Exception $e) {
+            // Parametres table may not have this key yet – fall back to default
+        }
+
+        if ($customTemplate !== null) {
+            $html = applyCautionTemplateVariables($customTemplate, $garant, $locataire, $config);
+        } else {
+            $html = buildCautionSolidaireHTML($garant, $locataire, $config);
+        }
 
         // Initialiser TCPDF
         $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
@@ -90,6 +106,61 @@ function generateCautionSolidairePDF(int $garantId) {
         error_log("generateCautionSolidairePDF: erreur – " . $e->getMessage());
         return false;
     }
+}
+
+/**
+ * Appliquer les variables du template de caution solidaire.
+ *
+ * @param string     $template   Template HTML avec {{variables}}
+ * @param array      $garant
+ * @param array|false $locataire
+ * @param array      $config
+ * @return string HTML avec variables remplacées
+ */
+function applyCautionTemplateVariables(string $template, array $garant, $locataire, array $config): string {
+    $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
+
+    $dateNaissance  = !empty($garant['date_naissance'])
+                      ? date('d/m/Y', strtotime($garant['date_naissance']))
+                      : '___________';
+    $datePriseEffet = !empty($garant['date_prise_effet'])
+                      ? date('d/m/Y', strtotime($garant['date_prise_effet']))
+                      : '___________';
+    $dateDocument   = date('d/m/Y');
+    $loyer          = number_format((float)($garant['loyer'] ?? 0), 2, ',', ' ');
+    $charges        = number_format((float)($garant['charges'] ?? 0), 2, ',', ' ');
+    $loyerTotal     = number_format((float)($garant['loyer'] ?? 0) + (float)($garant['charges'] ?? 0), 2, ',', ' ');
+
+    $signatureHtml = '';
+    if (!empty($garant['signature_data'])) {
+        $sigPath = dirname(__DIR__) . '/' . $garant['signature_data'];
+        if (file_exists($sigPath)) {
+            $signatureHtml = '<img src="' . $sigPath . '" style="width:50mm;height:auto;" alt="Signature garant">';
+        }
+    }
+
+    $vars = [
+        '{{prenom_garant}}'         => htmlspecialchars($garant['prenom'] ?? ''),
+        '{{nom_garant}}'            => htmlspecialchars($garant['nom'] ?? ''),
+        '{{date_naissance_garant}}' => htmlspecialchars($dateNaissance),
+        '{{adresse_garant}}'        => htmlspecialchars($garant['adresse'] ?? ''),
+        '{{cp_garant}}'             => htmlspecialchars($garant['code_postal'] ?? ''),
+        '{{ville_garant}}'          => htmlspecialchars($garant['ville'] ?? ''),
+        '{{email_garant}}'          => htmlspecialchars($garant['email'] ?? ''),
+        '{{signature_garant}}'      => $signatureHtml,
+        '{{reference_contrat}}'     => htmlspecialchars($garant['reference_contrat'] ?? ''),
+        '{{adresse_logement}}'      => htmlspecialchars($garant['adresse_logement'] ?? ''),
+        '{{loyer}}'                 => $loyer,
+        '{{charges}}'               => $charges,
+        '{{loyer_total}}'           => $loyerTotal,
+        '{{date_prise_effet}}'      => htmlspecialchars($datePriseEffet),
+        '{{prenom_locataire}}'      => $locataire ? htmlspecialchars($locataire['prenom']) : '___________',
+        '{{nom_locataire}}'         => $locataire ? htmlspecialchars($locataire['nom'])    : '___________',
+        '{{date_document}}'         => htmlspecialchars($dateDocument),
+        '{{company}}'               => htmlspecialchars($companyName),
+    ];
+
+    return str_replace(array_keys($vars), array_values($vars), $template);
 }
 
 /**

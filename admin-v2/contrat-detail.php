@@ -400,7 +400,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
     if ($garantId > 0) {
         $garant = fetchOne("SELECT * FROM garants WHERE id = ? AND contrat_id = ?", [$garantId, $contractId]);
         if ($garant) {
-            $lienGarant    = $config['SITE_URL'] . '/garant-parcours/index.php?token=' . urlencode($garant['token_garant']);
+            $lienGarant    = $config['SITE_URL'] . '/envoyer-assurance.php?token=' . urlencode($garant['token_garant']);
             $emailContact  = $config['COMPANY_EMAIL'] ?? getAdminEmail();
             $locataire     = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
             $contratInfo   = fetchOne("SELECT l.adresse FROM contrats c INNER JOIN logements l ON c.logement_id = l.id WHERE c.id = ?", [$contractId]);
