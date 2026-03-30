@@ -318,6 +318,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    // ---- Garantie: envoyer le lien "déclarer un garant" au locataire ----
+    if ($_POST['action'] === 'send_garantie_link') {
+        // Générer (ou mettre à jour) le token_garantie du contrat
+        $newTokenGarantie = bin2hex(random_bytes(32));
+
+        // Check if token_garantie column exists (migration 126)
+        $colCheck = $pdo->query("
+            SELECT COLUMN_NAME FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'contrats'
+            AND COLUMN_NAME = 'token_garantie'
+        ");
+        if ($colCheck->fetch()) {
+            $pdo->prepare("UPDATE contrats SET token_garantie = ? WHERE id = ?")
+                ->execute([$newTokenGarantie, $contractId]);
+
+            $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC", [$contractId]);
+            $lienGarantie = $config['SITE_URL'] . '/garant/index.php?token=' . $newTokenGarantie;
+
+            foreach ($locataires as $loc) {
+                if (empty($loc['email'])) continue;
+                sendTemplatedEmail('garant_confirmation_locataire', $loc['email'], [
+                    'prenom_locataire' => $loc['prenom'],
+                    'nom_locataire'    => $loc['nom'],
+                    'prenom_garant'    => '(à renseigner)',
+                    'nom_garant'       => '',
+                    'email_garant'     => '',
+                    'email_contact'    => $config['COMPANY_EMAIL'] ?? getAdminEmail(),
+                ], null, false, false, ['contexte' => 'contrat_id=' . $contractId]);
+                // Envoyer directement le lien au locataire via email simple (texte)
+                $refRow = fetchOne("SELECT reference_unique FROM contrats WHERE id = ?", [$contractId]);
+                $refUnique = $refRow ? $refRow['reference_unique'] : $contractId;
+                sendMail($loc['email'],
+                    'Déclarez votre garant – ' . $refUnique,
+                    '<p>Bonjour ' . htmlspecialchars($loc['prenom']) . ',</p>'
+                    . '<p>Veuillez déclarer votre garant en suivant ce lien sécurisé :</p>'
+                    . '<p><a href="' . htmlspecialchars($lienGarantie) . '">' . htmlspecialchars($lienGarantie) . '</a></p>',
+                    null, true
+                );
+            }
+            logAction($contractId, 'garantie_lien_envoye', 'Token: ' . $newTokenGarantie);
+            $_SESSION['success'] = "Lien de déclaration de garant envoyé au(x) locataire(s).";
+        } else {
+            $_SESSION['error'] = "La migration 126 n'a pas encore été exécutée.";
+        }
+        header('Location: contrat-detail.php?id=' . $contractId);
+        exit;
+    }
+
     if ($_POST['action'] === 'generate_signalement_token') {
         $locataireId = (int)($_POST['locataire_id'] ?? 0);
         if ($locataireId > 0) {
@@ -344,6 +392,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: contrat-detail.php?id=' . $contractId);
         exit;
     }
+}
+
+// ---- GET action: re-send garant invitation ----
+if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
+    $garantId = (int)($_GET['garant_id'] ?? 0);
+    if ($garantId > 0) {
+        $garant = fetchOne("SELECT * FROM garants WHERE id = ? AND contrat_id = ?", [$garantId, $contractId]);
+        if ($garant) {
+            $lienGarant    = $config['SITE_URL'] . '/garant-parcours/index.php?token=' . urlencode($garant['token_garant']);
+            $emailContact  = $config['COMPANY_EMAIL'] ?? getAdminEmail();
+            $locataire     = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
+            $contratInfo   = fetchOne("SELECT l.adresse FROM contrats c INNER JOIN logements l ON c.logement_id = l.id WHERE c.id = ?", [$contractId]);
+            sendTemplatedEmail('garant_invitation', $garant['email'], [
+                'prenom_garant'    => $garant['prenom'],
+                'nom_garant'       => $garant['nom'],
+                'prenom_locataire' => $locataire ? $locataire['prenom'] : '',
+                'nom_locataire'    => $locataire ? $locataire['nom']    : '',
+                'adresse_logement' => $contratInfo ? $contratInfo['adresse'] : '',
+                'lien_garant'      => $lienGarant,
+                'email_contact'    => $emailContact,
+            ], null, false, false, ['contexte' => 'contrat_id=' . $contractId]);
+            executeQuery("UPDATE garants SET date_envoi_invitation = NOW() WHERE id = ?", [$garantId]);
+            logAction($contractId, 'garant_invitation_renvoyee', "Garant ID $garantId");
+            $_SESSION['success'] = "Invitation renvoyée au garant.";
+        }
+    }
+    header('Location: contrat-detail.php?id=' . $contractId);
+    exit;
 }
 
 // Get contract details
@@ -920,6 +996,147 @@ if ($contrat['validated_by']) {
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
+
+        <!-- =========================================================
+             Section Garant / Garantie
+             ========================================================= -->
+        <?php
+        $garantContrat = getGarantByContratId($contractId);
+        ?>
+        <div class="detail-card mt-4">
+            <h5><i class="bi bi-shield-lock"></i> Garant / Garantie</h5>
+
+            <?php if (!$garantContrat): ?>
+                <p class="text-muted mb-3">Aucun garant déclaré pour ce contrat.</p>
+            <?php else: ?>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="mb-1">
+                            <strong>Type :</strong>
+                            <?= $garantContrat['type_garantie'] === 'visale' ? 'Garantie Visale' : 'Caution solidaire' ?>
+                        </p>
+                        <p class="mb-1">
+                            <strong>Statut :</strong>
+                            <span class="badge <?= htmlspecialchars(getGarantStatutBadgeClass($garantContrat['statut'])) ?>">
+                                <?= htmlspecialchars(formatGarantStatut($garantContrat['statut'])) ?>
+                            </span>
+                        </p>
+                        <?php if (!empty($garantContrat['date_envoi_invitation'])): ?>
+                        <p class="mb-1 text-muted small">
+                            Invitation envoyée le <?= date('d/m/Y à H:i', strtotime($garantContrat['date_envoi_invitation'])) ?>
+                        </p>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
+                    <div class="col-md-6">
+                        <p class="mb-1">
+                            <strong>Garant :</strong>
+                            <?= htmlspecialchars($garantContrat['prenom'] . ' ' . $garantContrat['nom']) ?>
+                        </p>
+                        <?php if (!empty($garantContrat['date_naissance'])): ?>
+                        <p class="mb-1">
+                            <strong>Né(e) le :</strong>
+                            <?= htmlspecialchars(date('d/m/Y', strtotime($garantContrat['date_naissance']))) ?>
+                        </p>
+                        <?php endif; ?>
+                        <p class="mb-1">
+                            <strong>Email :</strong>
+                            <?= htmlspecialchars($garantContrat['email'] ?? '') ?>
+                        </p>
+                        <?php if (!empty($garantContrat['adresse'])): ?>
+                        <p class="mb-1">
+                            <strong>Adresse :</strong>
+                            <?= htmlspecialchars($garantContrat['adresse'] . ', ' . $garantContrat['code_postal'] . ' ' . $garantContrat['ville']) ?>
+                        </p>
+                        <?php endif; ?>
+                    </div>
+                    <?php elseif ($garantContrat['type_garantie'] === 'visale'): ?>
+                    <div class="col-md-6">
+                        <?php if (!empty($garantContrat['numero_visale'])): ?>
+                        <p class="mb-1">
+                            <strong>Numéro Visale :</strong>
+                            <?= htmlspecialchars($garantContrat['numero_visale']) ?>
+                        </p>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($garantContrat['type_garantie'] === 'caution_solidaire' &&
+                          !empty($garantContrat['signature_timestamp'])): ?>
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <p class="mb-1 text-success">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>Signé électroniquement</strong> le
+                            <?= date('d/m/Y à H:i', strtotime($garantContrat['signature_timestamp'])) ?>
+                        </p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Documents garant -->
+                <?php
+                $hasGarantDocs = !empty($garantContrat['piece_identite'])
+                              || !empty($garantContrat['document_caution'])
+                              || !empty($garantContrat['document_visale']);
+                ?>
+                <?php if ($hasGarantDocs): ?>
+                <h6 class="mt-3"><i class="bi bi-files"></i> Documents</h6>
+                <div class="row mt-2">
+                    <?php
+                    if (!empty($garantContrat['document_caution'])) {
+                        // Document caution is stored as relative path (pdf/cautions/...) - use direct admin link
+                        $cautionPath = $garantContrat['document_caution'];
+                        // Security: validate path is within expected pdf/cautions directory
+                        $expectedDir = realpath(dirname(__DIR__) . '/pdf/cautions');
+                        $fullPath    = realpath(dirname(__DIR__) . '/' . $cautionPath);
+                        if ($expectedDir !== false && $fullPath !== false && strpos($fullPath, $expectedDir . DIRECTORY_SEPARATOR) === 0) {
+                            $relativeSafe = 'pdf/cautions/' . basename($cautionPath);
+                            echo '<div class="col-md-4 mb-3">';
+                            echo '<div class="card">';
+                            echo '<div class="card-body">';
+                            echo '<h6 class="card-title"><i class="bi bi-file-earmark-check"></i> Document de caution solidaire</h6>';
+                            echo '<a href="' . htmlspecialchars('../' . $relativeSafe) . '" class="btn btn-sm btn-primary" target="_blank">';
+                            echo '<i class="bi bi-eye"></i> Consulter</a>';
+                            echo '</div></div></div>';
+                        }
+                    }
+                    if (!empty($garantContrat['piece_identite'])) {
+                        renderDocumentCard($garantContrat['piece_identite'], "Pièce d'identité du garant", 'card-image');
+                    }
+                    if (!empty($garantContrat['document_visale'])) {
+                        renderDocumentCard($garantContrat['document_visale'], 'Document Visale', 'shield-check');
+                    }
+                    ?>
+                </div>
+                <?php endif; ?>
+
+                <!-- Renvoyer le lien au garant -->
+                <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'
+                       && in_array($garantContrat['statut'], ['en_attente_garant', 'engage'], true)): ?>
+                <div class="mt-3">
+                    <a href="?id=<?= $contractId ?>&action=resend_garant_invite&garant_id=<?= (int)$garantContrat['id'] ?>"
+                       class="btn btn-outline-primary btn-sm"
+                       onclick="return confirm('Renvoyer l\'invitation au garant ?');">
+                        <i class="bi bi-envelope-arrow-up"></i> Renvoyer l'invitation au garant
+                    </a>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <!-- Envoyer le lien "déclarer un garant" au locataire -->
+            <?php if (!$garantContrat && in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)): ?>
+            <form method="POST" action="" class="mt-3">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                <input type="hidden" name="action" value="send_garantie_link">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-send"></i> Envoyer le lien "Déclarer un garant" au locataire
+                </button>
+            </form>
+            <?php endif; ?>
+        </div>
+        <!-- /Section Garant / Garantie -->
 
 		<?php if ($contrat['statut'] === 'valide'): ?>
 		<!-- État des lieux Section -->
