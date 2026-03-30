@@ -47,8 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validate: at least insurance certificate is required
         if (!$assuranceFile || $assuranceFile['error'] === UPLOAD_ERR_NO_FILE) {
             $error = 'Veuillez télécharger votre attestation d\'assurance habitation.';
-        } elseif (empty($numeroVisale)) {
-            $error = 'Veuillez saisir votre numéro de garantie Visale.';
         } else {
             // Validate insurance file
             $validationAssurance = validateUploadedFile($assuranceFile);
@@ -227,7 +225,7 @@ $csrfToken = generateCsrfToken();
 
                                 <div class="mb-3">
                                     <label for="numero_visale" class="form-label">
-                                        Numéro de garantie Visale <span class="text-danger">*</span>
+                                        Numéro de garantie Visale
                                     </label>
                                     <input type="text" class="form-control" id="numero_visale"
                                            name="numero_visale"
