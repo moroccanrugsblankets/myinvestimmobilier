@@ -231,7 +231,7 @@ $csrfToken = generateCsrfToken();
                                            name="numero_visale"
                                            placeholder="Ex: VS-XXXXXXXX"
                                            value="<?= htmlspecialchars($_POST['numero_visale'] ?? '') ?>"
-                                           required>
+                                           >
                                 </div>
 
                                 <div class="mb-3">
