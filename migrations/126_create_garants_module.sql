@@ -5,7 +5,7 @@
 -- 1. Ajouter token_garantie à la table contrats
 -- ======================================================
 ALTER TABLE contrats
-    ADD COLUMN IF NOT EXISTS token_garantie VARCHAR(100) NULL AFTER token_signature;
+    ADD COLUMN  token_garantie VARCHAR(100) NULL AFTER token_signature;
 
 -- ======================================================
 -- 2. Table garants
