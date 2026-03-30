@@ -40,198 +40,298 @@ $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'caution_templa
 $stmt->execute();
 $currentTemplate = $stmt->fetchColumn();
 
-// Charger le template par défaut depuis le générateur PDF pour affichage de référence
-$defaultTemplateNote = 'Si aucun template personnalisé n\'est défini, le document utilise le modèle HTML intégré dans le générateur PDF.';
-
 $successMsg = $_SESSION['success'] ?? null;
 $errorMsg   = $_SESSION['error']   ?? null;
 unset($_SESSION['success'], $_SESSION['error']);
+
+// Template par défaut
+$defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;">ACTE DE CAUTION SOLIDAIRE</strong></p>
+<p style="text-align:center;">Article 22-1 de la loi n°89-462 du 6 juillet 1989</p>
+<p style="text-align:center;">Référence : {{reference_contrat}} &nbsp;|&nbsp; Date : {{date_document}}</p>
+<p>&nbsp;</p>
+<p><strong>1. PARTIES</strong></p>
+<p><strong>Bailleur :</strong> {{company}}</p>
+<p><strong>Locataire :</strong> {{prenom_locataire}} {{nom_locataire}}</p>
+<p><strong>Logement :</strong> {{adresse_logement}}</p>
+<p><strong>Loyer mensuel :</strong> {{loyer}} € + {{charges}} € de charges = {{loyer_total}} € / mois</p>
+<p><strong>Date d\'entrée :</strong> {{date_prise_effet}}</p>
+<p>&nbsp;</p>
+<p><strong>2. CAUTION SOLIDAIRE</strong></p>
+<p><strong>Nom :</strong> {{prenom_garant}} {{nom_garant}}</p>
+<p><strong>Date de naissance :</strong> {{date_naissance_garant}}</p>
+<p><strong>Adresse :</strong> {{adresse_garant}}, {{cp_garant}} {{ville_garant}}</p>
+<p><strong>Email :</strong> {{email_garant}}</p>
+<p>&nbsp;</p>
+<p><strong>3. ENGAGEMENT</strong></p>
+<p>Je soussigné(e) <strong>{{prenom_garant}} {{nom_garant}}</strong>, demeurant au {{adresse_garant}}, {{cp_garant}} {{ville_garant}}, me porte caution solidaire et indivisible, sans bénéfice de discussion ni de division, pour le paiement des loyers, charges et accessoires dus par <strong>{{prenom_locataire}} {{nom_locataire}}</strong> au titre du bail portant sur le logement situé à <strong>{{adresse_logement}}</strong>.</p>
+<p>&nbsp;</p>
+<p>Le montant total de l\'engagement est limité à <strong>{{loyer_total}} € par mois</strong>. Cet engagement est consenti pour toute la durée du bail et de ses renouvellements.</p>
+<p>&nbsp;</p>
+<p><strong>4. SIGNATURE</strong></p>
+<p>Fait le {{date_document}}</p>
+<p>&nbsp;</p>
+<p>{{signature_garant}}</p>';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration Caution – Admin</title>
+    <title>Configuration Caution Solidaire – Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/style.css">
+    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
+    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
+    <style>
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .config-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .variables-info {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .variables-info h6 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .variable-tag {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin: 3px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .variable-tag:hover {
+            background: #2980b9;
+        }
+        .code-editor {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            min-height: 500px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .preview-section {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            background: white;
+        }
+    </style>
 </head>
 <body>
-<?php include 'includes/menu.php'; ?>
+    <?php require_once __DIR__ . '/includes/menu.php'; ?>
 
-<div class="main-content">
-    <div class="container-fluid py-4">
-
-        <div class="d-flex align-items-center mb-4">
-            <a href="contrats.php" class="btn btn-outline-secondary btn-sm me-3">
-                <i class="bi bi-arrow-left"></i> Retour
-            </a>
-            <h2 class="mb-0"><i class="bi bi-shield-lock"></i> Configuration Caution solidaire</h2>
+    <div class="main-content">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0"><i class="bi bi-shield-lock"></i> Configuration de la Caution Solidaire</h1>
+                    <p class="text-muted mb-0">Personnalisez le template HTML du document de caution solidaire avec des variables dynamiques</p>
+                </div>
+                <a href="contrats.php" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Retour aux contrats
+                </a>
+            </div>
         </div>
 
         <?php if ($successMsg): ?>
-        <div class="alert alert-success alert-dismissible fade show">
-            <?= htmlspecialchars($successMsg) ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> <?= htmlspecialchars($successMsg) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php endif; ?>
         <?php if ($errorMsg): ?>
-        <div class="alert alert-danger alert-dismissible fade show">
-            <?= htmlspecialchars($errorMsg) ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($errorMsg) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php endif; ?>
 
-        <!-- Info variables -->
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Variables disponibles dans le template</h5>
-            </div>
-            <div class="card-body">
-                <p class="mb-2">Utilisez les variables suivantes dans votre template HTML (entre accolades doubles) :</p>
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Garant</h6>
-                        <ul class="small mb-3">
-                            <li><code>{{prenom_garant}}</code> – Prénom du garant</li>
-                            <li><code>{{nom_garant}}</code> – Nom du garant</li>
-                            <li><code>{{date_naissance_garant}}</code> – Date de naissance du garant</li>
-                            <li><code>{{adresse_garant}}</code> – Adresse du garant</li>
-                            <li><code>{{cp_garant}}</code> – Code postal du garant</li>
-                            <li><code>{{ville_garant}}</code> – Ville du garant</li>
-                            <li><code>{{email_garant}}</code> – Email du garant</li>
-                            <li><code>{{signature_garant}}</code> – Image de la signature</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Contrat &amp; Logement</h6>
-                        <ul class="small mb-3">
-                            <li><code>{{reference_contrat}}</code> – Référence du contrat</li>
-                            <li><code>{{adresse_logement}}</code> – Adresse du logement</li>
-                            <li><code>{{loyer}}</code> – Loyer (€)</li>
-                            <li><code>{{charges}}</code> – Charges (€)</li>
-                            <li><code>{{loyer_total}}</code> – Loyer + charges (€)</li>
-                            <li><code>{{date_prise_effet}}</code> – Date d'entrée</li>
-                            <li><code>{{prenom_locataire}}</code> – Prénom du locataire</li>
-                            <li><code>{{nom_locataire}}</code> – Nom du locataire</li>
-                            <li><code>{{date_document}}</code> – Date de génération du PDF</li>
-                            <li><code>{{company}}</code> – Nom de la société</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="alert alert-light mb-0">
-                    <i class="bi bi-lightbulb"></i> <?= htmlspecialchars($defaultTemplateNote) ?>
+        <!-- Template Editor -->
+        <div class="config-card">
+            <div class="variables-info">
+                <h6><i class="bi bi-info-circle"></i> Variables disponibles</h6>
+                <p class="mb-2">Cliquez sur une variable pour la copier. Utilisez ces variables dans le template HTML :</p>
+                <div>
+                    <strong class="d-block mb-1" style="font-size:0.8rem;color:#2c3e50;">Garant</strong>
+                    <span class="variable-tag" onclick="copyVariable('{{prenom_garant}}')">{{prenom_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{nom_garant}}')">{{nom_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{date_naissance_garant}}')">{{date_naissance_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{adresse_garant}}')">{{adresse_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{cp_garant}}')">{{cp_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{ville_garant}}')">{{ville_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{email_garant}}')">{{email_garant}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{signature_garant}}')">{{signature_garant}}</span>
+                    <strong class="d-block mb-1 mt-2" style="font-size:0.8rem;color:#2c3e50;">Contrat &amp; Logement</strong>
+                    <span class="variable-tag" onclick="copyVariable('{{reference_contrat}}')">{{reference_contrat}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{adresse_logement}}')">{{adresse_logement}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{loyer}}')">{{loyer}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{charges}}')">{{charges}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{loyer_total}}')">{{loyer_total}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{date_prise_effet}}')">{{date_prise_effet}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{prenom_locataire}}')">{{prenom_locataire}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{nom_locataire}}')">{{nom_locataire}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{date_document}}')">{{date_document}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{company}}')">{{company}}</span>
                 </div>
             </div>
+
+            <h5 class="mb-3">
+                <i class="bi bi-file-earmark-code"></i> Template HTML du document de caution solidaire
+                <?php if ($currentTemplate): ?>
+                <span class="badge bg-success ms-2">Template personnalisé actif</span>
+                <?php else: ?>
+                <span class="badge bg-secondary ms-2">Modèle par défaut utilisé</span>
+                <?php endif; ?>
+            </h5>
+
+            <form method="POST" action="" id="mainForm">
+                <input type="hidden" name="action" value="update_template">
+                <div class="mb-3">
+                    <textarea class="form-control code-editor"
+                              id="template_html"
+                              name="template_html"><?= htmlspecialchars($currentTemplate ?: $defaultTemplate) ?></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="showPreview()">
+                        <i class="bi bi-eye"></i> Prévisualiser
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefault()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                    </button>
+                </div>
+            </form>
+
+            <?php if ($currentTemplate): ?>
+            <form method="POST" action="" id="resetForm">
+                <input type="hidden" name="action" value="reset_template">
+            </form>
+            <?php endif; ?>
         </div>
 
-        <!-- Template HTML -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-file-earmark-code"></i> Template HTML du document de caution solidaire</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="">
-                    <input type="hidden" name="action" value="update_template">
+        <div class="config-card" id="preview-card" style="display: none;">
+            <h5><i class="bi bi-eye"></i> Prévisualisation</h5>
+            <div class="preview-section" id="preview-content"></div>
+        </div>
+    </div>
 
-                    <div class="mb-3">
-                        <label for="template_html" class="form-label">
-                            Contenu HTML du document
-                            <?php if ($currentTemplate): ?>
-                            <span class="badge bg-success ms-2">Template personnalisé actif</span>
-                            <?php else: ?>
-                            <span class="badge bg-secondary ms-2">Modèle par défaut utilisé</span>
-                            <?php endif; ?>
-                        </label>
-                        <textarea class="form-control font-monospace"
-                                  id="template_html"
-                                  name="template_html"
-                                  rows="30"
-                                  style="font-size:0.82rem;"
-                                  placeholder="Entrez votre template HTML ici. Utilisez les variables listées ci-dessus entre {{double accolades}}."
-                                  ><?= htmlspecialchars($currentTemplate ?? '') ?></textarea>
-                        <div class="form-text">
-                            Le template doit être un document HTML complet (avec balises <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> et <code>&lt;body&gt;</code>) ou un fragment HTML. Il sera rendu par TCPDF.
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const defaultTemplate = <?= json_encode($defaultTemplate) ?>;
+
+        function copyVariable(variable) {
+            navigator.clipboard.writeText(variable).then(() => {
+                const toast = document.createElement('div');
+                toast.className = 'position-fixed bottom-0 end-0 p-3';
+                toast.style.zIndex = '9999';
+                toast.innerHTML = `
+                    <div class="toast show" role="alert">
+                        <div class="toast-header">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong class="me-auto">Copié!</strong>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${variable} copié dans le presse-papier
                         </div>
                     </div>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            });
+        }
 
-                    <div class="d-flex gap-3">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Enregistrer le template
-                        </button>
-                        <?php if ($currentTemplate): ?>
-                        <button type="button" class="btn btn-outline-danger"
-                                onclick="if(confirm('Remettre le template par défaut ?')) { document.getElementById('resetForm').submit(); }">
-                            <i class="bi bi-arrow-counterclockwise"></i> Remettre le modèle par défaut
-                        </button>
-                        <?php endif; ?>
-                    </div>
-                </form>
+        function showPreview() {
+            const editorInstance = tinymce.get('template_html');
+            const template = editorInstance ? editorInstance.getContent() : document.getElementById('template_html').value;
+            const previewCard = document.getElementById('preview-card');
+            const previewContent = document.getElementById('preview-content');
 
+            let preview = template
+                .replace(/\{\{reference_contrat\}\}/g, 'BAIL-2024-001')
+                .replace(/\{\{date_document\}\}/g, '30/03/2024')
+                .replace(/\{\{company\}\}/g, 'MY INVEST IMMOBILIER')
+                .replace(/\{\{prenom_locataire\}\}/g, 'Jean')
+                .replace(/\{\{nom_locataire\}\}/g, 'DUPONT')
+                .replace(/\{\{adresse_logement\}\}/g, '123 Rue de la République, 74100 Annemasse')
+                .replace(/\{\{loyer\}\}/g, '850.00')
+                .replace(/\{\{charges\}\}/g, '100.00')
+                .replace(/\{\{loyer_total\}\}/g, '950.00')
+                .replace(/\{\{date_prise_effet\}\}/g, '01/04/2024')
+                .replace(/\{\{prenom_garant\}\}/g, 'Marie')
+                .replace(/\{\{nom_garant\}\}/g, 'MARTIN')
+                .replace(/\{\{date_naissance_garant\}\}/g, '15/06/1975')
+                .replace(/\{\{adresse_garant\}\}/g, '45 Avenue des Fleurs')
+                .replace(/\{\{cp_garant\}\}/g, '75001')
+                .replace(/\{\{ville_garant\}\}/g, 'Paris')
+                .replace(/\{\{email_garant\}\}/g, 'marie.martin@example.com')
+                .replace(/\{\{signature_garant\}\}/g, '<p><em>[Signature du garant]</em></p>');
+
+            previewContent.innerHTML = preview;
+            previewCard.style.display = 'block';
+            previewCard.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetToDefault() {
+            if (confirm('Réinitialiser le template au modèle par défaut ?\n\nLes modifications non enregistrées seront perdues.')) {
+                const editorInstance = tinymce.get('template_html');
+                if (editorInstance) {
+                    editorInstance.setContent(defaultTemplate);
+                } else {
+                    document.getElementById('template_html').value = defaultTemplate;
+                }
                 <?php if ($currentTemplate): ?>
-                <form method="POST" action="" id="resetForm">
-                    <input type="hidden" name="action" value="reset_template">
-                </form>
+                document.getElementById('resetForm').submit();
                 <?php endif; ?>
-            </div>
-        </div>
+            }
+        }
 
-        <!-- Aperçu du modèle par défaut -->
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-eye"></i> Aperçu du modèle par défaut (structure de référence)</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">Structure HTML du document généré par défaut si aucun template personnalisé n'est défini :</p>
-                <pre class="bg-light p-3 rounded" style="font-size:0.78rem;max-height:400px;overflow-y:auto;">&lt;!DOCTYPE html&gt;
-&lt;html lang="fr"&gt;
-&lt;head&gt;
-&lt;meta charset="UTF-8"&gt;
-&lt;style&gt;
-  body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; }
-  h1   { font-size: 16pt; text-align: center; text-transform: uppercase; }
-  h2   { font-size: 13pt; color: #2c3e50; border-bottom: 1px solid #2c3e50; }
-  table.info td { padding: 2mm 3mm; border: 1px solid #ccc; font-size: 10pt; }
-  table.info td.label { background: #f0f4f8; font-weight: bold; width: 35%; }
-&lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-
-&lt;h1&gt;Acte de caution solidaire&lt;/h1&gt;
-&lt;p style="text-align:center"&gt;Article 22-1 de la loi n°89-462 du 6 juillet 1989&lt;/p&gt;
-&lt;p style="text-align:center"&gt;Référence : {{reference_contrat}} | Date : {{date_document}}&lt;/p&gt;
-
-&lt;h2&gt;1. Parties&lt;/h2&gt;
-&lt;table class="info"&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Bailleur&lt;/td&gt;&lt;td&gt;{{company}}&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Locataire&lt;/td&gt;&lt;td&gt;{{prenom_locataire}} {{nom_locataire}}&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Logement&lt;/td&gt;&lt;td&gt;{{adresse_logement}}&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Loyer mensuel&lt;/td&gt;&lt;td&gt;{{loyer}} € + {{charges}} € = {{loyer_total}} € / mois&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-
-&lt;h2&gt;2. Caution solidaire&lt;/h2&gt;
-&lt;table class="info"&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Nom&lt;/td&gt;&lt;td&gt;{{prenom_garant}} {{nom_garant}}&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Naissance&lt;/td&gt;&lt;td&gt;{{date_naissance_garant}}&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td class="label"&gt;Adresse&lt;/td&gt;&lt;td&gt;{{adresse_garant}}, {{cp_garant}} {{ville_garant}}&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-
-&lt;h2&gt;3. Engagement&lt;/h2&gt;
-&lt;p&gt;Je soussigné(e) {{prenom_garant}} {{nom_garant}} me porte caution solidaire...&lt;/p&gt;
-
-&lt;h2&gt;4. Signature&lt;/h2&gt;
-&lt;p&gt;Fait le {{date_document}}&lt;/p&gt;
-{{signature_garant}}
-
-&lt;/body&gt;
-&lt;/html&gt;</pre>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        // Initialize TinyMCE
+        tinymce.init({
+            selector: '#template_html',
+            height: 600,
+            menubar: true,
+            plugins: [
+                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            ],
+            toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
+            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+            branding: false,
+            promotion: false,
+            verify_html: false,
+            extended_valid_elements: 'style,link[href|rel],head,html[lang],meta[*],body[*]',
+            valid_children: '+body[style],+head[style]',
+            forced_root_block: false,
+            doctype: '<!DOCTYPE html>'
+        });
+    </script>
 </body>
 </html>
