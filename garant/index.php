@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$garant) {
                     $error = 'Erreur lors de l\'enregistrement. Veuillez réessayer.';
                 } else {
-                    $lienGarant      = $config['SITE_URL'] . '/garant-parcours/index.php?token=' . urlencode($garant['token']);
+                    $lienGarant      = $config['SITE_URL'] . '/envoyer-assurance.php?token=' . urlencode($garant['token']);
                     $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
                     $prenomLocataire = $locataire ? $locataire['prenom'] : '';
                     $nomLocataire    = $locataire ? $locataire['nom']    : '';

@@ -32,6 +32,7 @@ $page_to_menu_map = [
     'envoyer-signature.php' => 'contrats.php',
     'supprimer-contrat.php' => 'contrats.php',
     'contrat-configuration.php' => 'contrats.php',
+    'caution-configuration.php' => 'contrats.php',
     'contrat-detail.php' => 'contrats.php',
     'generer-quittances.php' => 'contrats.php',
     'quittance-configuration.php' => 'contrats.php',
@@ -155,6 +156,11 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                 <li class="nav-item">
                     <a class="nav-link <?php echo $current_page === 'quittance-configuration.php' ? 'active' : ''; ?>" href="quittance-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
                         <i class="bi bi-receipt"></i> Configuration Quittances
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $current_page === 'caution-configuration.php' ? 'active' : ''; ?>" href="caution-configuration.php" style="padding: 8px 20px; font-size: 0.9rem;">
+                        <i class="bi bi-shield-lock"></i> Configuration Caution
                     </a>
                 </li>
             </ul>
