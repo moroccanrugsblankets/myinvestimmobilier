@@ -694,9 +694,9 @@ if (isset($_GET['edit'])) {
 </div><!-- /main-content -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- CKEditor 4 (loaded only on form detail page where the template editor is shown) -->
+<!-- CKEditor 4 LTS (loaded only on form detail page where the template editor is shown) -->
 <?php if ($currentForm): ?>
-<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+<script src="<?= CKEDITOR_CDN_URL ?>"></script>
 <?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
@@ -800,6 +800,7 @@ if (isset($_GET['edit'])) {
             { name: 'tools',       items: ['Source'] }
         ],
         contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        removePlugins: 'notification',
         on: {
             change: function () { this.updateElement(); }
         }

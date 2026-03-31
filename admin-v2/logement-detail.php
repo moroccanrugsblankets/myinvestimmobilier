@@ -903,8 +903,8 @@ unset($_SESSION['success'], $_SESSION['error']);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- CKEditor 4 -->
-<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+<!-- CKEditor 4 LTS -->
+<script src="<?= CKEDITOR_CDN_URL ?>"></script>
 <script>
 CKEDITOR.replaceAll('wysiwyg-editor', {
     language: 'fr',
@@ -915,6 +915,7 @@ CKEDITOR.replaceAll('wysiwyg-editor', {
         { name: 'links',       items: ['Link', 'Unlink'] }
     ],
     contentsCss: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
+    removePlugins: 'notification',
     on: {
         change: function() { this.updateElement(); }
     }
