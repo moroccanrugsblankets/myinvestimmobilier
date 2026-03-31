@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'nom_garant'       => $nom,
                             'email_garant'     => $emailGarant,
                             'email_contact'    => $emailContact,
-                        ], null, false, false, ['contexte' => 'contrat_id=' . $contrat['id']]);
+                        ], null, false, true, ['contexte' => 'contrat_id=' . $contrat['id']]);
                     }
 
                     // Notification admin (BCC)

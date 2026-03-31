@@ -102,6 +102,32 @@ if ($mode === 'garant') {
                     updateGarantStatut($garant['id'], 'en_attente_garant');
                     logAction($garant['contrat_id'], 'garant_refus', 'Le garant a refusé l\'engagement');
                     $currentStep = 'refused';
+
+                    // Emails de notification du refus
+                    $locataireRefus  = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
+                    $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
+                    $refusVarsBase   = [
+                        'prenom_garant'    => $garant['prenom'],
+                        'nom_garant'       => $garant['nom'],
+                        'prenom_locataire' => $locataireRefus ? $locataireRefus['prenom'] : '',
+                        'nom_locataire'    => $locataireRefus ? $locataireRefus['nom']    : '',
+                        'adresse_logement' => $garant['adresse_logement'],
+                        'email_contact'    => $emailContact,
+                    ];
+
+                    // Email au garant
+                    sendTemplatedEmail('garant_refus_notification', $garant['email'], array_merge($refusVarsBase, [
+                        'prenom_destinataire' => $garant['prenom'],
+                        'nom_destinataire'    => $garant['nom'],
+                    ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+
+                    // Email au locataire
+                    if ($locataireRefus && !empty($locataireRefus['email'])) {
+                        sendTemplatedEmail('garant_refus_notification', $locataireRefus['email'], array_merge($refusVarsBase, [
+                            'prenom_destinataire' => $locataireRefus['prenom'],
+                            'nom_destinataire'    => $locataireRefus['nom'],
+                        ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+                    }
                 } elseif ($choix === 'accepte') {
                     updateGarantStatut($garant['id'], 'engage');
                     logAction($garant['contrat_id'], 'garant_engagement', 'Le garant a accepté d\'être garant');
@@ -209,27 +235,14 @@ if ($mode === 'garant') {
                             sendTemplatedEmail('garant_finalisation', $garant['email'], array_merge($vars, [
                                 'prenom_destinataire' => $garant['prenom'],
                                 'nom_destinataire'    => $garant['nom'],
-                            ]), null, false, false, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+                            ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
 
                             if ($locataireG && !empty($locataireG['email'])) {
                                 sendTemplatedEmail('garant_finalisation', $locataireG['email'], array_merge($vars, [
                                     'prenom_destinataire' => $locataireG['prenom'],
                                     'nom_destinataire'    => $locataireG['nom'],
-                                ]), null, false, false, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+                                ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
                             }
-
-                            sendTemplatedEmail('garant_notification_admin', getAdminEmail(), [
-                                'reference'         => $garant['reference_contrat'] ?? '',
-                                'adresse_logement'  => $garant['adresse_logement'],
-                                'prenom_locataire'  => $locataireG ? $locataireG['prenom'] : '',
-                                'nom_locataire'     => $locataireG ? $locataireG['nom']    : '',
-                                'type_garantie'     => 'Caution solidaire',
-                                'prenom_garant'     => $garant['prenom'],
-                                'nom_garant'        => $garant['nom'],
-                                'email_garant'      => $garant['email'],
-                                'date_envoi'        => $dateFinalisation,
-                                'lien_admin'        => $config['SITE_URL'] . '/admin-v2/contrat-detail.php?id=' . $garant['contrat_id'],
-                            ], null, true, false, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
 
                             $_SESSION[$stepKey] = 'done';
                             header('Location: envoyer-assurance.php?token=' . urlencode($token));
@@ -422,7 +435,7 @@ elseif ($mode === 'assurance') {
                                         'nom_garant'       => $csNom,
                                         'email_garant'     => $csEmail,
                                         'email_contact'    => $emailContact,
-                                    ], null, false, false, ['contexte' => 'contrat_id=' . $contrat['id']]);
+                                    ], null, false, true, ['contexte' => 'contrat_id=' . $contrat['id']]);
                                 }
 
                                 // Notification admin

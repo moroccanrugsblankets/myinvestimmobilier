@@ -56,6 +56,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyEngaged) {
         if ($choix === 'refuse') {
             updateGarantStatut($garant['id'], 'en_attente_garant');
             logAction($garant['contrat_id'], 'garant_refus', 'Le garant a refusé l\'engagement');
+
+            // Emails de notification du refus
+            $emailContact  = $config['COMPANY_EMAIL'] ?? getAdminEmail();
+            $refusVarsBase   = [
+                'prenom_garant'    => $garant['prenom'],
+                'nom_garant'       => $garant['nom'],
+                'prenom_locataire' => $locataire ? $locataire['prenom'] : '',
+                'nom_locataire'    => $locataire ? $locataire['nom']    : '',
+                'adresse_logement' => $garant['adresse_logement'],
+                'email_contact'    => $emailContact,
+            ];
+
+            // Email au garant
+            sendTemplatedEmail('garant_refus_notification', $garant['email'], array_merge($refusVarsBase, [
+                'prenom_destinataire' => $garant['prenom'],
+                'nom_destinataire'    => $garant['nom'],
+            ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+
+            // Email au locataire
+            if ($locataire && !empty($locataire['email'])) {
+                sendTemplatedEmail('garant_refus_notification', $locataire['email'], array_merge($refusVarsBase, [
+                    'prenom_destinataire' => $locataire['prenom'],
+                    'nom_destinataire'    => $locataire['nom'],
+                ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+            }
+
             // Use the session to pass the refusal message and redirect to confirmation
             $_SESSION['garant_refused'] = true;
             header('Location: confirmation.php');
