@@ -11,7 +11,7 @@
  *
  * My Invest Immobilier
  */
-die('Page en maintenance. Veuillez réessayer plus tard.');
+
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/mail-templates.php';
