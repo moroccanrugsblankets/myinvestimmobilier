@@ -72,14 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
                     $dateFinalisation = date('d/m/Y à H:i');
 
-                    // Lien vers le document de caution (sécurisé par document token)
+                    // Lien vers le document de caution (chemin physique du PDF)
                     $lienDocument = '';
                     if (!empty($garant['document_caution'])) {
-                        // Créer un token de téléchargement (7 jours)
-                        $dl = createDocumentToken($garant['document_caution'], 'caution_solidaire', null, 7);
-                        if ($dl) {
-                            $lienDocument = $dl;
-                        }
+                        $lienDocument = documentPathToUrl($garant['document_caution']);
                     }
                     if (empty($lienDocument)) {
                         $lienDocument = $config['SITE_URL'] . '/admin-v2/contrat-detail.php?id=' . $garant['contrat_id'];

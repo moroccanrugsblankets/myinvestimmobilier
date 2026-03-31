@@ -74,12 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Determine type label for email
                 $typeLabel = ($inventaire['type'] === 'entree') ? 'Entrée' : 'Sortie';
 
-                // Generate a secure download token for the PDF (no direct attachment)
-                $lienTelechargement = '';
-                $tokenUrl = createDocumentToken($pdfPath, 'inventaire', 'inventaire_' . $inventaire['type'] . '.pdf');
-                if ($tokenUrl) {
-                    $lienTelechargement = $tokenUrl;
-                }
+                // Use physical URL for the PDF download link
+                $lienTelechargement = documentPathToUrl($pdfPath);
                 
                 // Send email to each tenant with admin in BCC
                 $emailsSent = [];

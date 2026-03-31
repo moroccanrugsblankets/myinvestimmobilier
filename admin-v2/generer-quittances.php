@@ -195,12 +195,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $montantCharges = number_format((float)$contrat['charges'], 2, ',', ' ');
         $montantTotal = number_format((float)$contrat['loyer'] + (float)$contrat['charges'], 2, ',', ' ');
 
-        // Generate a secure download token for the quittance PDF (no direct attachment)
-        $lienQuittance = '';
-        $qTokenUrl = createDocumentToken($result['filepath'], 'quittance', 'quittance_' . $periode . '.pdf');
-        if ($qTokenUrl) {
-            $lienQuittance = $qTokenUrl;
-        }
+        // Use physical URL for the quittance PDF download link
+        $lienQuittance = documentPathToUrl($result['filepath']);
         
         // Send email to each tenant
         foreach ($locataires as $locataire) {

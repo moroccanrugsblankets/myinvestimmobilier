@@ -1375,6 +1375,36 @@ function createDocumentToken(string $filePath, string $type, string $fileName = 
 }
 
 
+/**
+ * Convert a document file path to a full public URL pointing to the physical file.
+ *
+ * Accepts either:
+ * - A relative path from the project root, e.g. 'pdf/cautions/caution-solidaire-REF-1.pdf'
+ * - An absolute server path, e.g. '/var/www/html/contrat-bail/pdf/quittances/quittance-REF.pdf'
+ *
+ * @param string $path  File path (absolute server path or relative to project root)
+ * @return string  Full public URL to the physical file
+ */
+function documentPathToUrl(string $path): string {
+    global $config;
+    $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
+
+    // If the path is absolute, strip the project root to get the web-relative portion
+    if (str_starts_with($path, '/')) {
+        $projectRoot = dirname(__FILE__, 2);
+        if (str_starts_with($path, $projectRoot)) {
+            $path = ltrim(substr($path, strlen($projectRoot)), '/');
+        }
+    }
+
+    if ($path === '') {
+        return $siteUrl;
+    }
+
+    return $siteUrl . '/' . ltrim($path, '/');
+}
+
+
 // ===========================================================
 // MODULE GARANT / GARANTIE
 // ===========================================================

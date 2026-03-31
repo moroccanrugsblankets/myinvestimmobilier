@@ -212,10 +212,7 @@ if ($mode === 'garant') {
                             $dateFinalisation = date('d/m/Y à H:i');
                             $lienDocument    = '';
                             if (!empty($garant['document_caution'])) {
-                                $dl = createDocumentToken($garant['document_caution'], 'caution_solidaire', '', 7);
-                                if ($dl) {
-                                    $lienDocument = $dl;
-                                }
+                                $lienDocument = documentPathToUrl($garant['document_caution']);
                             }
                             if (empty($lienDocument)) {
                                 $lienDocument = $config['SITE_URL'] . '/admin-v2/contrat-detail.php?id=' . $garant['contrat_id'];
