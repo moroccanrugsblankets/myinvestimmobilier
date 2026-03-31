@@ -986,16 +986,18 @@ if ($contrat['validated_by']) {
             <?php
             // Documents assurance habitation et Visale (stockés dans contrats)
             $hasAssuranceHabitation = !empty($contrat['assurance_habitation']);
-            $hasVisaCertifie        = !empty($contrat['visa_certifie']);
+            // Ne pas afficher le visa/numéro Visale de la table contrats si un garant Visale existe
+            // déjà dans la table garants (section 2 le prend en charge).
+            $hasVisaCertifie        = !empty($contrat['visa_certifie']) && !$garantContrat;
             if ($hasAssuranceHabitation || $hasVisaCertifie): ?>
             <div class="mb-4">
-                <h6><i class="bi bi-shield-check"></i> Assurance habitation &amp; Visale</h6>
+                <h6><i class="bi bi-shield-check"></i> Assurance habitation<?php if ($hasVisaCertifie): ?> &amp; Visale<?php endif; ?></h6>
                 <?php if (!empty($contrat['date_envoi_assurance'])): ?>
                     <p class="text-muted small mb-2">
                         Envoyé le <?php echo date('d/m/Y à H:i', strtotime($contrat['date_envoi_assurance'])); ?>
                     </p>
                 <?php endif; ?>
-                <?php if (!empty($contrat['numero_visale'])): ?>
+                <?php if (!empty($contrat['numero_visale']) && !$garantContrat): ?>
                     <p class="mb-2"><strong>Numéro Visale :</strong> <?php echo htmlspecialchars($contrat['numero_visale']); ?></p>
                 <?php endif; ?>
                 <div class="row mt-2">
@@ -1020,6 +1022,7 @@ if ($contrat['validated_by']) {
                             <strong>Type :</strong>
                             <?= $garantContrat['type_garantie'] === 'visale' ? 'Garantie Visale' : 'Caution solidaire' ?>
                         </p>
+                        <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
                         <p class="mb-1">
                             <strong>Statut :</strong>
                             <span class="badge <?= htmlspecialchars(getGarantStatutBadgeClass($garantContrat['statut'])) ?>">
@@ -1030,6 +1033,7 @@ if ($contrat['validated_by']) {
                         <p class="mb-1 text-muted small">
                             Invitation envoyée le <?= date('d/m/Y à H:i', strtotime($garantContrat['date_envoi_invitation'])) ?>
                         </p>
+                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                     <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
@@ -1082,9 +1086,14 @@ if ($contrat['validated_by']) {
 
                 <!-- Documents garant -->
                 <?php
+                // Pour Visale : utiliser document_visale du garant, ou visa_certifie du contrat en fallback.
+                // N'afficher le document Visale que pour les garants de type Visale.
+                $visaleDocToShow = ($garantContrat['type_garantie'] === 'visale')
+                    ? (!empty($garantContrat['document_visale']) ? $garantContrat['document_visale'] : ($contrat['visa_certifie'] ?? ''))
+                    : '';
                 $hasGarantDocs = !empty($garantContrat['piece_identite'])
                               || !empty($garantContrat['document_caution'])
-                              || !empty($garantContrat['document_visale']);
+                              || !empty($visaleDocToShow);
                 ?>
                 <?php if ($hasGarantDocs): ?>
                 <h6 class="mt-3"><i class="bi bi-files"></i> Documents</h6>
@@ -1110,8 +1119,8 @@ if ($contrat['validated_by']) {
                     if (!empty($garantContrat['piece_identite'])) {
                         renderDocumentCard($garantContrat['piece_identite'], "Pièce d'identité du garant", 'card-image');
                     }
-                    if (!empty($garantContrat['document_visale'])) {
-                        renderDocumentCard($garantContrat['document_visale'], 'Document Visale', 'shield-check');
+                    if (!empty($visaleDocToShow)) {
+                        renderDocumentCard($visaleDocToShow, 'Visa certifié Visale', 'patch-check');
                     }
                     ?>
                 </div>

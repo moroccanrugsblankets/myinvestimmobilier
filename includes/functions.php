@@ -1427,6 +1427,20 @@ function createGarant(int $contratId, string $typeGarantie, array $data = []) {
 }
 
 /**
+ * Supprimer les garants en attente pour un contrat avant d'en créer un nouveau.
+ * Ne supprime que les garants au statut 'en_attente_garant'.
+ *
+ * @param int $contratId
+ * @return int Nombre de lignes supprimées
+ */
+function deleteGarantsPending(int $contratId): int {
+    global $pdo;
+    $stmt = $pdo->prepare("DELETE FROM garants WHERE contrat_id = ? AND statut = 'en_attente_garant'");
+    $stmt->execute([$contratId]);
+    return (int)$stmt->rowCount();
+}
+
+/**
  * Récupérer un garant par son token.
  *
  * @param string $token
