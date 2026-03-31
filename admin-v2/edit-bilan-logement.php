@@ -154,12 +154,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             // Prepare email variables
             // Note: 'signature' variable will be automatically replaced by sendTemplatedEmail via replaceTemplateVariables
-            // Generate a secure download token for the bilan PDF (no direct attachment)
-            $lienBilan = '';
-            $bTokenUrl = createDocumentToken($pdfPath, 'bilan', 'bilan_logement.pdf');
-            if ($bTokenUrl) {
-                $lienBilan = $bTokenUrl;
-            }
+            // Use physical URL for the bilan PDF download link
+            $lienBilan = documentPathToUrl($pdfPath);
 
             $emailVariables = [
                 'locataire_nom' => $locataireNom,

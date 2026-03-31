@@ -64,12 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $typeLabel = $etat['type'] === 'entree' ? "d'entrée" : "de sortie";
                 $templateId = $etat['type'] === 'entree' ? 'etat_lieux_entree_envoye' : 'etat_lieux_sortie_envoye';
 
-                // Generate a secure download token for the PDF (no direct attachment)
-                $lienTelechargement = '';
-                $tokenUrl = createDocumentToken($pdfPath, 'etat_lieux', 'etat_lieux_' . $etat['type'] . '.pdf');
-                if ($tokenUrl) {
-                    $lienTelechargement = $tokenUrl;
-                }
+                // Use physical URL for the PDF download link
+                $lienTelechargement = documentPathToUrl($pdfPath);
                 
                 // Send email to each tenant with admin in BCC
                 $emailsSent = [];

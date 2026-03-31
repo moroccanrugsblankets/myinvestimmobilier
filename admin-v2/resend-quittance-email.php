@@ -85,13 +85,10 @@ if ($result) {
 $emailsSent = 0;
 $emailsFailed = 0;
 
-// Generate a secure download token for the quittance PDF (no direct attachment)
+// Use physical URL for the quittance PDF download link
 $lienQuittance = '';
 if ($pdfPath && file_exists($pdfPath)) {
-    $qTokenUrl = createDocumentToken($pdfPath, 'quittance', 'quittance_' . $periode . '.pdf');
-    if ($qTokenUrl) {
-        $lienQuittance = $qTokenUrl;
-    }
+    $lienQuittance = documentPathToUrl($pdfPath);
 }
 
 // Send email to each tenant

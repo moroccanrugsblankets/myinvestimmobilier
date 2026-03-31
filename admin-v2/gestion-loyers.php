@@ -494,12 +494,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($quittanceResult === false) {
                         error_log("Erreur génération PDF quittance pour contrat #$contratIdPaiement, période $periodeNom");
                     } else {
-                        // Generate a secure download token for the quittance PDF (no direct attachment)
-                        $lienQuittance = '';
-                        $qTokenUrl = createDocumentToken($quittanceResult['filepath'], 'quittance', 'quittance_' . $periodeNom . '.pdf');
-                        if ($qTokenUrl) {
-                            $lienQuittance = $qTokenUrl;
-                        }
+                        // Use physical URL for the quittance PDF download link
+                        $lienQuittance = documentPathToUrl($quittanceResult['filepath']);
                         foreach ($locatairesPaiement as $loc) {
                             if (!empty($loc['email'])) {
                                 $emailSent = sendTemplatedEmail(
