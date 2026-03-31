@@ -283,7 +283,7 @@ $totalMensuel = (float)$logement['loyer'] + (float)$logement['charges'];
             .hero-card { padding: 1.5rem; }
             .price-display { font-size: 1.8rem; }
         }
-        /* TinyMCE HTML content */
+        /* CKEditor HTML content */
         .logement-html-content { line-height: 1.7; }
         .logement-html-content p { margin-bottom: .75rem; }
         .logement-html-content ul,

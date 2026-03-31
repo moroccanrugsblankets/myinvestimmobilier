@@ -111,8 +111,8 @@ if (!$template) {
     <title>Configuration Bilan de Logement - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -253,20 +253,20 @@ if (!$template) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize TinyMCE
-        tinymce.init({
-            selector: '#template_html',
+        // Initialize CKEditor
+        CKEDITOR.replace('template_html', {
             height: 600,
-            menubar: true,
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
             ],
-            toolbar: 'undo redo | blocks | bold italic | alignleft aligncenter alignright | bullist numlist outdent indent | code',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            code_dialog_width: 800,
-            code_dialog_height: 600
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
         });
 
         // Copy to clipboard function (wrapped in IIFE to avoid global scope pollution)

@@ -681,28 +681,28 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Description du logement</label>
-                                <textarea name="description" id="editor_description" class="form-control tinymce-editor" rows="6"
+                                <textarea name="description" id="editor_description" class="form-control wysiwyg-editor" rows="6"
                                           placeholder="Décrivez le logement : emplacement, luminosité, travaux récents, atouts…"><?php echo htmlspecialchars($logement['description'] ?? ''); ?></textarea>
                                 <div class="form-text">Visible sur la page publique du logement.</div>
                             </div>
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Équipements inclus</label>
-                                <textarea name="equipements" id="editor_equipements" class="form-control tinymce-editor" rows="4"
+                                <textarea name="equipements" id="editor_equipements" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Cuisine équipée, parquet, double vitrage, digicode…"><?php echo htmlspecialchars($logement['equipements'] ?? ''); ?></textarea>
                                 <div class="form-text">Résumé libre des équipements. Pour la liste détaillée, utilisez <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement_id; ?>">l'inventaire</a>.</div>
                             </div>
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Commodités à proximité</label>
-                                <textarea name="commodites" id="editor_commodites" class="form-control tinymce-editor" rows="4"
+                                <textarea name="commodites" id="editor_commodites" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Transports, commerces, écoles, parcs…"><?php echo htmlspecialchars($logement['commodites'] ?? ''); ?></textarea>
                                 <div class="form-text">Informations sur le quartier et les commodités proches.</div>
                             </div>
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Conditions de visite et de candidature</label>
-                                <textarea name="conditions_visite" id="editor_conditions_visite" class="form-control tinymce-editor" rows="4"
+                                <textarea name="conditions_visite" id="editor_conditions_visite" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Comment organiser une visite, documents requis pour candidater…"><?php echo htmlspecialchars($logement['conditions_visite'] ?? ''); ?></textarea>
                                 <div class="form-text">Affiché sur la page publique avec le bouton de candidature.</div>
                             </div>
@@ -903,21 +903,20 @@ unset($_SESSION['success'], $_SESSION['error']);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- TinyMCE Cloud - API key is public and domain-restricted -->
-<script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<!-- CKEditor 4 -->
+<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
 <script>
-tinymce.init({
-    selector: '.tinymce-editor',
-    language: 'fr_FR',
-    menubar: false,
-    plugins: 'lists link autolink',
-    toolbar: 'bold italic underline | bullist numlist | link | removeformat',
-    branding: false,
+CKEDITOR.replaceAll('wysiwyg-editor', {
+    language: 'fr',
     height: 200,
-    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
-    setup: function (editor) {
-        // Sync TinyMCE content back to textarea before form submit
-        editor.on('change', function () { editor.save(); });
+    toolbar: [
+        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'RemoveFormat'] },
+        { name: 'paragraph',   items: ['BulletedList', 'NumberedList'] },
+        { name: 'links',       items: ['Link', 'Unlink'] }
+    ],
+    contentsCss: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
+    on: {
+        change: function() { this.updateElement(); }
     }
 });
 </script>
@@ -1143,10 +1142,14 @@ function copyLink(inputId, btn) {
           .catch(function() { alert('Erreur réseau.'); });
     });
 
-    // ── Form submit: sync TinyMCE content and file DataTransfer to file input ──
+    // ── Form submit: sync CKEditor content and file DataTransfer to file input ──
     form && form.addEventListener('submit', function() {
-        // Ensure TinyMCE editors sync their content back to textareas
-        if (typeof tinymce !== 'undefined') { tinymce.triggerSave(); }
+        // Ensure CKEditor instances sync their content back to textareas
+        if (typeof CKEDITOR !== 'undefined') {
+            for (var name in CKEDITOR.instances) {
+                CKEDITOR.instances[name].updateElement();
+            }
+        }
         updateOrderInput();
         try {
             ignoreChg = true;

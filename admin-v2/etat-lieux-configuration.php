@@ -272,8 +272,8 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
     <title>Configuration État des Lieux - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -521,24 +521,36 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize TinyMCE for entry template
-        tinymce.init({
-            selector: '#template_html',
+        // Initialize CKEditor for entry template
+        CKEDITOR.replace('template_html', {
             height: 500,
-            plugins: 'code preview searchreplace autolink directionality visualblocks visualchars fullscreen link table charmap hr pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap',
-            toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code preview | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 10pt; }',
-            menubar: false
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
+            ],
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }'
         });
 
-        // Initialize TinyMCE for exit template
-        tinymce.init({
-            selector: '#template_html_sortie',
+        // Initialize CKEditor for exit template
+        CKEDITOR.replace('template_html_sortie', {
             height: 500,
-            plugins: 'code preview searchreplace autolink directionality visualblocks visualchars fullscreen link table charmap hr pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap',
-            toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code preview | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 10pt; }',
-            menubar: false
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
+            ],
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }'
         });
 
         function copyVariable(variable) {
@@ -564,7 +576,14 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
         }
 
         function showPreview(editorId, previewCardId) {
-            const content = tinymce.get(editorId).getContent();
+            const editor = CKEDITOR.instances[editorId];
+            let content = '';
+            if (editor) {
+                content = editor.getData();
+            } else {
+                const textarea = document.getElementById(editorId);
+                if (textarea) { content = textarea.value; }
+            }
             const previewContentId = previewCardId === 'preview-card-sortie' ? 'preview-content-sortie' : 'preview-content';
             document.getElementById(previewContentId).innerHTML = content;
             document.getElementById(previewCardId).style.display = 'block';
@@ -600,7 +619,7 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
             // Set template to default
             const defaultTemplate = <?= json_encode(getDefaultEtatLieuxTemplate()) ?>;
             const editorId = '<?= htmlspecialchars($_GET['reset']) ?>';
-            tinymce.get(editorId).setContent(defaultTemplate);
+            CKEDITOR.instances[editorId].setData(defaultTemplate);
         <?php endif; ?>
     </script>
 </body>

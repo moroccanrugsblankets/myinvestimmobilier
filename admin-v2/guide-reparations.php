@@ -92,17 +92,20 @@ $contenu = getParameter('guide_reparations_contenu', '');
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <script>
-    tinymce.init({
-        selector: '#guide_contenu',
-        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount',
-        toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
-        menubar: false,
+    CKEDITOR.replace('guide_contenu', {
         height: 500,
-        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-        branding: false,
-        promotion: false
+        language: 'fr',
+        toolbar: [
+            { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+            { name: 'styles',      items: ['Format'] },
+            { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+            { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+            { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table'] },
+            { name: 'tools',       items: ['Maximize'] }
+        ],
+        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
     });
     </script>
 </body>
