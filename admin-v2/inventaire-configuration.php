@@ -50,8 +50,8 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     <title>Configuration Inventaire - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -280,28 +280,36 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize TinyMCE for entry template
-        tinymce.init({
-            selector: '#inventaire_template_html',
+        // Initialize CKEditor for entry template
+        CKEDITOR.replace('inventaire_template_html', {
             height: 500,
-            plugins: 'code preview searchreplace autolink directionality visualblocks visualchars fullscreen link table charmap hr pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap',
-            toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code preview | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',
-            menubar: false,
-            entity_encoding: 'raw',
-            encoding: 'UTF-8'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
+            ],
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }'
         });
 
-        // Initialize TinyMCE for exit template
-        tinymce.init({
-            selector: '#inventaire_sortie_template_html',
+        // Initialize CKEditor for exit template
+        CKEDITOR.replace('inventaire_sortie_template_html', {
             height: 500,
-            plugins: 'code preview searchreplace autolink directionality visualblocks visualchars fullscreen link table charmap hr pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap',
-            toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code preview | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',
-            menubar: false,
-            entity_encoding: 'raw',
-            encoding: 'UTF-8'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
+            ],
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }'
         });
 
         function copyVariable(variable) {
@@ -327,13 +335,13 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         }
 
         function showPreview(editorId, previewCardId) {
-            const editor = tinymce.get(editorId);
+            const editor = CKEDITOR.instances[editorId];
             if (!editor) {
                 alert('L\'éditeur n\'est pas encore chargé. Veuillez réessayer dans quelques instants.');
                 return;
             }
             
-            const content = editor.getContent();
+            const content = editor.getData();
             // Map preview card IDs to their corresponding content IDs
             const contentIdMap = {
                 'preview-card-entree': 'preview-content-entree',
@@ -348,7 +356,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             
             const previewElement = document.getElementById(previewContentId);
             if (previewElement) {
-                // Note: TinyMCE already sanitizes content, but be aware this renders HTML
+                // Note: content rendered from CKEditor; be aware this renders HTML
                 // For production, consider additional sanitization if needed
                 previewElement.innerHTML = content;
                 document.getElementById(previewCardId).style.display = 'block';
@@ -358,13 +366,13 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
         function resetToDefault(editorId) {
             if (confirm('Êtes-vous sûr de vouloir réinitialiser le template avec la version par défaut ? Toutes vos modifications seront perdues.')) {
-                const editor = tinymce.get(editorId);
+                const editor = CKEDITOR.instances[editorId];
                 if (!editor) {
                     alert('L\'éditeur n\'est pas encore chargé. Veuillez réessayer dans quelques instants.');
                     return;
                 }
                 
-                editor.setContent('');
+                editor.setData('');
                 alert('Template réinitialisé. N\'oubliez pas de sauvegarder pour appliquer les changements.');
             }
         }

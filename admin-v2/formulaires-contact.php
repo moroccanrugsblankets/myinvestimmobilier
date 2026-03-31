@@ -694,9 +694,9 @@ if (isset($_GET['edit'])) {
 </div><!-- /main-content -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- TinyMCE (loaded only on form detail page where the template editor is shown) -->
+<!-- CKEditor 4 (loaded only on form detail page where the template editor is shown) -->
 <?php if ($currentForm): ?>
-<script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
 <?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
@@ -778,36 +778,37 @@ if (isset($_GET['edit'])) {
     }
 }());
 
-// ── TinyMCE email template editor ─────────────────────────────────────────
+// ── CKEditor email template editor ─────────────────────────────────────────
 <?php if ($currentForm): ?>
 (function () {
     var defaultTemplate = <?php echo $defaultTemplateJs; ?>;
 
-    if (typeof tinymce === 'undefined') {
-        console.warn('TinyMCE failed to load. The email template editor will not be available. Check the CDN URL or network connection.');
+    if (typeof CKEDITOR === 'undefined') {
+        console.warn('CKEditor failed to load. The email template editor will not be available. Check the CDN URL or network connection.');
         return;
     }
 
-    tinymce.init({
-        selector: '#email_template_editor',
+    var editorInstance = CKEDITOR.replace('email_template_editor', {
         height: 450,
-        menubar: false,
-        language: 'fr_FR',
-        plugins: 'lists link image code table',
-        toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright | bullist numlist | table | link image | code',
-        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-        setup: function (editor) {
-            // On form submit: sync TinyMCE content to textarea
-            editor.on('change', function () {
-                editor.save();
-            });
+        language: 'fr',
+        toolbar: [
+            { name: 'document',    items: ['Undo', 'Redo'] },
+            { name: 'styles',      items: ['Format'] },
+            { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'TextColor', 'BGColor'] },
+            { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', '-', 'BulletedList', 'NumberedList'] },
+            { name: 'insert',      items: ['Table', 'Link', 'Unlink', 'Image'] },
+            { name: 'tools',       items: ['Source'] }
+        ],
+        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        on: {
+            change: function () { this.updateElement(); }
         }
     });
 
-    // Insert variable at cursor position in TinyMCE
+    // Insert variable at cursor position in CKEditor
     window.insertTmplVar = function (variable) {
-        if (tinymce.activeEditor) {
-            tinymce.activeEditor.insertContent(variable);
+        if (CKEDITOR.currentInstance) {
+            CKEDITOR.currentInstance.insertHtml(variable);
         }
     };
 
@@ -816,19 +817,19 @@ if (isset($_GET['edit'])) {
     if (btnRestore) {
         btnRestore.addEventListener('click', function () {
             if (!confirm('Restaurer le template par défaut ? Le template actuel sera remplacé.')) return;
-            if (tinymce.activeEditor) {
-                tinymce.activeEditor.setContent(defaultTemplate);
-                tinymce.activeEditor.save();
+            if (editorInstance) {
+                editorInstance.setData(defaultTemplate);
+                editorInstance.updateElement();
             }
         });
     }
 
-    // Sync TinyMCE before form submit
+    // Sync CKEditor before form submit
     var templateForm = document.getElementById('templateForm');
     if (templateForm) {
         templateForm.addEventListener('submit', function () {
-            if (tinymce.activeEditor) {
-                tinymce.activeEditor.save();
+            if (editorInstance) {
+                editorInstance.updateElement();
             }
         });
     }

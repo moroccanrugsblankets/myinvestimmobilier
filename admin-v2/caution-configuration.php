@@ -80,8 +80,8 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
     <title>Configuration Caution Solidaire – Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -268,8 +268,8 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
         }
 
         function showPreview() {
-            const editorInstance = tinymce.get('template_html');
-            const template = editorInstance ? editorInstance.getContent() : document.getElementById('template_html').value;
+            const editorInstance = CKEDITOR.instances['template_html'];
+            const template = editorInstance ? editorInstance.getData() : document.getElementById('template_html').value;
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 
@@ -300,9 +300,9 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
 
         function resetToDefault() {
             if (confirm('Réinitialiser le template au modèle par défaut ?\n\nLes modifications non enregistrées seront perdues.')) {
-                const editorInstance = tinymce.get('template_html');
+                const editorInstance = CKEDITOR.instances['template_html'];
                 if (editorInstance) {
-                    editorInstance.setContent(defaultTemplate);
+                    editorInstance.setData(defaultTemplate);
                 } else {
                     document.getElementById('template_html').value = defaultTemplate;
                 }
@@ -312,25 +312,20 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
             }
         }
 
-        // Initialize TinyMCE
-        tinymce.init({
-            selector: '#template_html',
+        // Initialize CKEditor
+        CKEDITOR.replace('template_html', {
             height: 600,
-            menubar: true,
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
             ],
-            toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            branding: false,
-            promotion: false,
-            verify_html: false,
-            extended_valid_elements: 'style,link[href|rel],head,html[lang],meta[*],body[*]',
-            valid_children: '+body[style],+head[style]',
-            forced_root_block: false,
-            doctype: '<!DOCTYPE html>'
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
         });
     </script>
 </body>

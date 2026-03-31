@@ -418,8 +418,8 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
     <title>Configuration du Contrat - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -870,8 +870,8 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
         }
 
         function showPreview(editorId) {
-            const editorInstance = tinymce.get(editorId);
-            const template = editorInstance ? editorInstance.getContent() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            const editorInstance = CKEDITOR.instances[editorId];
+            const template = editorInstance ? editorInstance.getData() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 
@@ -913,37 +913,33 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
             if (confirm('Réinitialiser ce template à sa valeur par défaut ? Toutes vos modifications seront perdues.')) {
                 const idMap = { meuble: 'template_meuble', non_meuble: 'template_non_meuble', sur_mesure: 'template_sur_mesure' };
                 const editorId = idMap[type];
-                const editorInstance = tinymce.get(editorId);
+                const editorInstance = CKEDITOR.instances[editorId];
                 if (editorInstance) {
-                    editorInstance.setContent(defaultTemplates[type]);
+                    editorInstance.setData(defaultTemplates[type]);
                 } else {
                     document.getElementById(editorId).value = defaultTemplates[type];
                 }
             }
         }
 
-        // Initialize TinyMCE on all three contract template editors
-        const tinyMceConfig = {
+        // Initialize CKEditor on all three contract template editors
+        const ckConfig = {
             height: 500,
-            menubar: true,
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
             ],
-            toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            branding: false,
-            promotion: false,
-            verify_html: false,
-            extended_valid_elements: 'style,link[href|rel],head,html[lang],meta[*],body[*]',
-            valid_children: '+body[style],+head[style]',
-            forced_root_block: false,
-            doctype: '<!DOCTYPE html>'
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
         };
 
         ['template_meuble', 'template_non_meuble', 'template_sur_mesure'].forEach(function(id) {
-            tinymce.init(Object.assign({}, tinyMceConfig, { selector: '#' + id }));
+            CKEDITOR.replace(id, ckConfig);
         });
     </script>
 </body>

@@ -64,8 +64,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- SortableJS for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <!-- TinyMCE Cloud - API key is public and domain-restricted -->
-    <script src="https://cdn.tiny.cloud/1/odjqanpgdv2zolpduplee65ntoou1b56hg6gvgxvrt8dreh0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- CKEditor 4 -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -361,36 +361,24 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }, 3000);
         }
         
-        // Initialize TinyMCE on the email body editor
-        tinymce.init({
-            selector: 'textarea.code-editor',
+        // Initialize CKEditor on the email body editor
+        CKEDITOR.replaceAll('code-editor', {
             height: 500,
-            menubar: true,
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            language: 'fr',
+            allowedContent: true,
+            toolbar: [
+                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+                { name: 'styles',      items: ['Format'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table'] },
+                { name: 'tools',       items: ['Maximize'] }
             ],
-            toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
-            content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            branding: false,
-            promotion: false,
-            // Preserve full HTML document structure including <html>, <head>, <style> tags
-            verify_html: false,
-            extended_valid_elements: 'style,link[href|rel],head,html[lang],meta[*],body[*]',
-            valid_children: '+body[style],+head[style]',
-            // Don't remove tags or attributes
-            forced_root_block: false,
-            // --- Configuration pour forcer les liens absolus ---
-            relative_urls: false,
-            remove_script_host: false,
-            convert_urls: false,
-            // Preserve DOCTYPE and full document structure
-            doctype: '<!DOCTYPE html>',
-            setup: function(editor) {
-                editor.on('init', function() {
-                    console.log('TinyMCE initialized successfully');
-                });
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+            on: {
+                instanceReady: function() {
+                    console.log('CKEditor initialized successfully');
+                }
             }
         });
     </script>
