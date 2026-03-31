@@ -186,7 +186,7 @@ if ($mode === 'garant') {
                             $dateFinalisation = date('d/m/Y à H:i');
                             $lienDocument    = '';
                             if (!empty($garant['document_caution'])) {
-                                $dl = createDocumentToken($garant['document_caution'], 'caution_solidaire', null, 7);
+                                $dl = createDocumentToken($garant['document_caution'], 'caution_solidaire', '', 7);
                                 if ($dl) {
                                     $lienDocument = $dl;
                                 }
@@ -440,27 +440,16 @@ elseif ($mode === 'assurance') {
                             }
                         }
 
-                        // Notifications standard assurance (admin + locataires)
+                        // Notifications standard assurance (locataires uniquement)
                         $locataires = getTenantsByContract($contrat['id']);
                         if (!empty($locataires)) {
-                            $locatairesNoms = array_map(fn($l) => $l['prenom'] . ' ' . $l['nom'], $locataires);
-                            $lienAdmin      = $config['SITE_URL'] . '/admin-v2/contrat-detail.php?id=' . $contrat['id'];
-
-                            sendTemplatedEmail('notification_assurance_visale_admin', getAdminEmail(), [
-                                'reference'  => $contrat['reference_unique'],
-                                'logement'   => $contrat['adresse'],
-                                'locataires' => implode(', ', $locatairesNoms),
-                                'date_envoi' => date('d/m/Y à H:i'),
-                                'lien_admin' => $lienAdmin,
-                            ], null, true);
-
                             foreach ($locataires as $loc) {
                                 if (!empty($loc['email'])) {
                                     sendTemplatedEmail('confirmation_assurance_visale_locataire', $loc['email'], [
                                         'nom'       => $loc['nom'],
                                         'prenom'    => $loc['prenom'],
                                         'reference' => $contrat['reference_unique'],
-                                    ], null, false, true);
+                                    ], null, false, false);
                                 }
                             }
                         }

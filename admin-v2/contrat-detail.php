@@ -931,8 +931,7 @@ if ($contrat['validated_by']) {
             
             // Check if contract has justificatif de paiement
             $hasContractJustificatif = !empty($contrat['justificatif_paiement']);
-            $hasContractAssurance = !empty($contrat['assurance_habitation']);
-            $hasAnyDocuments = $hasDocuments || $hasContractJustificatif || $hasContractAssurance;
+            $hasAnyDocuments = $hasDocuments || $hasContractJustificatif;
             
             if (!$hasAnyDocuments): ?>
                 <p class="text-muted">Aucun document envoyé pour le moment.</p>
@@ -953,28 +952,6 @@ if ($contrat['validated_by']) {
                     </div>
                 <?php endif; ?>
 
-                <?php if ($hasContractAssurance): ?>
-                    <div class="mb-4">
-                        <h6><i class="bi bi-shield-check"></i> Assurance habitation &amp; Visale</h6>
-                        <?php if (!empty($contrat['date_envoi_assurance'])): ?>
-                            <p class="text-muted small mb-2">
-                                Envoyé le <?php echo date('d/m/Y à H:i', strtotime($contrat['date_envoi_assurance'])); ?>
-                            </p>
-                        <?php endif; ?>
-                        <?php if (!empty($contrat['numero_visale'])): ?>
-                            <p class="mb-2"><strong>Numéro Visale :</strong> <?php echo htmlspecialchars($contrat['numero_visale']); ?></p>
-                        <?php endif; ?>
-                        <div class="row mt-2">
-                            <?php
-                            renderDocumentCard($contrat['assurance_habitation'], 'Attestation d\'assurance habitation', 'shield-check');
-                            if (!empty($contrat['visa_certifie'])) {
-                                renderDocumentCard($contrat['visa_certifie'], 'Visa certifié Visale', 'patch-check');
-                            }
-                            ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-                
                 <?php foreach ($locataires as $locataire): ?>
                     <?php if (!tenantHasDocuments($locataire)) continue; ?>
                     <div class="mb-4">
@@ -1005,6 +982,34 @@ if ($contrat['validated_by']) {
         ?>
         <div class="detail-card mt-4">
             <h5><i class="bi bi-shield-lock"></i> Garant / Garantie</h5>
+
+            <?php
+            // Documents assurance habitation et Visale (stockés dans contrats)
+            $hasAssuranceHabitation = !empty($contrat['assurance_habitation']);
+            $hasVisaCertifie        = !empty($contrat['visa_certifie']);
+            if ($hasAssuranceHabitation || $hasVisaCertifie): ?>
+            <div class="mb-4">
+                <h6><i class="bi bi-shield-check"></i> Assurance habitation &amp; Visale</h6>
+                <?php if (!empty($contrat['date_envoi_assurance'])): ?>
+                    <p class="text-muted small mb-2">
+                        Envoyé le <?php echo date('d/m/Y à H:i', strtotime($contrat['date_envoi_assurance'])); ?>
+                    </p>
+                <?php endif; ?>
+                <?php if (!empty($contrat['numero_visale'])): ?>
+                    <p class="mb-2"><strong>Numéro Visale :</strong> <?php echo htmlspecialchars($contrat['numero_visale']); ?></p>
+                <?php endif; ?>
+                <div class="row mt-2">
+                    <?php
+                    if ($hasAssuranceHabitation) {
+                        renderDocumentCard($contrat['assurance_habitation'], 'Attestation d\'assurance habitation', 'shield-check');
+                    }
+                    if ($hasVisaCertifie) {
+                        renderDocumentCard($contrat['visa_certifie'], 'Visa certifié Visale', 'patch-check');
+                    }
+                    ?>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <?php if (!$garantContrat): ?>
                 <p class="text-muted mb-3">Aucun garant déclaré pour ce contrat.</p>
