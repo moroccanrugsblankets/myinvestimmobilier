@@ -51,8 +51,12 @@ $locataire = fetchOne("
 // Garant déjà existant pour ce contrat ?
 $garantExistant = getGarantByContratId($contrat['id']);
 
-$error   = '';
-$success = false;
+$error        = '';
+$success      = false;
+$typeGarantie = '';
+
+// Statuts considérés comme "en cours de traitement" (non modifiables)
+$statutsAvances = ['engage', 'signe', 'documents_recus'];
 
 // ------------------------------------------------------------------
 // Traitement POST
@@ -60,6 +64,8 @@ $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         $error = 'Token CSRF invalide.';
+    } elseif ($garantExistant && in_array($garantExistant['statut'], $statutsAvances, true)) {
+        $error = 'Votre dossier de garantie est déjà en cours de traitement et ne peut plus être modifié.';
     } else {
         $typeGarantie = $_POST['type_garantie'] ?? '';
 
@@ -71,6 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($numeroVisale)) {
                 $error = 'Le numéro de visa certifié est obligatoire pour la garantie Visale.';
             } else {
+                // Supprimer les garants en attente avant d'en créer un nouveau
+                deleteGarantsPending($contrat['id']);
                 $garant = createGarant($contrat['id'], 'visale', [
                     'numero_visale' => $numeroVisale,
                     'nom'           => $locataire ? $locataire['nom']    : '',
@@ -126,6 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!filter_var($emailGarant, FILTER_VALIDATE_EMAIL)) {
                 $error = 'L\'adresse email du garant est invalide.';
             } else {
+                // Supprimer les garants en attente avant d'en créer un nouveau
+                deleteGarantsPending($contrat['id']);
                 $garant = createGarant($contrat['id'], 'caution_solidaire', [
                     'nom'            => $nom,
                     'prenom'         => $prenom,
@@ -192,7 +202,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = generateCsrfToken();
-$typeGarantiePost = htmlspecialchars($_POST['type_garantie'] ?? 'caution_solidaire', ENT_QUOTES, 'UTF-8');
+// Pré-sélection du type : POST > garant existant > défaut caution_solidaire
+$typeGarantiePost = htmlspecialchars(
+    $_POST['type_garantie'] ?? ($garantExistant ? $garantExistant['type_garantie'] : 'caution_solidaire'),
+    ENT_QUOTES, 'UTF-8'
+);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -223,15 +237,19 @@ $typeGarantiePost = htmlspecialchars($_POST['type_garantie'] ?? 'caution_solidai
                     </svg>
                     <h2 class="text-success mb-3">Demande envoyée avec succès !</h2>
                     <p class="lead">Votre demande a bien été transmise.</p>
+                    <?php if ($typeGarantie === 'caution_solidaire'): ?>
                     <p>Vous recevrez un email de confirmation. Votre garant sera également contacté avec un lien sécurisé pour finaliser son dossier.</p>
+                    <?php else: ?>
+                    <p>Vous recevrez un email de confirmation.</p>
+                    <?php endif; ?>
                 </div>
             </div>
 
-            <?php elseif ($garantExistant): ?>
-            <div class="alert alert-info">
-                <h5>Demande déjà soumise</h5>
+            <?php elseif ($garantExistant && in_array($garantExistant['statut'], $statutsAvances, true)): ?>
+            <div class="alert alert-warning">
+                <h5>Dossier en cours de traitement</h5>
                 <p class="mb-0">
-                    Une demande de garant est déjà enregistrée pour ce contrat.<br>
+                    Votre dossier de garantie est déjà en cours de traitement et ne peut plus être modifié.<br>
                     <strong>Statut :</strong> <?= htmlspecialchars(formatGarantStatut($garantExistant['statut'])) ?>
                 </p>
             </div>
@@ -240,6 +258,13 @@ $typeGarantiePost = htmlspecialchars($_POST['type_garantie'] ?? 'caution_solidai
             <div class="card shadow">
                 <div class="card-body">
                     <h4 class="card-title mb-4">Déclarer un garant</h4>
+
+                    <?php if ($garantExistant): ?>
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle"></i>
+                        Une demande de garantie est déjà enregistrée pour ce contrat. Vous pouvez la modifier ci-dessous.
+                    </div>
+                    <?php endif; ?>
 
                     <div class="alert alert-info mb-4">
                         <p class="mb-1"><strong>Logement :</strong> <?= htmlspecialchars($contrat['adresse']) ?></p>
@@ -282,9 +307,13 @@ $typeGarantiePost = htmlspecialchars($_POST['type_garantie'] ?? 'caution_solidai
                                 <label for="numero_visale" class="form-label">
                                     Numéro de visa certifié <span class="text-danger">*</span>
                                 </label>
+                                <?php
+                                $prefillNumeroVisale = $_POST['numero_visale']
+                                    ?? ($garantExistant && $garantExistant['type_garantie'] === 'visale' ? $garantExistant['numero_visale'] : '');
+                                ?>
                                 <input type="text" class="form-control" id="numero_visale" name="numero_visale"
                                        placeholder="Ex : VS-XXXXXXXX"
-                                       value="<?= htmlspecialchars($_POST['numero_visale'] ?? '') ?>">
+                                       value="<?= htmlspecialchars($prefillNumeroVisale ?? '') ?>">
                             </div>
                             <div class="mb-3">
                                 <label for="document_visale" class="form-label">
@@ -300,50 +329,53 @@ $typeGarantiePost = htmlspecialchars($_POST['type_garantie'] ?? 'caution_solidai
                         <div id="section-caution">
                             <hr>
                             <h5 class="mb-3">Informations du garant</h5>
+                            <?php
+                            $prefillCs = ($garantExistant && $garantExistant['type_garantie'] === 'caution_solidaire') ? $garantExistant : [];
+                            ?>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="nom" name="nom"
-                                           value="<?= htmlspecialchars($_POST['nom'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['nom'] ?? ($prefillCs['nom'] ?? '')) ?>">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="prenom" name="prenom"
-                                           value="<?= htmlspecialchars($_POST['prenom'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['prenom'] ?? ($prefillCs['prenom'] ?? '')) ?>">
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label for="date_naissance" class="form-label">Date de naissance <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control" id="date_naissance" name="date_naissance"
-                                       value="<?= htmlspecialchars($_POST['date_naissance'] ?? '') ?>">
+                                       value="<?= htmlspecialchars($_POST['date_naissance'] ?? ($prefillCs['date_naissance'] ?? '')) ?>">
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
                                     <input type="email" class="form-control" id="email" name="email"
-                                           value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['email'] ?? ($prefillCs['email'] ?? '')) ?>">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="telephone" class="form-label">Téléphone</label>
                                     <input type="tel" class="form-control" id="telephone" name="telephone"
-                                           value="<?= htmlspecialchars($_POST['telephone'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['telephone'] ?? ($prefillCs['telephone'] ?? '')) ?>">
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label for="adresse" class="form-label">Adresse postale <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="adresse" name="adresse"
-                                       value="<?= htmlspecialchars($_POST['adresse'] ?? '') ?>">
+                                       value="<?= htmlspecialchars($_POST['adresse'] ?? ($prefillCs['adresse'] ?? '')) ?>">
                             </div>
                             <div class="row">
                                 <div class="col-md-4 mb-3">
                                     <label for="code_postal" class="form-label">Code postal</label>
                                     <input type="text" class="form-control" id="code_postal" name="code_postal"
-                                           value="<?= htmlspecialchars($_POST['code_postal'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['code_postal'] ?? ($prefillCs['code_postal'] ?? '')) ?>">
                                 </div>
                                 <div class="col-md-8 mb-3">
                                     <label for="ville" class="form-label">Ville <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="ville" name="ville"
-                                           value="<?= htmlspecialchars($_POST['ville'] ?? '') ?>">
+                                           value="<?= htmlspecialchars($_POST['ville'] ?? ($prefillCs['ville'] ?? '')) ?>">
                                 </div>
                             </div>
                         </div>

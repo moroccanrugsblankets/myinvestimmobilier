@@ -350,6 +350,9 @@ elseif ($mode === 'assurance') {
                     } else {
                         logAction($contrat['id'], 'assurance_visale_recu', 'Documents assurance/Visale uploadés');
 
+                        // Supprimer les garants en attente avant d'en créer un nouveau
+                        deleteGarantsPending($contrat['id']);
+
                         // Créer le garant selon le type choisi
                         if ($typeGarantie === 'visale') {
                             $locatairePrincipal = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contrat['id']]);
