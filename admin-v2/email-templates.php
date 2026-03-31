@@ -64,8 +64,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- SortableJS for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <!-- CKEditor 4 -->
-    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+    <!-- CKEditor 4 LTS -->
+    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -375,6 +375,7 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+            removePlugins: 'notification',
             on: {
                 instanceReady: function() {
                     console.log('CKEditor initialized successfully');

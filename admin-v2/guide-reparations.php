@@ -92,7 +92,7 @@ $contenu = getParameter('guide_reparations_contenu', '');
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
     <script>
     CKEDITOR.replace('guide_contenu', {
         height: 500,
@@ -105,7 +105,8 @@ $contenu = getParameter('guide_reparations_contenu', '');
             { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table'] },
             { name: 'tools',       items: ['Maximize'] }
         ],
-        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
+        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        removePlugins: 'notification'
     });
     </script>
 </body>

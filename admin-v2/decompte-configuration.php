@@ -68,8 +68,8 @@ if (empty($currentTemplate)) {
     <title>Configuration Décompte d'Intervention - Admin MyInvest</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 -->
-    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+    <!-- CKEditor 4 LTS -->
+    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .config-card {
@@ -311,7 +311,8 @@ if (empty($currentTemplate)) {
                 { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+            removePlugins: 'notification'
         });
 
         // Copier dans le presse-papier
