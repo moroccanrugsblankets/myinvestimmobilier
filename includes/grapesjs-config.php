@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/css/grapes.min.css">
 <script src="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/grapes.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/grapesjs-blocks-basic@1.0.2/dist/index.js"></script>
-<script src="https://unpkg.com/grapesjs-plugin-code-editor"></script>
+<script src="https://unpkg.com/grapesjs-plugin-ckeditor@1.0.1/dist/index.js"></script>
 
 <script>
 window.gjsConfig = {
