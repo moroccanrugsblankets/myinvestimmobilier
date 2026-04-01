@@ -418,8 +418,8 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
     <title>Configuration du Contrat - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -754,8 +754,9 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
                         <input type="hidden" name="action" value="update_template">
                         <input type="hidden" name="template_type" value="meuble">
                         <div class="mb-3">
+                            <div id="gjs-template_meuble" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                             <textarea class="form-control code-editor" id="template_meuble"
-                                      name="template_html" required><?= htmlspecialchars($templateMeuble) ?></textarea>
+                                      name="template_html"><?= htmlspecialchars($templateMeuble) ?></textarea>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
@@ -778,8 +779,9 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
                         <input type="hidden" name="action" value="update_template">
                         <input type="hidden" name="template_type" value="non_meuble">
                         <div class="mb-3">
+                            <div id="gjs-template_non_meuble" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                             <textarea class="form-control code-editor" id="template_non_meuble"
-                                      name="template_html" required><?= htmlspecialchars($templateNonMeuble) ?></textarea>
+                                      name="template_html"><?= htmlspecialchars($templateNonMeuble) ?></textarea>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
@@ -802,8 +804,9 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
                         <input type="hidden" name="action" value="update_template">
                         <input type="hidden" name="template_type" value="sur_mesure">
                         <div class="mb-3">
+                            <div id="gjs-template_sur_mesure" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                             <textarea class="form-control code-editor" id="template_sur_mesure"
-                                      name="template_html" required><?= htmlspecialchars($templateSurMesure) ?></textarea>
+                                      name="template_html"><?= htmlspecialchars($templateSurMesure) ?></textarea>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
@@ -870,8 +873,8 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
         }
 
         function showPreview(editorId) {
-            const editorInstance = CKEDITOR.instances[editorId];
-            const template = editorInstance ? editorInstance.getData() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            const gjsEditor = gjsEditors[editorId];
+            const template = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 
@@ -913,18 +916,19 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
             if (confirm('Réinitialiser ce template à sa valeur par défaut ? Toutes vos modifications seront perdues.')) {
                 const idMap = { meuble: 'template_meuble', non_meuble: 'template_non_meuble', sur_mesure: 'template_sur_mesure' };
                 const editorId = idMap[type];
-                const editorInstance = CKEDITOR.instances[editorId];
-                if (editorInstance) {
-                    editorInstance.setData(defaultTemplates[type]);
+                const gjsEditor = gjsEditors[editorId];
+                if (gjsEditor) {
+                    gjsEditor.setComponents(defaultTemplates[type]);
                 } else {
                     document.getElementById(editorId).value = defaultTemplates[type];
                 }
             }
         }
 
-        // Initialize CKEditor on all three contract template editors
+        // Initialize GrapesJS on all three contract template editors
+        var gjsEditors = {};
         ['template_meuble', 'template_non_meuble', 'template_sur_mesure'].forEach(function(id) {
-            CKEDITOR.replace(id, ckConfig);
+            gjsEditors[id] = initGrapesTemplateEditor('gjs-' + id, id, { height: '600px' });
         });
     </script>
 </body>
