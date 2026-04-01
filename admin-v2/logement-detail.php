@@ -904,25 +904,15 @@ unset($_SESSION['success'], $_SESSION['error']);
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- CKEditor 4 LTS -->
-<script src="<?= CKEDITOR_CDN_URL ?>"></script>
+<?php require_once '../includes/ckeditor-config.php'; ?>
 <script>
-CKEDITOR.replaceAll('wysiwyg-editor', {
-    language: 'fr',
+CKEDITOR.replaceAll('wysiwyg-editor', Object.assign({}, ckConfig, {
     height: 200,
-    toolbar: [
-        { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-        { name: 'styles',      items: ['Format'] },
-        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-        { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-        { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-        { name: 'tools',       items: ['Maximize'] }
-    ],
     contentsCss: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
-    removePlugins: 'notification',
     on: {
         change: function() { this.updateElement(); }
     }
-});
+}));
 </script>
 <script>
 function copyLink(inputId, btn) {

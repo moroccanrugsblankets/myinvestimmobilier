@@ -696,7 +696,7 @@ if (isset($_GET['edit'])) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- CKEditor 4 LTS (loaded only on form detail page where the template editor is shown) -->
 <?php if ($currentForm): ?>
-<script src="<?= CKEDITOR_CDN_URL ?>"></script>
+<?php require_once '../includes/ckeditor-config.php'; ?>
 <?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
@@ -788,23 +788,12 @@ if (isset($_GET['edit'])) {
         return;
     }
 
-    var editorInstance = CKEDITOR.replace('email_template_editor', {
+    var editorInstance = CKEDITOR.replace('email_template_editor', Object.assign({}, ckConfig, {
         height: 450,
-        language: 'fr',
-        toolbar: [
-            { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-            { name: 'styles',      items: ['Format'] },
-            { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-            { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-            { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-            { name: 'tools',       items: ['Maximize'] }
-        ],
-        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-        removePlugins: 'notification',
         on: {
             change: function () { this.updateElement(); }
         }
-    });
+    }));
 
     // Insert variable at cursor position in CKEditor
     window.insertTmplVar = function (variable) {
