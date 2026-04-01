@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'adresse_logement'  => $contrat['adresse'],
                         'prenom_locataire'  => $locataire ? $locataire['prenom'] : '',
                         'nom_locataire'     => $locataire ? $locataire['nom']    : '',
-                        'type_garantie'     => 'Garantie Visale',
+                        'type_garantie'     => 'Institutionnelle (ex: Visale)',
                         'prenom_garant'     => $locataire ? $locataire['prenom'] : '',
                         'nom_garant'        => $locataire ? $locataire['nom']    : '',
                         'email_garant'      => $locataire ? $locataire['email']  : '',
@@ -122,14 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ---- Caution solidaire ----
             $nom           = trim($_POST['nom']           ?? '');
             $prenom        = trim($_POST['prenom']        ?? '');
-            $dateNaissance = trim($_POST['date_naissance'] ?? '');
             $emailGarant   = trim($_POST['email']         ?? '');
-            $telephone     = trim($_POST['telephone']     ?? '');
-            $adresse       = trim($_POST['adresse']       ?? '');
-            $ville         = trim($_POST['ville']         ?? '');
-            $codePostal    = trim($_POST['code_postal']   ?? '');
 
-            if (empty($nom) || empty($prenom) || empty($dateNaissance) || empty($emailGarant) || empty($adresse) || empty($ville)) {
+            if (empty($nom) || empty($prenom) || empty($emailGarant)) {
                 $error = 'Veuillez remplir tous les champs obligatoires.';
             } elseif (!filter_var($emailGarant, FILTER_VALIDATE_EMAIL)) {
                 $error = 'L\'adresse email du garant est invalide.';
@@ -137,14 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Supprimer les garants en attente avant d'en créer un nouveau
                 deleteGarantsPending($contrat['id']);
                 $garant = createGarant($contrat['id'], 'caution_solidaire', [
-                    'nom'            => $nom,
-                    'prenom'         => $prenom,
-                    'date_naissance' => $dateNaissance,
-                    'email'          => $emailGarant,
-                    'telephone'      => $telephone,
-                    'adresse'        => $adresse,
-                    'ville'          => $ville,
-                    'code_postal'    => $codePostal,
+                    'nom'    => $nom,
+                    'prenom' => $prenom,
+                    'email'  => $emailGarant,
                 ]);
 
                 if (!$garant) {
@@ -184,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'adresse_logement'  => $contrat['adresse'],
                         'prenom_locataire'  => $prenomLocataire,
                         'nom_locataire'     => $nomLocataire,
-                        'type_garantie'     => 'Caution solidaire',
+                        'type_garantie'     => 'Solidaire (personne physique)',
                         'prenom_garant'     => $prenom,
                         'nom_garant'        => $nom,
                         'email_garant'      => $emailGarant,
@@ -287,14 +277,14 @@ $typeGarantiePost = htmlspecialchars(
                                 <input class="form-check-input" type="radio" name="type_garantie" id="type_visale"
                                        value="visale" <?= $typeGarantiePost === 'visale' ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="type_visale">
-                                    Garantie Visale
+                                    Institutionnelle (ex: Visale)
                                 </label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="type_garantie" id="type_caution"
                                        value="caution_solidaire" <?php $isCautionSelected = ($typeGarantiePost === 'caution_solidaire' || $typeGarantiePost === ''); echo $isCautionSelected ? 'checked' : ''; ?>>
                                 <label class="form-check-label" for="type_caution">
-                                    Caution solidaire
+                                    Solidaire (personne physique)
                                 </label>
                             </div>
                         </div>
@@ -302,7 +292,7 @@ $typeGarantiePost = htmlspecialchars(
                         <!-- Section Visale -->
                         <div id="section-visale" style="display:none;">
                             <hr>
-                            <h5 class="mb-3">Garantie Visale</h5>
+                            <h5 class="mb-3">Institutionnelle (ex: Visale)</h5>
                             <div class="mb-3">
                                 <label for="numero_visale" class="form-label">
                                     Numéro de visa certifié <span class="text-danger">*</span>
@@ -345,39 +335,13 @@ $typeGarantiePost = htmlspecialchars(
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label for="date_naissance" class="form-label">Date de naissance <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" id="date_naissance" name="date_naissance"
-                                       value="<?= htmlspecialchars($_POST['date_naissance'] ?? ($prefillCs['date_naissance'] ?? '')) ?>">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" name="email"
+                                       value="<?= htmlspecialchars($_POST['email'] ?? ($prefillCs['email'] ?? '')) ?>">
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control" id="email" name="email"
-                                           value="<?= htmlspecialchars($_POST['email'] ?? ($prefillCs['email'] ?? '')) ?>">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="telephone" class="form-label">Téléphone</label>
-                                    <input type="tel" class="form-control" id="telephone" name="telephone"
-                                           value="<?= htmlspecialchars($_POST['telephone'] ?? ($prefillCs['telephone'] ?? '')) ?>">
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="adresse" class="form-label">Adresse postale <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="adresse" name="adresse"
-                                       value="<?= htmlspecialchars($_POST['adresse'] ?? ($prefillCs['adresse'] ?? '')) ?>">
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="code_postal" class="form-label">Code postal</label>
-                                    <input type="text" class="form-control" id="code_postal" name="code_postal"
-                                           value="<?= htmlspecialchars($_POST['code_postal'] ?? ($prefillCs['code_postal'] ?? '')) ?>">
-                                </div>
-                                <div class="col-md-8 mb-3">
-                                    <label for="ville" class="form-label">Ville <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="ville" name="ville"
-                                           value="<?= htmlspecialchars($_POST['ville'] ?? ($prefillCs['ville'] ?? '')) ?>">
-                                </div>
-                            </div>
+                            <p class="text-muted small mb-0">
+                                Un email sera envoyé au garant avec un lien pour compléter et signer son dossier.
+                            </p>
                         </div>
 
                         <div class="d-grid mt-4">
@@ -403,7 +367,7 @@ $typeGarantiePost = htmlspecialchars(
     var secVisale    = document.getElementById('section-visale');
     var secCaution   = document.getElementById('section-caution');
     var numVisale    = document.getElementById('numero_visale');
-    var fields       = ['nom','prenom','date_naissance','email','adresse','ville'];
+    var fields       = ['nom','prenom','email'];
 
     function toggle() {
         var isVisale = visaleRadio && visaleRadio.checked;

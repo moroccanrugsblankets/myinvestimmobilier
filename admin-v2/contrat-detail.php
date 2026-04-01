@@ -1020,7 +1020,7 @@ if ($contrat['validated_by']) {
                     <div class="col-md-6">
                         <p class="mb-1">
                             <strong>Type :</strong>
-                            <?= $garantContrat['type_garantie'] === 'visale' ? 'Garantie Visale' : 'Caution solidaire' ?>
+                            <?= $garantContrat['type_garantie'] === 'visale' ? 'Institutionnelle (ex: Visale)' : 'Solidaire (personne physique)' ?>
                         </p>
                         <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
                         <p class="mb-1">

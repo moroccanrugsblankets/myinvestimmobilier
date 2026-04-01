@@ -189,22 +189,83 @@ if ($mode === 'garant') {
                     }
                 }
 
-            // --- Étape 4 : Pièce d'identité ---
+            // --- Étape 4 : Justificatifs ---
             } elseif ($postAction === 'documents') {
-                $pieceFile = $_FILES['piece_identite'] ?? null;
-                if (!$pieceFile || $pieceFile['error'] === UPLOAD_ERR_NO_FILE) {
-                    $error = 'Veuillez télécharger votre pièce d\'identité.';
-                } else {
-                    $validation = validateUploadedFile($pieceFile);
+                // Fichiers obligatoires
+                $requiredFiles = [
+                    'piece_identite_recto' => 'Veuillez télécharger votre pièce d\'identité (recto).',
+                    'bulletin_salaire_1'   => 'Veuillez télécharger votre 1er bulletin de salaire.',
+                    'bulletin_salaire_2'   => 'Veuillez télécharger votre 2ème bulletin de salaire.',
+                    'bulletin_salaire_3'   => 'Veuillez télécharger votre 3ème bulletin de salaire.',
+                    'fiche_imposition'     => 'Veuillez télécharger votre dernière fiche d\'imposition.',
+                    'justificatif_domicile'=> 'Veuillez télécharger votre justificatif de domicile (moins de 3 mois).',
+                ];
+
+                $validatedFiles = [];
+
+                foreach ($requiredFiles as $field => $errorMsg) {
+                    $file = $_FILES[$field] ?? null;
+                    if (!$file || $file['error'] === UPLOAD_ERR_NO_FILE) {
+                        $error = $errorMsg;
+                        break;
+                    }
+                    $validation = validateUploadedFile($file);
                     if (!$validation['success']) {
-                        $error = $validation['error'];
-                    } else {
-                        if (saveUploadedFile($pieceFile, $validation['filename'])) {
-                            executeQuery(
-                                "UPDATE garants SET piece_identite = ?, statut = 'documents_recus', date_documents = NOW() WHERE id = ?",
-                                [$validation['filename'], $garant['id']]
-                            );
-                            logAction($garant['contrat_id'], 'garant_documents_recus', "Pièce identité reçue pour garant ID {$garant['id']}");
+                        $error = $validation['error'] . ' (' . $field . ')';
+                        break;
+                    }
+                    $validatedFiles[$field] = ['file' => $file, 'filename' => $validation['filename']];
+                }
+
+                // Pièce d'identité verso (optionnelle)
+                if (!$error) {
+                    $versoFile = $_FILES['piece_identite_verso'] ?? null;
+                    if ($versoFile && $versoFile['error'] !== UPLOAD_ERR_NO_FILE) {
+                        $validationVerso = validateUploadedFile($versoFile);
+                        if (!$validationVerso['success']) {
+                            $error = 'Pièce d\'identité (verso) : ' . $validationVerso['error'];
+                        } else {
+                            $validatedFiles['piece_identite_verso'] = ['file' => $versoFile, 'filename' => $validationVerso['filename']];
+                        }
+                    }
+                }
+
+                if (!$error) {
+                    // Sauvegarder tous les fichiers
+                    $savedFilenames = [];
+                    foreach ($validatedFiles as $field => $data) {
+                        if (!saveUploadedFile($data['file'], $data['filename'])) {
+                            $error = 'Erreur lors de la sauvegarde du fichier (' . $field . ').';
+                            break;
+                        }
+                        $savedFilenames[$field] = $data['filename'];
+                    }
+
+                    if (!$error) {
+                        executeQuery(
+                            "UPDATE garants
+                             SET piece_identite_recto  = ?,
+                                 piece_identite_verso   = ?,
+                                 bulletin_salaire_1     = ?,
+                                 bulletin_salaire_2     = ?,
+                                 bulletin_salaire_3     = ?,
+                                 fiche_imposition       = ?,
+                                 justificatif_domicile  = ?,
+                                 statut                 = 'documents_recus',
+                                 date_documents         = NOW()
+                             WHERE id = ?",
+                            [
+                                $savedFilenames['piece_identite_recto'],
+                                $savedFilenames['piece_identite_verso'] ?? null,
+                                $savedFilenames['bulletin_salaire_1'],
+                                $savedFilenames['bulletin_salaire_2'],
+                                $savedFilenames['bulletin_salaire_3'],
+                                $savedFilenames['fiche_imposition'],
+                                $savedFilenames['justificatif_domicile'],
+                                $garant['id'],
+                            ]
+                        );
+                        logAction($garant['contrat_id'], 'garant_documents_recus', "Documents reçus pour garant ID {$garant['id']}");
 
                             // Emails de finalisation
                             $locataireG     = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
@@ -244,9 +305,6 @@ if ($mode === 'garant') {
                             $_SESSION[$stepKey] = 'done';
                             header('Location: envoyer-assurance.php?token=' . urlencode($token));
                             exit;
-                        } else {
-                            $error = 'Erreur lors de la sauvegarde du fichier.';
-                        }
                     }
                 }
             }
@@ -279,12 +337,17 @@ if ($mode === 'garant') {
 // MODE ASSURANCE : formulaire locataire (assurance + type garantie)
 // ================================================================
 elseif ($mode === 'assurance') {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Si l'assurance a déjà été soumise, afficher directement le succès (anti-doublon)
+    if (!empty($contrat['assurance_habitation'])) {
+        $success = true;
+    }
+
+    if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
             $error = 'Token CSRF invalide.';
         } else {
             $assuranceFile  = $_FILES['assurance_habitation'] ?? null;
-            $typeGarantie   = $_POST['type_garantie'] ?? 'aucune';
+            $typeGarantie   = $_POST['type_garantie'] ?? 'visale';
 
             // Validation : attestation d'assurance habitation toujours obligatoire
             if (!$assuranceFile || $assuranceFile['error'] === UPLOAD_ERR_NO_FILE) {
@@ -311,14 +374,9 @@ elseif ($mode === 'assurance') {
                 } elseif ($typeGarantie === 'caution_solidaire') {
                     $csNom           = trim($_POST['cs_nom']           ?? '');
                     $csPrenom        = trim($_POST['cs_prenom']        ?? '');
-                    $csDateNaissance = trim($_POST['cs_date_naissance'] ?? '');
                     $csEmail         = trim($_POST['cs_email']         ?? '');
-                    $csAdresse       = trim($_POST['cs_adresse']       ?? '');
-                    $csVille         = trim($_POST['cs_ville']         ?? '');
-                    $csTelephone     = trim($_POST['cs_telephone']     ?? '');
-                    $csCodePostal    = trim($_POST['cs_code_postal']   ?? '');
 
-                    if (empty($csNom) || empty($csPrenom) || empty($csDateNaissance) || empty($csEmail) || empty($csAdresse) || empty($csVille)) {
+                    if (empty($csNom) || empty($csPrenom) || empty($csEmail)) {
                         $error = 'Veuillez remplir tous les champs obligatoires du garant.';
                     } elseif (!filter_var($csEmail, FILTER_VALIDATE_EMAIL)) {
                         $error = 'L\'adresse email du garant est invalide.';
@@ -383,7 +441,7 @@ elseif ($mode === 'assurance') {
                                 'adresse_logement'  => $contrat['adresse'],
                                 'prenom_locataire'  => $locatairePrincipal ? $locatairePrincipal['prenom'] : '',
                                 'nom_locataire'     => $locatairePrincipal ? $locatairePrincipal['nom']    : '',
-                                'type_garantie'     => 'Garantie Visale',
+                                'type_garantie'     => 'Institutionnelle (ex: Visale)',
                                 'prenom_garant'     => $locatairePrincipal ? $locatairePrincipal['prenom'] : '',
                                 'nom_garant'        => $locatairePrincipal ? $locatairePrincipal['nom']    : '',
                                 'email_garant'      => $locatairePrincipal ? $locatairePrincipal['email']  : '',
@@ -395,14 +453,9 @@ elseif ($mode === 'assurance') {
 
                         } elseif ($typeGarantie === 'caution_solidaire') {
                             $garantRec = createGarant($contrat['id'], 'caution_solidaire', [
-                                'nom'            => $csNom,
-                                'prenom'         => $csPrenom,
-                                'date_naissance' => $csDateNaissance,
-                                'email'          => $csEmail,
-                                'telephone'      => $csTelephone,
-                                'adresse'        => $csAdresse,
-                                'ville'          => $csVille,
-                                'code_postal'    => $csCodePostal,
+                                'nom'    => $csNom,
+                                'prenom' => $csPrenom,
+                                'email'  => $csEmail,
                             ]);
 
                             if ($garantRec) {
@@ -441,7 +494,7 @@ elseif ($mode === 'assurance') {
                                     'adresse_logement'  => $contrat['adresse'],
                                     'prenom_locataire'  => $prenomLocataire,
                                     'nom_locataire'     => $nomLocataire,
-                                    'type_garantie'     => 'Caution solidaire',
+                                    'type_garantie'     => 'Solidaire (personne physique)',
                                     'prenom_garant'     => $csPrenom,
                                     'nom_garant'        => $csNom,
                                     'email_garant'      => $csEmail,
@@ -468,6 +521,9 @@ elseif ($mode === 'assurance') {
                         }
 
                         $success = true;
+                        // PRG : rediriger pour éviter la re-soumission du formulaire
+                        header('Location: envoyer-assurance.php?token=' . urlencode($token));
+                        exit;
                     }
                 }
             }
@@ -478,7 +534,7 @@ elseif ($mode === 'assurance') {
 $csrfToken = generateCsrfToken();
 
 // Valeurs POST pour pré-remplissage en cas d'erreur (mode assurance)
-$postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QUOTES);
+$postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QUOTES);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -739,17 +795,17 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
         </div>
 
         <?php elseif ($currentStep === 'documents'): ?>
-        <!-- ---- Étape 4 : Pièce d'identité ---- -->
+        <!-- ---- Étape 4 : Justificatifs ---- -->
         <div class="card shadow">
             <div class="card-body">
-                <h4 class="card-title mb-4">Pièce d'identité</h4>
+                <h4 class="card-title mb-4">Justificatifs</h4>
 
                 <div class="alert alert-secondary mb-4">
                     <strong>Logement :</strong> <?= htmlspecialchars($garant['adresse_logement']) ?><br>
                     <strong>Garant :</strong> <?= htmlspecialchars($garant['prenom'] . ' ' . $garant['nom']) ?>
                 </div>
 
-                <p>Veuillez télécharger votre pièce d'identité (carte nationale d'identité ou passeport en cours de validité).</p>
+                <p>Merci de télécharger l'ensemble des justificatifs ci-dessous. Les champs marqués <span class="text-danger">*</span> sont obligatoires.</p>
 
                 <?php if ($error): ?>
                 <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
@@ -759,19 +815,80 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
                     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="garant_action" value="documents">
 
-                    <div class="mb-4">
-                        <label for="piece_identite" class="form-label">Pièce d'identité <span class="text-danger">*</span></label>
-                        <input type="file" class="form-control" id="piece_identite" name="piece_identite"
+                    <!-- Pièce d'identité recto -->
+                    <div class="mb-3">
+                        <label for="piece_identite_recto" class="form-label fw-semibold">
+                            Pièce d'identité (recto) <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" class="form-control" id="piece_identite_recto" name="piece_identite_recto"
                                accept=".jpg,.jpeg,.png,.pdf" required>
-                        <small class="form-text text-muted">JPG, PNG ou PDF – taille max : 5 Mo</small>
+                        <small class="form-text text-muted">
+                            Carte nationale d'identité, passeport ou titre de séjour – JPG, PNG ou PDF – max 5 Mo
+                        </small>
+                    </div>
+
+                    <!-- Pièce d'identité verso (optionnel) -->
+                    <div class="mb-4">
+                        <label for="piece_identite_verso" class="form-label fw-semibold">
+                            Pièce d'identité (verso) <span class="text-muted fw-normal">(optionnel – non requis pour le passeport)</span>
+                        </label>
+                        <input type="file" class="form-control" id="piece_identite_verso" name="piece_identite_verso"
+                               accept=".jpg,.jpeg,.png,.pdf">
+                        <small class="form-text text-muted">JPG, PNG ou PDF – max 5 Mo</small>
+                    </div>
+
+                    <!-- 3 derniers bulletins de salaire -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            Trois derniers bulletins de salaire <span class="text-danger">*</span>
+                        </label>
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1">1er bulletin de salaire</small>
+                            <input type="file" class="form-control" id="bulletin_salaire_1" name="bulletin_salaire_1"
+                                   accept=".jpg,.jpeg,.png,.pdf" required aria-label="1er bulletin de salaire">
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1">2ème bulletin de salaire</small>
+                            <input type="file" class="form-control" id="bulletin_salaire_2" name="bulletin_salaire_2"
+                                   accept=".jpg,.jpeg,.png,.pdf" required aria-label="2ème bulletin de salaire">
+                        </div>
+                        <div>
+                            <small class="text-muted d-block mb-1">3ème bulletin de salaire</small>
+                            <input type="file" class="form-control" id="bulletin_salaire_3" name="bulletin_salaire_3"
+                                   accept=".jpg,.jpeg,.png,.pdf" required aria-label="3ème bulletin de salaire">
+                        </div>
+                        <small class="form-text text-muted mt-1 d-block">JPG, PNG ou PDF – max 5 Mo par fichier</small>
+                    </div>
+
+                    <!-- Dernière fiche d'imposition -->
+                    <div class="mb-4">
+                        <label for="fiche_imposition" class="form-label fw-semibold">
+                            Dernière fiche d'imposition <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" class="form-control" id="fiche_imposition" name="fiche_imposition"
+                               accept=".jpg,.jpeg,.png,.pdf" required>
+                        <small class="form-text text-muted">
+                            Avis d'imposition ou de non-imposition – JPG, PNG ou PDF – max 5 Mo
+                        </small>
+                    </div>
+
+                    <!-- Justificatif de domicile -->
+                    <div class="mb-4">
+                        <label for="justificatif_domicile" class="form-label fw-semibold">
+                            Justificatif de domicile (moins de 3 mois) <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" class="form-control" id="justificatif_domicile" name="justificatif_domicile"
+                               accept=".jpg,.jpeg,.png,.pdf" required>
+                        <small class="form-text text-muted">
+                            Facture d'énergie, quittance de loyer ou relevé bancaire – JPG, PNG ou PDF – max 5 Mo
+                        </small>
                     </div>
 
                     <div class="alert alert-info">
-                        <strong>Documents acceptés :</strong>
+                        <strong>Documents acceptés pour chaque champ :</strong>
                         <ul class="mb-0 mt-1">
-                            <li>Carte nationale d'identité (recto)</li>
-                            <li>Passeport (page d'identité)</li>
-                            <li>Carte de résident ou titre de séjour</li>
+                            <li>Format : JPG, PNG ou PDF</li>
+                            <li>Taille maximale : 5 Mo par fichier</li>
                         </ul>
                     </div>
 
@@ -854,21 +971,15 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
                             <div class="d-flex flex-column gap-2">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="type_garantie"
-                                           id="tg_aucune" value="aucune"
-                                           <?= $postTypeGarantie === 'aucune' ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="tg_aucune">Aucune garantie complémentaire</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="type_garantie"
                                            id="tg_visale" value="visale"
                                            <?= $postTypeGarantie === 'visale' ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="tg_visale">Garantie Visale</label>
+                                    <label class="form-check-label" for="tg_visale">Institutionnelle (ex: Visale)</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="type_garantie"
                                            id="tg_caution" value="caution_solidaire"
                                            <?= $postTypeGarantie === 'caution_solidaire' ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="tg_caution">Caution solidaire</label>
+                                    <label class="form-check-label" for="tg_caution">Solidaire (personne physique)</label>
                                 </div>
                             </div>
                         </div>
@@ -876,7 +987,7 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
                         <!-- Champs Visale (affichés si Visale sélectionné) -->
                         <div id="visale-fields" class="<?= $postTypeGarantie === 'visale' ? '' : 'd-none' ?>">
                             <div class="card border-primary mb-4">
-                                <div class="card-header bg-primary text-white">Garantie Visale</div>
+                                <div class="card-header bg-primary text-white">Institutionnelle (ex: Visale)</div>
                                 <div class="card-body">
                                     <div class="mb-3">
                                         <label for="visa_certifie" class="form-label">
@@ -899,7 +1010,7 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
                         <!-- Champs Caution solidaire -->
                         <div id="caution-fields" class="<?= $postTypeGarantie === 'caution_solidaire' ? '' : 'd-none' ?>">
                             <div class="card border-warning mb-4">
-                                <div class="card-header bg-warning">Informations du garant (caution solidaire)</div>
+                                <div class="card-header bg-warning">Informations du garant (solidaire – personne physique)</div>
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
@@ -914,38 +1025,9 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'aucune', ENT_QU
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label for="cs_date_naissance" class="form-label">Date de naissance <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control" id="cs_date_naissance" name="cs_date_naissance"
-                                               value="<?= htmlspecialchars($_POST['cs_date_naissance'] ?? '') ?>">
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label for="cs_email" class="form-label">Email <span class="text-danger">*</span></label>
-                                            <input type="email" class="form-control" id="cs_email" name="cs_email"
-                                                   value="<?= htmlspecialchars($_POST['cs_email'] ?? '') ?>">
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label for="cs_telephone" class="form-label">Téléphone</label>
-                                            <input type="tel" class="form-control" id="cs_telephone" name="cs_telephone"
-                                                   value="<?= htmlspecialchars($_POST['cs_telephone'] ?? '') ?>">
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="cs_adresse" class="form-label">Adresse <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="cs_adresse" name="cs_adresse"
-                                               value="<?= htmlspecialchars($_POST['cs_adresse'] ?? '') ?>">
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <label for="cs_code_postal" class="form-label">Code postal</label>
-                                            <input type="text" class="form-control" id="cs_code_postal" name="cs_code_postal"
-                                                   value="<?= htmlspecialchars($_POST['cs_code_postal'] ?? '') ?>">
-                                        </div>
-                                        <div class="col-md-8 mb-3">
-                                            <label for="cs_ville" class="form-label">Ville <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="cs_ville" name="cs_ville"
-                                                   value="<?= htmlspecialchars($_POST['cs_ville'] ?? '') ?>">
-                                        </div>
+                                        <label for="cs_email" class="form-label">Email <span class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="cs_email" name="cs_email"
+                                               value="<?= htmlspecialchars($_POST['cs_email'] ?? '') ?>">
                                     </div>
                                     <p class="text-muted small mb-0">
                                         Un email sera envoyé au garant avec un lien pour compléter et signer son dossier.
@@ -992,11 +1074,10 @@ document.getElementById('signatureForm').addEventListener('submit', function (e)
     var visaleFields  = document.getElementById('visale-fields');
     var cautionFields = document.getElementById('caution-fields');
     var visaInput     = document.getElementById('visa_certifie');
-    var cautionReqs   = cautionFields.querySelectorAll('input[type="text"], input[type="email"], input[type="date"]');
 
     function updateFields() {
         var checked = document.querySelector('input[name="type_garantie"]:checked');
-        var val = checked ? checked.value : 'aucune';
+        var val = checked ? checked.value : 'visale';
         visaleFields.classList.toggle('d-none', val !== 'visale');
         cautionFields.classList.toggle('d-none', val !== 'caution_solidaire');
 
@@ -1006,7 +1087,7 @@ document.getElementById('signatureForm').addEventListener('submit', function (e)
         }
 
         // Gérer required sur les champs caution solidaire
-        var requiredCautionIds = ['cs_nom', 'cs_prenom', 'cs_date_naissance', 'cs_email', 'cs_adresse', 'cs_ville'];
+        var requiredCautionIds = ['cs_nom', 'cs_prenom', 'cs_email'];
         requiredCautionIds.forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.required = (val === 'caution_solidaire');

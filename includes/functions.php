@@ -1390,9 +1390,9 @@ function documentPathToUrl(string $path): string {
     $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
 
     // If the path is absolute, strip the project root to get the web-relative portion
-    if (str_starts_with($path, '/')) {
+    if (strncmp($path, '/', 1) === 0) {
         $projectRoot = dirname(__FILE__, 2);
-        if (str_starts_with($path, $projectRoot)) {
+        if (strncmp($path, $projectRoot, strlen($projectRoot)) === 0) {
             $path = ltrim(substr($path, strlen($projectRoot)), '/');
         }
     }
