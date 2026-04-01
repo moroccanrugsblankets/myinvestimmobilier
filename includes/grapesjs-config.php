@@ -40,6 +40,27 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     textarea.removeAttribute('required');
     textarea.style.display = 'none';
 
+    // ── Boutons de bascule Visuel ↔ HTML brut (au-dessus de l'éditeur) ──────
+    var btnGroup = document.createElement('div');
+    btnGroup.className = 'btn-group btn-group-sm mb-2';
+    btnGroup.setAttribute('role', 'group');
+    btnGroup.setAttribute('aria-label', 'Mode éditeur');
+
+    var btnVisual = document.createElement('button');
+    btnVisual.type = 'button';
+    btnVisual.className = 'btn btn-outline-primary active';
+    btnVisual.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="me-1" viewBox="0 0 16 16"><path d="M0 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm13.5 1a.5.5 0 0 0-1 0v3.793l-1.146-1.147a.5.5 0 0 0-.708.708l2 2a.5.5 0 0 0 .708 0l2-2a.5.5 0 0 0-.708-.708L13.5 9.793zm-7 1.5a.5.5 0 0 1 .5.5v3.793l1.146-1.147a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 .708-.708L6 11.293V8a.5.5 0 0 1 .5-.5"/></svg>Éditeur visuel';
+
+    var btnRaw = document.createElement('button');
+    btnRaw.type = 'button';
+    btnRaw.className = 'btn btn-outline-secondary';
+    btnRaw.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="me-1" viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>HTML brut';
+
+    btnGroup.appendChild(btnVisual);
+    btnGroup.appendChild(btnRaw);
+    container.parentNode.insertBefore(btnGroup, container);
+    // ── Fin boutons ──────────────────────────────────────────────────────────
+
     var config = Object.assign({}, window.gjsConfig, {
         container: '#' + containerId,
         fromElement: true, // laisser GrapesJS parser le contenu
@@ -74,35 +95,30 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
 
     container.parentNode.insertBefore(rawWrapper, container.nextSibling);
 
-    // Commande de bascule visuel ↔ HTML brut (unique par instance).
-    var cmdId = 'gjs-edit-html-' + containerId;
-    editor.Commands.add(cmdId, {
-        run: function (ed) {
-            rawTextarea.value = window.gjsBuildCombined(ed.getHtml() || '', ed.getCss() || '');
-            container.style.display = 'none';
-            rawWrapper.style.display = 'block';
-        },
-        stop: function (ed) {
-            var raw = rawTextarea.value;
-            if (raw) {
-                var parsed = window.gjsExtractStyles(raw);
-                ed.setStyle(parsed.css || '');
-                ed.setComponents(parsed.html);
-            }
-            rawWrapper.style.display = 'none';
-            container.style.display = '';
-        },
-    });
+    // Fonctions de bascule
+    function switchToVisual() {
+        var raw = rawTextarea.value;
+        if (raw) {
+            var parsed = window.gjsExtractStyles(raw);
+            editor.setStyle(parsed.css || '');
+            editor.setComponents(parsed.html);
+        }
+        container.style.display = '';
+        rawWrapper.style.display = 'none';
+        btnVisual.classList.add('active');
+        btnRaw.classList.remove('active');
+    }
 
-    // Bouton dans la barre d'options de GrapesJS.
-    editor.Panels.addButton('options', {
-        id: cmdId,
-        className: 'gjs-pn-btn',
-        label: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>',
-        command: cmdId,
-        attributes: { title: 'Éditer HTML brut' },
-        active: false,
-    });
+    function switchToRaw() {
+        rawTextarea.value = window.gjsBuildCombined(editor.getHtml() || '', editor.getCss() || '');
+        container.style.display = 'none';
+        rawWrapper.style.display = 'block';
+        btnVisual.classList.remove('active');
+        btnRaw.classList.add('active');
+    }
+
+    btnVisual.addEventListener('click', function (e) { e.preventDefault(); switchToVisual(); });
+    btnRaw.addEventListener('click', function (e) { e.preventDefault(); switchToRaw(); });
     // ── Fin Mode HTML brut ──────────────────────────────────────────────────
 
     // Synchroniser contenu → textarea lors du submit
