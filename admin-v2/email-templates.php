@@ -369,7 +369,7 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'TextColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
                 { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table'] },
                 { name: 'tools',       items: ['Maximize'] }

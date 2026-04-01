@@ -930,9 +930,9 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'TextColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
