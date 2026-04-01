@@ -1,67 +1,113 @@
 <?php
 /**
- * Centralized GrapesJS configuration with HTML editing support.
- * Include this file on every page that uses GrapesJS.
- *
- * Provides:
- *  - Drag & drop visual editor
- *  - Direct HTML editing via CodeMirror
- *  - Centralized config for emails, contrats, PDFs, pages publiques
+ * Centralized GrapesJS configuration avec bouton HTML.
+ * 
+ * On garde la configuration d’origine et on ajoute un plugin
+ * qui enregistre la commande `toggle-html` et le bouton associé.
  */
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/css/grapes.min.css">
 <script src="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/grapes.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/grapesjs-blocks-basic@1.0.2/dist/index.js"></script>
-<script src="https://unpkg.com/grapesjs-plugin-ckeditor@1.0.1/dist/index.js"></script>
 
 <script>
-// Plugin GrapesJS - Code Editor Complet
-export default (editor, opts = {}) => {
-  const pn = editor.Panels;
-  const cmd = editor.Commands;
+/**
+ * Base GrapesJS options partagées par tous les éditeurs.
+ */
+window.gjsConfig = {
+    storageManager: false,
+    height: '500px',
+    width: '100%',
+    plugins: [
+        // Ajout du plugin custom pour basculer en HTML
+        function(editor) {
+            const pn = editor.Panels;
+            const cmd = editor.Commands;
 
-  // Ajout du bouton dans la barre d’outils
-  pn.addButton('options', {
-    id: 'toggle-html',
-    className: 'fa fa-code',
-    command: 'toggle-html',
-    attributes: { title: 'Basculer en HTML' }
-  });
+            // Bouton dans la barre d’options
+            pn.addButton('options', {
+                id: 'toggle-html',
+                className: 'fa fa-code',
+                command: 'toggle-html',
+                attributes: { title: 'Basculer en HTML' }
+            });
 
-  // Définition de la commande toggle-html
-  cmd.add('toggle-html', {
-    run(editor) {
-      const modal = editor.Modal;
-      const container = document.createElement('div');
-      const html = editor.getHtml();
-      const css = editor.getCss();
+            // Commande toggle-html
+            cmd.add('toggle-html', {
+                run(ed) {
+                    const modal = ed.Modal;
+                    const container = document.createElement('div');
 
-      // Zone de texte pour édition
-      const textarea = document.createElement('textarea');
-      textarea.style.width = '100%';
-      textarea.style.height = '300px';
-      textarea.value = `${html}\n<style>${css}</style>`;
+                    const html = ed.getHtml();
+                    const css  = ed.getCss();
 
-      // Bouton pour sauvegarder les modifications
-      const saveBtn = document.createElement('button');
-      saveBtn.innerText = 'Appliquer les modifications';
-      saveBtn.style.marginTop = '10px';
-      saveBtn.onclick = () => {
-        const newHtml = textarea.value;
-        editor.setComponents(newHtml); // Réinjecte le HTML modifié
-        modal.close();
-      };
+                    const textarea = document.createElement('textarea');
+                    textarea.style.width = '100%';
+                    textarea.style.height = '300px';
+                    textarea.value = (css && css.trim())
+                        ? '<style>' + css + '</style>' + html
+                        : html;
 
-      container.appendChild(textarea);
-      container.appendChild(saveBtn);
+                    const saveBtn = document.createElement('button');
+                    saveBtn.innerText = 'Appliquer les modifications';
+                    saveBtn.style.marginTop = '10px';
+                    saveBtn.onclick = () => {
+                        ed.setComponents(textarea.value);
+                        modal.close();
+                    };
 
-      modal.setTitle('Édition du code source');
-      modal.setContent(container);
-      modal.open();
-    },
-    stop(editor) {
-      editor.Modal.close();
+                    container.appendChild(textarea);
+                    container.appendChild(saveBtn);
+
+                    modal.setTitle('Édition du code source');
+                    modal.setContent(container);
+                    modal.open();
+                },
+                stop(ed) {
+                    ed.Modal.close();
+                }
+            });
+        }
+    ],
+    pluginsOpts: {},
+};
+
+/**
+ * Fonction d’initialisation GrapesJS qui synchronise avec un <textarea>.
+ */
+window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
+    var container = document.getElementById(containerId);
+    var textarea  = document.getElementById(textareaId);
+    if (!container || !textarea) return null;
+
+    textarea.removeAttribute('required');
+    textarea.style.display = 'none';
+
+    var config = Object.assign({}, window.gjsConfig, {
+        container: '#' + containerId,
+        fromElement: false,
+    }, options || {});
+
+    var editor = grapesjs.init(config);
+
+    // Charger contenu initial
+    var initialHtml = textarea.value || '';
+    if (initialHtml) {
+        editor.setComponents(initialHtml);
     }
-  });
+
+    // Synchroniser contenu → textarea lors du submit
+    var form = textarea.closest('form') || container.closest('form');
+    if (form) {
+        form.addEventListener('submit', function () {
+            var html = editor.getHtml() || '';
+            var css  = editor.getCss() || '';
+            textarea.value = (css && css.trim())
+                ? '<style>' + css + '</style>' + html
+                : html;
+        }, true);
+    }
+
+    return editor;
 };
 </script>
