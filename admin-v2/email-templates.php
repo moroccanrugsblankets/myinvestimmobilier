@@ -211,7 +211,7 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         
                         <div class="mb-3">
                             <label class="form-label">Corps HTML de l'email</label>
-                            <textarea name="corps_html" class="form-control code-editor" required><?php echo htmlspecialchars($template['corps_html']); ?></textarea>
+                            <textarea name="corps_html" class="form-control code-editor" required><?php echo htmlspecialchars_decode($template['corps_html']); ?></textarea>
                             <small class="text-muted">Code HTML complet avec les styles inline. Les variables seront remplacées lors de l'envoi.</small>
                         </div>
                         
