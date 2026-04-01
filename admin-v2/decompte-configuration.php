@@ -306,9 +306,9 @@ if (empty($currentTemplate)) {
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'RemoveFormat'] },
-                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
+                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',

@@ -529,9 +529,9 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }',
@@ -546,9 +546,9 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }',
