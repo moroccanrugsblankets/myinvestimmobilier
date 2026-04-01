@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Liste des champs de fichiers obligatoires : clé => libellé d'erreur
         $requiredFiles = [
-            'piece_identite'       => 'Veuillez télécharger votre pièce d\'identité (recto/verso).',
+            'piece_identite_recto'  => 'Veuillez télécharger votre pièce d\'identité (recto).',
             'bulletin_salaire_1'   => 'Veuillez télécharger votre 1er bulletin de salaire.',
             'bulletin_salaire_2'   => 'Veuillez télécharger votre 2ème bulletin de salaire.',
             'bulletin_salaire_3'   => 'Veuillez télécharger votre 3ème bulletin de salaire.',
@@ -88,10 +88,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $savedFilenames[$field] = $data['filename'];
             }
 
+            // Pièce d'identité verso (optionnelle)
+            $versoFile = $_FILES['piece_identite_verso'] ?? null;
+            if (!$error && $versoFile && $versoFile['error'] !== UPLOAD_ERR_NO_FILE) {
+                $validationVerso = validateUploadedFile($versoFile);
+                if (!$validationVerso['success']) {
+                    $error = 'Pièce d\'identité (verso) : ' . $validationVerso['error'];
+                } elseif (saveUploadedFile($versoFile, $validationVerso['filename'])) {
+                    $savedFilenames['piece_identite_verso'] = $validationVerso['filename'];
+                } else {
+                    $error = 'Erreur lors de la sauvegarde du fichier (piece_identite_verso).';
+                }
+            }
+
             if (!$error) {
                 executeQuery(
                     "UPDATE garants
-                     SET piece_identite        = ?,
+                     SET piece_identite_recto  = ?,
+                         piece_identite_verso   = ?,
                          bulletin_salaire_1    = ?,
                          bulletin_salaire_2    = ?,
                          bulletin_salaire_3    = ?,
@@ -101,7 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          date_documents        = NOW()
                      WHERE id = ?",
                     [
-                        $savedFilenames['piece_identite'],
+                        $savedFilenames['piece_identite_recto'],
+                        $savedFilenames['piece_identite_verso'] ?? null,
                         $savedFilenames['bulletin_salaire_1'],
                         $savedFilenames['bulletin_salaire_2'],
                         $savedFilenames['bulletin_salaire_3'],
@@ -157,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'adresse_logement' => $garant['adresse_logement'],
                     'prenom_locataire' => $locataire ? $locataire['prenom'] : '',
                     'nom_locataire'    => $locataire ? $locataire['nom']    : '',
-                    'type_garantie'    => 'Caution solidaire',
+                    'type_garantie'    => 'Solidaire (personne physique)',
                     'prenom_garant'    => $garant['prenom'],
                     'nom_garant'       => $garant['nom'],
                     'email_garant'     => $garant['email'],
@@ -224,7 +239,7 @@ $csrfToken = generateCsrfToken();
                         <strong>Garant :</strong> <?= htmlspecialchars($garant['prenom'] . ' ' . $garant['nom']) ?>
                     </div>
 
-                    <p>Merci de télécharger l'ensemble des justificatifs ci-dessous. Tous les champs sont obligatoires.</p>
+                    <p>Merci de télécharger l'ensemble des justificatifs ci-dessous. Les champs marqués <span class="text-danger">*</span> sont obligatoires.</p>
 
                     <?php if ($error): ?>
                     <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
@@ -233,16 +248,26 @@ $csrfToken = generateCsrfToken();
                     <form method="POST" action="" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
 
-                        <!-- Pièce d'identité -->
-                        <div class="mb-4">
-                            <label for="piece_identite" class="form-label fw-semibold">
-                                Pièce d'identité (recto/verso) <span class="text-danger">*</span>
+                        <!-- Pièce d'identité recto -->
+                        <div class="mb-3">
+                            <label for="piece_identite_recto" class="form-label fw-semibold">
+                                Pièce d'identité (recto) <span class="text-danger">*</span>
                             </label>
-                            <input type="file" class="form-control" id="piece_identite" name="piece_identite"
+                            <input type="file" class="form-control" id="piece_identite_recto" name="piece_identite_recto"
                                    accept=".jpg,.jpeg,.png,.pdf" required>
                             <small class="form-text text-muted">
                                 Carte nationale d'identité, passeport ou titre de séjour – JPG, PNG ou PDF – max 5 Mo
                             </small>
+                        </div>
+
+                        <!-- Pièce d'identité verso (optionnel) -->
+                        <div class="mb-4">
+                            <label for="piece_identite_verso" class="form-label fw-semibold">
+                                Pièce d'identité (verso) <span class="text-muted fw-normal">(optionnel – non requis pour le passeport)</span>
+                            </label>
+                            <input type="file" class="form-control" id="piece_identite_verso" name="piece_identite_verso"
+                                   accept=".jpg,.jpeg,.png,.pdf">
+                            <small class="form-text text-muted">JPG, PNG ou PDF – max 5 Mo</small>
                         </div>
 
                         <!-- 3 derniers bulletins de salaire -->

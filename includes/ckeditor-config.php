@@ -22,6 +22,10 @@ window.ckConfig = {
     height: 500,
     language: 'fr',
     allowedContent: true,
+    extraAllowedContent: '*(*)[*]{*}',
+    entities: false,
+    entities_processNumerical: false,
+    fillEmptyBlocks: false,
     toolbar: [
         { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
         { name: 'styles',      items: ['Format'] },
