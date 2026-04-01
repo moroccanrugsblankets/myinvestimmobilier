@@ -1,9 +1,6 @@
 <?php
 /**
  * Centralized GrapesJS configuration avec bouton HTML.
- * 
- * On garde la configuration d’origine et on ajoute un plugin
- * qui enregistre la commande `toggle-html` et le bouton associé.
  */
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/css/grapes.min.css">
@@ -19,7 +16,6 @@ window.gjsConfig = {
     height: '500px',
     width: '100%',
     plugins: [
-        // Ajout du plugin custom pour basculer en HTML
         function(editor) {
             const pn = editor.Panels;
             const cmd = editor.Commands;
@@ -27,7 +23,7 @@ window.gjsConfig = {
             // Bouton dans la barre d’options
             pn.addButton('options', {
                 id: 'toggle-html',
-                className: 'fa fa-html5',
+                className: 'fa fa-code',
                 command: 'toggle-html',
                 attributes: { title: 'Basculer en HTML' }
             });
@@ -45,14 +41,23 @@ window.gjsConfig = {
                     textarea.style.width = '100%';
                     textarea.style.height = '300px';
                     textarea.value = (css && css.trim())
-                        ? '<style>' + css + '</style>' + html
+                        ? '<style>' + css + '</style>\n' + html
                         : html;
 
                     const saveBtn = document.createElement('button');
                     saveBtn.innerText = 'Appliquer les modifications';
                     saveBtn.style.marginTop = '10px';
                     saveBtn.onclick = () => {
-                        ed.setComponents(textarea.value);
+                        const code = textarea.value;
+                        const cssMatch = code.match(/<style>([\s\S]*?)<\/style>/);
+                        let css = '';
+                        let html = code;
+                        if (cssMatch) {
+                            css = cssMatch[1];
+                            html = code.replace(cssMatch[0], '');
+                        }
+                        ed.setComponents(html);
+                        if (css) ed.setStyle(css);
                         modal.close();
                     };
 
@@ -103,7 +108,7 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
             var html = editor.getHtml() || '';
             var css  = editor.getCss() || '';
             textarea.value = (css && css.trim())
-                ? '<style>' + css + '</style>' + html
+                ? '<style>' + css + '</style>\n' + html
                 : html;
         }, true);
     }
