@@ -299,7 +299,7 @@ if ($mode === 'garant') {
                                 sendTemplatedEmail('garant_finalisation', $locataireG['email'], array_merge($vars, [
                                     'prenom_destinataire' => $locataireG['prenom'],
                                     'nom_destinataire'    => $locataireG['nom'],
-                                ]), null, false, true, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
+                                ]), null, false, false, ['contexte' => 'contrat_id=' . $garant['contrat_id']]);
                             }
 
                             $_SESSION[$stepKey] = 'done';
