@@ -910,7 +910,7 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
 
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <?php if (!$success): ?>
+            <?php if ($success): ?>
             <!-- ---- Succès ---- -->
             <div class="card shadow border-success">
                 <div class="card-body text-center p-5">
