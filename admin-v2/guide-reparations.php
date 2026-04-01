@@ -92,22 +92,9 @@ $contenu = getParameter('guide_reparations_contenu', '');
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
+    <?php require_once '../includes/ckeditor-config.php'; ?>
     <script>
-    CKEDITOR.replace('guide_contenu', {
-        height: 500,
-        language: 'fr',
-        toolbar: [
-            { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-            { name: 'styles',      items: ['Format'] },
-            { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-            { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-            { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-            { name: 'tools',       items: ['Maximize'] }
-        ],
-        contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-        removePlugins: 'notification'
-    });
+    CKEDITOR.replace('guide_contenu', ckConfig);
     </script>
 </body>
 </html>

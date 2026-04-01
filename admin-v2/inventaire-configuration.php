@@ -51,7 +51,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- CKEditor 4 LTS -->
-    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
+    <?php require_once '../includes/ckeditor-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -280,39 +280,15 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize CKEditor for entry template
-        CKEDITOR.replace('inventaire_template_html', {
-            height: 500,
-            language: 'fr',
-            allowedContent: true,
-            toolbar: [
-                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-                { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-                { name: 'tools',       items: ['Maximize'] }
-            ],
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',
-            removePlugins: 'notification'
+        var inventaireCkConfig = Object.assign({}, ckConfig, {
+            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }'
         });
 
+        // Initialize CKEditor for entry template
+        CKEDITOR.replace('inventaire_template_html', inventaireCkConfig);
+
         // Initialize CKEditor for exit template
-        CKEDITOR.replace('inventaire_sortie_template_html', {
-            height: 500,
-            language: 'fr',
-            allowedContent: true,
-            toolbar: [
-                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-                { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-                { name: 'tools',       items: ['Maximize'] }
-            ],
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',
-            removePlugins: 'notification'
-        });
+        CKEDITOR.replace('inventaire_sortie_template_html', inventaireCkConfig);
 
         function copyVariable(variable) {
             if (!navigator.clipboard) {

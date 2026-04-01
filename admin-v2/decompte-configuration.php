@@ -68,8 +68,7 @@ if (empty($currentTemplate)) {
     <title>Configuration Décompte d'Intervention - Admin MyInvest</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
+    <?php require_once '../includes/ckeditor-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .config-card {
@@ -299,21 +298,7 @@ if (empty($currentTemplate)) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Initialiser CKEditor
-        CKEDITOR.replace('template_html', {
-            height: 600,
-            language: 'fr',
-            allowedContent: true,
-            toolbar: [
-                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-                { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-                { name: 'tools',       items: ['Maximize'] }
-            ],
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            removePlugins: 'notification'
-        });
+        CKEDITOR.replace('template_html', Object.assign({}, ckConfig, { height: 600 }));
 
         // Copier dans le presse-papier
         (function () {

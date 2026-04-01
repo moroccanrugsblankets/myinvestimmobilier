@@ -419,7 +419,7 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- CKEditor 4 LTS -->
-    <script src="<?= CKEDITOR_CDN_URL ?>"></script>
+    <?php require_once '../includes/ckeditor-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -923,22 +923,6 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
         }
 
         // Initialize CKEditor on all three contract template editors
-        const ckConfig = {
-            height: 500,
-            language: 'fr',
-            allowedContent: true,
-            toolbar: [
-                { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
-                { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
-                { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
-                { name: 'tools',       items: ['Maximize'] }
-            ],
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-            removePlugins: 'notification'
-        };
-
         ['template_meuble', 'template_non_meuble', 'template_sur_mesure'].forEach(function(id) {
             CKEDITOR.replace(id, ckConfig);
         });
