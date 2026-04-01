@@ -285,5 +285,5 @@ if (!defined('ADMIN_EMAIL') && isset($config['ADMIN_EMAIL'])) {
 
 // CKEditor LTS CDN – update this constant to upgrade CKEditor across all pages
 if (!defined('CKEDITOR_CDN_URL')) {
-    define('CKEDITOR_CDN_URL', 'https://cdn.ckeditor.com/4.25.1/standard/ckeditor.js');    
+    define('CKEDITOR_CDN_URL', 'https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js');    
 }
