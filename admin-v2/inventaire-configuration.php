@@ -50,8 +50,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     <title>Configuration Inventaire - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -190,6 +189,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 </div>
                 <div class="mb-3">
                     <label for="inventaire_template_html" class="form-label"><strong>Template HTML de l'Inventaire d'Entrée</strong></label>
+                    <div id="gjs-inventaire_template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea 
                         class="form-control code-editor" 
                         id="inventaire_template_html" 
@@ -235,6 +235,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 </div>
                 <div class="mb-3">
                     <label for="inventaire_sortie_template_html" class="form-label"><strong>Template HTML de l'Inventaire de Sortie</strong></label>
+                    <div id="gjs-inventaire_sortie_template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea 
                         class="form-control code-editor" 
                         id="inventaire_sortie_template_html" 
@@ -280,15 +281,9 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        var inventaireCkConfig = Object.assign({}, ckConfig, {
-            contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }'
-        });
-
-        // Initialize CKEditor for entry template
-        CKEDITOR.replace('inventaire_template_html', inventaireCkConfig);
-
-        // Initialize CKEditor for exit template
-        CKEDITOR.replace('inventaire_sortie_template_html', inventaireCkConfig);
+        var gjsEditors = {};
+        gjsEditors['inventaire_template_html'] = initGrapesTemplateEditor('gjs-inventaire_template_html', 'inventaire_template_html', { height: '600px' });
+        gjsEditors['inventaire_sortie_template_html'] = initGrapesTemplateEditor('gjs-inventaire_sortie_template_html', 'inventaire_sortie_template_html', { height: '600px' });
 
         function copyVariable(variable) {
             if (!navigator.clipboard) {
@@ -313,13 +308,14 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         }
 
         function showPreview(editorId, previewCardId) {
-            const editor = CKEDITOR.instances[editorId];
+            var editor = gjsEditors[editorId];
             if (!editor) {
                 alert('L\'éditeur n\'est pas encore chargé. Veuillez réessayer dans quelques instants.');
                 return;
             }
             
-            const content = editor.getData();
+                        var css = editor.getCss() || '';
+            var content = (css && css.trim()) ? '<style>' + css + '</style>' + (editor.getHtml() || '') : (editor.getHtml() || '');
             // Map preview card IDs to their corresponding content IDs
             const contentIdMap = {
                 'preview-card-entree': 'preview-content-entree',
@@ -334,7 +330,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             
             const previewElement = document.getElementById(previewContentId);
             if (previewElement) {
-                // Note: content rendered from CKEditor; be aware this renders HTML
+                // Note: content rendered from GrapesJS; be aware this renders HTML
                 // For production, consider additional sanitization if needed
                 previewElement.innerHTML = content;
                 document.getElementById(previewCardId).style.display = 'block';
@@ -344,13 +340,13 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
         function resetToDefault(editorId) {
             if (confirm('Êtes-vous sûr de vouloir réinitialiser le template avec la version par défaut ? Toutes vos modifications seront perdues.')) {
-                const editor = CKEDITOR.instances[editorId];
+                var editor = gjsEditors[editorId];
                 if (!editor) {
                     alert('L\'éditeur n\'est pas encore chargé. Veuillez réessayer dans quelques instants.');
                     return;
                 }
                 
-                editor.setData('');
+                editor.setComponents('');
                 alert('Template réinitialisé. N\'oubliez pas de sauvegarder pour appliquer les changements.');
             }
         }

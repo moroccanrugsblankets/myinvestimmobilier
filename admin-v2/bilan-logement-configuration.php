@@ -111,8 +111,7 @@ if (!$template) {
     <title>Configuration Bilan de Logement - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -218,6 +217,7 @@ if (!$template) {
                 
                 <div class="mb-3">
                     <label for="template_html" class="form-label">Code HTML</label>
+                    <div id="gjs-template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea name="template_html" id="template_html" class="form-control"><?php echo htmlspecialchars($template); ?></textarea>
                 </div>
 
@@ -253,8 +253,7 @@ if (!$template) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize CKEditor
-        CKEDITOR.replace('template_html', Object.assign({}, ckConfig, { height: 600 }));
+        initGrapesTemplateEditor('gjs-template_html', 'template_html', { height: '600px' });
 
         // Copy to clipboard function (wrapped in IIFE to avoid global scope pollution)
         (function() {

@@ -272,8 +272,8 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
     <title>Configuration État des Lieux - My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -417,11 +417,11 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <label for="template_html" class="form-label">
                         <strong>Template HTML de l'État des Lieux d'Entrée</strong>
                     </label>
+                    <div id="gjs-template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea 
                         class="form-control code-editor" 
                         id="template_html" 
-                        name="template_html" 
-                        required><?= htmlspecialchars($template) ?></textarea>
+                        name="template_html"><?= htmlspecialchars($template) ?></textarea>
                     <small class="form-text text-muted">
                         Modifiez le code HTML ci-dessus. Les variables seront remplacées automatiquement lors de la génération de l'état des lieux d'entrée.
                     </small>
@@ -484,11 +484,11 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <label for="template_html_sortie" class="form-label">
                         <strong>Template HTML de l'État des Lieux de Sortie</strong>
                     </label>
+                    <div id="gjs-template_html_sortie" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea 
                         class="form-control code-editor" 
                         id="template_html_sortie" 
-                        name="template_html_sortie" 
-                        required><?= htmlspecialchars($templateSortie) ?></textarea>
+                        name="template_html_sortie"><?= htmlspecialchars($templateSortie) ?></textarea>
                     <small class="form-text text-muted">
                         Modifiez le code HTML ci-dessus. Les variables seront remplacées automatiquement lors de la génération de l'état des lieux de sortie.
                     </small>
@@ -521,44 +521,28 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize CKEditor for entry template
-        CKEDITOR.replace('template_html', Object.assign({}, ckConfig, { contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }' }));
+        // Initialize GrapesJS for entry template
+        var gjsEditorEntry = initGrapesTemplateEditor('gjs-template_html', 'template_html', { height: '600px' });
 
-        // Initialize CKEditor for exit template
-        CKEDITOR.replace('template_html_sortie', Object.assign({}, ckConfig, { contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; }' }));
+        // Initialize GrapesJS for exit template
+        var gjsEditorSortie = initGrapesTemplateEditor('gjs-template_html_sortie', 'template_html_sortie', { height: '600px' });
 
         function copyVariable(variable) {
-            navigator.clipboard.writeText(variable).then(() => {
-                // Show a small tooltip or notification
-                const tooltip = document.createElement('div');
+            navigator.clipboard.writeText(variable).then(function () {
+                var tooltip = document.createElement('div');
                 tooltip.textContent = 'Copié !';
-                tooltip.style.position = 'fixed';
-                tooltip.style.top = '50%';
-                tooltip.style.left = '50%';
-                tooltip.style.transform = 'translate(-50%, -50%)';
-                tooltip.style.background = '#28a745';
-                tooltip.style.color = 'white';
-                tooltip.style.padding = '10px 20px';
-                tooltip.style.borderRadius = '5px';
-                tooltip.style.zIndex = '10000';
+                tooltip.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#28a745;color:#fff;padding:10px 20px;border-radius:5px;z-index:10000;';
                 document.body.appendChild(tooltip);
-                
-                setTimeout(() => {
-                    document.body.removeChild(tooltip);
-                }, 1000);
+                setTimeout(function () { document.body.removeChild(tooltip); }, 1000);
             });
         }
 
         function showPreview(editorId, previewCardId) {
-            const editor = CKEDITOR.instances[editorId];
-            let content = '';
-            if (editor) {
-                content = editor.getData();
-            } else {
-                const textarea = document.getElementById(editorId);
-                if (textarea) { content = textarea.value; }
-            }
-            const previewContentId = previewCardId === 'preview-card-sortie' ? 'preview-content-sortie' : 'preview-content';
+            var gjsEditor = editorId === 'template_html' ? gjsEditorEntry : gjsEditorSortie;
+            var css = gjsEditor ? gjsEditor.getCss() : '';
+            var html = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            var content = (css && css.trim()) ? '<style>' + css + '</style>' + html : html;
+            var previewContentId = previewCardId === 'preview-card-sortie' ? 'preview-content-sortie' : 'preview-content';
             document.getElementById(previewContentId).innerHTML = content;
             document.getElementById(previewCardId).style.display = 'block';
             document.getElementById(previewCardId).scrollIntoView({ behavior: 'smooth' });
@@ -566,22 +550,19 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
 
         function resetToDefault(editorId) {
             if (confirm('Êtes-vous sûr de vouloir réinitialiser le template avec la version par défaut ? Toutes vos modifications seront perdues.')) {
-                // Reload the page with a reset parameter
                 window.location.href = 'etat-lieux-configuration.php?reset=' + editorId;
             }
         }
 
         function deleteSignature() {
             if (confirm('Êtes-vous sûr de vouloir supprimer la signature ?')) {
-                const form = document.createElement('form');
+                var form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '';
-                
-                const input = document.createElement('input');
+                var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'action';
                 input.value = 'delete_signature';
-                
                 form.appendChild(input);
                 document.body.appendChild(form);
                 form.submit();
@@ -590,10 +571,9 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
 
         // Handle reset parameter
         <?php if (isset($_GET['reset']) && in_array($_GET['reset'], ['template_html', 'template_html_sortie'], true)): ?>
-            // Set template to default
-            const defaultTemplate = <?= json_encode(getDefaultEtatLieuxTemplate()) ?>;
-            const editorId = '<?= htmlspecialchars($_GET['reset']) ?>';
-            CKEDITOR.instances[editorId].setData(defaultTemplate);
+            var defaultTemplate = <?= json_encode(getDefaultEtatLieuxTemplate()) ?>;
+            var gjsEditorToReset = '<?= htmlspecialchars($_GET['reset']) ?>' === 'template_html' ? gjsEditorEntry : gjsEditorSortie;
+            if (gjsEditorToReset) { gjsEditorToReset.setComponents(defaultTemplate); }
         <?php endif; ?>
     </script>
 </body>

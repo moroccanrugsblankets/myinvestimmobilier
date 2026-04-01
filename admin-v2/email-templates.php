@@ -64,8 +64,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- SortableJS for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -211,7 +211,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         
                         <div class="mb-3">
                             <label class="form-label">Corps HTML de l'email</label>
-                            <textarea name="corps_html" class="form-control code-editor" required><?php echo htmlspecialchars($template['corps_html']); ?></textarea>
+                            <div id="gjs-corps_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
+                            <textarea id="corps_html" name="corps_html" class="form-control code-editor"><?php echo htmlspecialchars($template['corps_html']); ?></textarea>
                             <small class="text-muted">Code HTML complet avec les styles inline. Les variables seront remplacées lors de l'envoi.</small>
                         </div>
                         
@@ -361,14 +362,8 @@ $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }, 3000);
         }
         
-        // Initialize CKEditor on the email body editor
-        CKEDITOR.replaceAll('code-editor', Object.assign({}, ckConfig, {
-            on: {
-                instanceReady: function() {
-                    console.log('CKEditor initialized successfully');
-                }
-            }
-        }));
+        // Initialize GrapesJS on the email body editor
+        initGrapesTemplateEditor('gjs-corps_html', 'corps_html', { height: '500px' });
     </script>
 </body>
 </html>

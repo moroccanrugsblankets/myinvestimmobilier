@@ -523,6 +523,7 @@ if (isset($_GET['edit'])) {
             <form method="POST" id="templateForm">
                 <input type="hidden" name="action" value="save_form_template">
                 <input type="hidden" name="form_id" value="<?php echo $currentForm['id']; ?>">
+                <div id="gjs-email_template_editor" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                 <textarea id="email_template_editor" name="email_template"><?php echo htmlspecialchars($templateToShow); ?></textarea>
                 <div class="mt-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
@@ -694,9 +695,9 @@ if (isset($_GET['edit'])) {
 </div><!-- /main-content -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- CKEditor 4 LTS (loaded only on form detail page where the template editor is shown) -->
+<!-- GrapesJS (loaded only on form detail page where the template editor is shown) -->
 <?php if ($currentForm): ?>
-<?php require_once '../includes/ckeditor-config.php'; ?>
+<?php require_once '../includes/grapesjs-config.php'; ?>
 <?php endif; ?>
 <script>
 // Auto-fill nom_champ from label
@@ -778,27 +779,17 @@ if (isset($_GET['edit'])) {
     }
 }());
 
-// ── CKEditor email template editor ─────────────────────────────────────────
+// ── GrapesJS email template editor ─────────────────────────────────────────
 <?php if ($currentForm): ?>
 (function () {
     var defaultTemplate = <?php echo $defaultTemplateJs; ?>;
 
-    if (typeof CKEDITOR === 'undefined') {
-        console.warn('CKEditor failed to load. The email template editor will not be available. Check the CDN URL or network connection.');
-        return;
-    }
+    var gjsEditorInstance = initGrapesTemplateEditor('gjs-email_template_editor', 'email_template_editor', { height: '450px' });
 
-    var editorInstance = CKEDITOR.replace('email_template_editor', Object.assign({}, ckConfig, {
-        height: 450,
-        on: {
-            change: function () { this.updateElement(); }
-        }
-    }));
-
-    // Insert variable at cursor position in CKEditor
+    // Insert variable as a new text component in GrapesJS
     window.insertTmplVar = function (variable) {
-        if (CKEDITOR.currentInstance) {
-            CKEDITOR.currentInstance.insertHtml(variable);
+        if (gjsEditorInstance) {
+            gjsEditorInstance.addComponents('<span>' + variable + '</span>');
         }
     };
 
@@ -807,19 +798,8 @@ if (isset($_GET['edit'])) {
     if (btnRestore) {
         btnRestore.addEventListener('click', function () {
             if (!confirm('Restaurer le template par défaut ? Le template actuel sera remplacé.')) return;
-            if (editorInstance) {
-                editorInstance.setData(defaultTemplate);
-                editorInstance.updateElement();
-            }
-        });
-    }
-
-    // Sync CKEditor before form submit
-    var templateForm = document.getElementById('templateForm');
-    if (templateForm) {
-        templateForm.addEventListener('submit', function () {
-            if (editorInstance) {
-                editorInstance.updateElement();
+            if (gjsEditorInstance) {
+                gjsEditorInstance.setComponents(defaultTemplate);
             }
         });
     }
