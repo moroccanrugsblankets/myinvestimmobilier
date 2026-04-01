@@ -25,6 +25,8 @@ window.ckConfig = {
     // Autoriser explicitement div, span avec classes, styles et attributs + balise style
     extraAllowedContent: 'div(*){*}[*];span(*){*}[*];style;table(*){*}[*];tr(*){*}[*];td(*){*}[*]',
     entities: false,
+    entities_latin: false,
+    basicEntities: false,
     entities_processNumerical: false,
     fillEmptyBlocks: false,
     toolbar: [
