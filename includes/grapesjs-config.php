@@ -1,6 +1,6 @@
 <?php
 /**
- * Centralized GrapesJS configuration avec bouton HTML.
+ * GrapesJS configuration avec bouton HTML fonctionnel.
  */
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/css/grapes.min.css">
@@ -8,9 +8,6 @@
 <script src="https://cdn.jsdelivr.net/npm/grapesjs-blocks-basic@1.0.2/dist/index.js"></script>
 
 <script>
-/**
- * Base GrapesJS options partagées par tous les éditeurs.
- */
 window.gjsConfig = {
     storageManager: false,
     height: '500px',
@@ -20,7 +17,6 @@ window.gjsConfig = {
             const pn = editor.Panels;
             const cmd = editor.Commands;
 
-            // Bouton dans la barre d’options
             pn.addButton('options', {
                 id: 'toggle-html',
                 className: 'fa fa-code',
@@ -28,7 +24,6 @@ window.gjsConfig = {
                 attributes: { title: 'Basculer en HTML' }
             });
 
-            // Commande toggle-html
             cmd.add('toggle-html', {
                 run(ed) {
                     const modal = ed.Modal;
@@ -58,7 +53,7 @@ window.gjsConfig = {
                             html = code.replace(cssMatch[0], '');
                         }
 
-                        // Utiliser le parser interne pour garder la structure GrapesJS
+                        // Parser le HTML pour garder la structure GrapesJS
                         const parsed = ed.Parser.parseHtml(html);
                         ed.setComponents(parsed.html);
                         if (css) ed.setStyle(css);
@@ -82,9 +77,6 @@ window.gjsConfig = {
     pluginsOpts: {},
 };
 
-/**
- * Fonction d’initialisation GrapesJS qui synchronise avec un <textarea>.
- */
 window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     var container = document.getElementById(containerId);
     var textarea  = document.getElementById(textareaId);
@@ -103,7 +95,8 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     // Charger contenu initial
     var initialHtml = textarea.value || '';
     if (initialHtml) {
-        editor.setComponents(editor.Parser.parseHtml(initialHtml).html);
+        const parsed = editor.Parser.parseHtml(initialHtml);
+        editor.setComponents(parsed.html);
     }
 
     // Synchroniser contenu → textarea lors du submit
