@@ -22,7 +22,8 @@ window.ckConfig = {
     height: 500,
     language: 'fr',
     allowedContent: true,
-    extraAllowedContent: '*(*)[*]{*}',
+    // Autoriser explicitement div, span avec classes, styles et attributs + balise style
+    extraAllowedContent: 'div(*){*}[*];span(*){*}[*];style;table(*){*}[*];tr(*){*}[*];td(*){*}[*]',
     entities: false,
     entities_processNumerical: false,
     fillEmptyBlocks: false,
@@ -34,7 +35,12 @@ window.ckConfig = {
         { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
         { name: 'tools',       items: ['Maximize'] }
     ],
-    contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+    // Charger un CSS externe pour interpréter les classes en mode édition
+    contentsCss: [
+        'body { font-family: Arial, sans-serif; font-size: 14px; }',
+        '/chemin/vers/ton-fichier.css'
+    ],
+    // Protéger les balises <style> pour qu’elles restent visibles en mode source
     protectedSource: [/<style[\s\S]*?<\/style>/gi],
     removePlugins: 'notification'
 };
