@@ -910,9 +910,12 @@ CKEDITOR.replaceAll('wysiwyg-editor', {
     language: 'fr',
     height: 200,
     toolbar: [
-        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'RemoveFormat'] },
-        { name: 'paragraph',   items: ['BulletedList', 'NumberedList'] },
-        { name: 'links',       items: ['Link', 'Unlink'] }
+        { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
+        { name: 'styles',      items: ['Format'] },
+        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
+        { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
+        { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
+        { name: 'tools',       items: ['Maximize'] }
     ],
     contentsCss: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }',
     removePlugins: 'notification',

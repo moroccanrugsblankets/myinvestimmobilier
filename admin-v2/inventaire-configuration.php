@@ -288,9 +288,9 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',
@@ -305,9 +305,9 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'BGColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 10pt; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; }',

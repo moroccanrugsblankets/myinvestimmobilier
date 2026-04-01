@@ -320,9 +320,9 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
             toolbar: [
                 { name: 'document',    items: ['Source', '-', 'Undo', 'Redo'] },
                 { name: 'styles',      items: ['Format'] },
-                { name: 'basicstyles', items: ['Bold', 'Italic', 'TextColor', 'RemoveFormat'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'TextColor', 'BGColor', 'RemoveFormat'] },
                 { name: 'paragraph',   items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BulletedList', 'NumberedList', '-', 'Outdent', 'Indent'] },
-                { name: 'insert',      items: ['Link', 'Unlink', 'Table'] },
+                { name: 'insert',      items: ['Link', 'Unlink', 'Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
                 { name: 'tools',       items: ['Maximize'] }
             ],
             contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
