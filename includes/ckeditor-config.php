@@ -35,6 +35,7 @@ window.ckConfig = {
         { name: 'tools',       items: ['Maximize'] }
     ],
     contentsCss: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+    protectedSource: [/<style[\s\S]*?<\/style>/gi],
     removePlugins: 'notification'
 };
 </script>
