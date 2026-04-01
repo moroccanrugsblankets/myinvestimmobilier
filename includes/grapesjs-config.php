@@ -27,7 +27,7 @@ window.gjsConfig = {
             // Bouton dans la barre d’options
             pn.addButton('options', {
                 id: 'toggle-html',
-                className: 'fa fa-file-html',
+                className: 'fa fa-file-code',
                 command: 'toggle-html',
                 attributes: { title: 'Basculer en HTML' }
             });
