@@ -53,10 +53,9 @@ window.gjsConfig = {
                             html = code.replace(cssMatch[0], '');
                         }
 
-                        // Parser le HTML pour garder la structure GrapesJS
-                        const parsed = ed.Parser.parseHtml(html);
-                        ed.setComponents(parsed.html);
-                        if (css) ed.setStyle(css);
+                        // Réinjecter proprement sans casser GrapesJS
+                        ed.setHtml(html);
+                        if (css) ed.setCss(css);
 
                         modal.close();
                     };
@@ -95,8 +94,7 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     // Charger contenu initial
     var initialHtml = textarea.value || '';
     if (initialHtml) {
-        const parsed = editor.Parser.parseHtml(initialHtml);
-        editor.setComponents(parsed.html);
+        editor.setHtml(initialHtml);
     }
 
     // Synchroniser contenu → textarea lors du submit
