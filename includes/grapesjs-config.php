@@ -62,6 +62,15 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     var config = Object.assign({}, window.gjsConfig, {
         container: '#' + containerId,
         fromElement: false,
+        plugins: ['grapesjs-plugin-code-editor'],
+    pluginsOpts: {
+      'grapesjs-plugin-code-editor': {
+        // Options du plugin
+        theme: 'monokai',   // thème du code
+        editHtml: true      // autoriser l’édition
+      }
+    },
+
     }, options || {});
 
     var editor = grapesjs.init(config);
