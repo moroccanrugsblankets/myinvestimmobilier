@@ -337,12 +337,7 @@ if ($mode === 'garant') {
 // MODE ASSURANCE : formulaire locataire (assurance + type garantie)
 // ================================================================
 elseif ($mode === 'assurance') {
-    // Si l'assurance a déjà été soumise, afficher directement le succès (anti-doublon)
-    if (!empty($contrat['assurance_habitation'])) {
-        $success = true;
-    }
-
-    if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
             $error = 'Token CSRF invalide.';
         } else {
