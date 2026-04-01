@@ -74,6 +74,7 @@ $contenu = getParameter('guide_reparations_contenu', '');
                     <div class="card-body">
                         <div class="mb-2">
                             <label class="form-label fw-semibold" for="guide_contenu">Contenu HTML</label>
+                            <div id="gjs-guide_contenu" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                             <textarea class="form-control" id="guide_contenu"
                                       name="guide_contenu" rows="30"><?php echo htmlspecialchars($contenu); ?></textarea>
                         </div>
@@ -92,9 +93,9 @@ $contenu = getParameter('guide_reparations_contenu', '');
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <script>
-    CKEDITOR.replace('guide_contenu', ckConfig);
+    initGrapesTemplateEditor('gjs-guide_contenu', 'guide_contenu', { height: '500px' });
     </script>
 </body>
 </html>

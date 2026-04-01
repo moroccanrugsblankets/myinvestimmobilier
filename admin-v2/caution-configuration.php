@@ -80,8 +80,7 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
     <title>Configuration Caution Solidaire – Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <!-- CKEditor 4 LTS -->
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .header {
@@ -211,6 +210,7 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
             <form method="POST" action="" id="mainForm">
                 <input type="hidden" name="action" value="update_template">
                 <div class="mb-3">
+                    <div id="gjs-template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea class="form-control code-editor"
                               id="template_html"
                               name="template_html"><?= htmlspecialchars($currentTemplate ?: $defaultTemplate) ?></textarea>
@@ -268,8 +268,7 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
         }
 
         function showPreview() {
-            const editorInstance = CKEDITOR.instances['template_html'];
-            const template = editorInstance ? editorInstance.getData() : document.getElementById('template_html').value;
+            const template = gjsEditor ? gjsEditor.getHtml() : document.getElementById('template_html').value;
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 
@@ -300,9 +299,8 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
 
         function resetToDefault() {
             if (confirm('Réinitialiser le template au modèle par défaut ?\n\nLes modifications non enregistrées seront perdues.')) {
-                const editorInstance = CKEDITOR.instances['template_html'];
-                if (editorInstance) {
-                    editorInstance.setData(defaultTemplate);
+                if (gjsEditor) {
+                    gjsEditor.setComponents(defaultTemplate);
                 } else {
                     document.getElementById('template_html').value = defaultTemplate;
                 }
@@ -312,8 +310,8 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
             }
         }
 
-        // Initialize CKEditor
-        CKEDITOR.replace('template_html', Object.assign({}, ckConfig, { height: 600 }));
+        // Initialize GrapesJS
+        var gjsEditor = initGrapesTemplateEditor('gjs-template_html', 'template_html', { height: '600px' });
     </script>
 </body>
 </html>

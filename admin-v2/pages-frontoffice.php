@@ -232,8 +232,7 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
     <title>Pages frontoffice — My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- GrapesJS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/css/grapes.min.css">
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <style>
         #gjs { height: 600px; border: 1px solid #dee2e6; border-radius: 6px; }
         .gjs-cv-canvas { width: 100%; }
@@ -500,9 +499,6 @@ $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- GrapesJS -->
-<script src="https://cdn.jsdelivr.net/npm/grapesjs@0.21.13/dist/grapes.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/grapesjs-blocks-basic@1.0.2/dist/index.js"></script>
 <script>
 // ── Auto-generate slug from title ─────────────────────────────────────────
 (function () {

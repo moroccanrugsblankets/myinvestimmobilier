@@ -68,7 +68,7 @@ if (empty($currentTemplate)) {
     <title>Configuration Décompte d'Intervention - Admin MyInvest</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <?php require_once '../includes/ckeditor-config.php'; ?>
+    <?php require_once '../includes/grapesjs-config.php'; ?>
     <?php require_once __DIR__ . '/includes/sidebar-styles.php'; ?>
     <style>
         .config-card {
@@ -198,11 +198,12 @@ if (empty($currentTemplate)) {
 
                 <div class="mb-3">
                     <label for="template_html" class="form-label">Code HTML du Template</label>
+                    <div id="gjs-template_html" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                     <textarea
                         id="template_html"
                         name="template_html"
                         aria-describedby="template_help"
-                        required><?php echo htmlspecialchars($currentTemplate); ?></textarea>
+                        ><?php echo htmlspecialchars($currentTemplate); ?></textarea>
                     <div id="template_help" class="form-text">
                         Le template doit être un document HTML complet avec les balises &lt;html&gt;, &lt;head&gt;, &lt;body&gt;.
                     </div>
@@ -297,8 +298,7 @@ if (empty($currentTemplate)) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialiser CKEditor
-        CKEDITOR.replace('template_html', Object.assign({}, ckConfig, { height: 600 }));
+        initGrapesTemplateEditor('gjs-template_html', 'template_html', { height: '600px' });
 
         // Copier dans le presse-papier
         (function () {
