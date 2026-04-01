@@ -874,7 +874,9 @@ $logementsDpe = $pdo->query("SELECT id, reference, adresse, COALESCE(dpe_file, '
 
         function showPreview(editorId) {
             const gjsEditor = gjsEditors[editorId];
-            const template = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            const css = gjsEditor ? gjsEditor.getCss() : '';
+            const html = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            const template = (css && css.trim()) ? '<style>' + css + '</style>' + html : html;
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 

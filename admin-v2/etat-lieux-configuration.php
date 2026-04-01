@@ -539,7 +539,9 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
 
         function showPreview(editorId, previewCardId) {
             var gjsEditor = editorId === 'template_html' ? gjsEditorEntry : gjsEditorSortie;
-            var content = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            var css = gjsEditor ? gjsEditor.getCss() : '';
+            var html = gjsEditor ? gjsEditor.getHtml() : (document.getElementById(editorId) ? document.getElementById(editorId).value : '');
+            var content = (css && css.trim()) ? '<style>' + css + '</style>' + html : html;
             var previewContentId = previewCardId === 'preview-card-sortie' ? 'preview-content-sortie' : 'preview-content';
             document.getElementById(previewContentId).innerHTML = content;
             document.getElementById(previewCardId).style.display = 'block';

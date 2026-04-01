@@ -786,10 +786,10 @@ if (isset($_GET['edit'])) {
 
     var gjsEditorInstance = initGrapesTemplateEditor('gjs-email_template_editor', 'email_template_editor', { height: '450px' });
 
-    // Insert variable at cursor position in GrapesJS
+    // Insert variable as a new text component in GrapesJS
     window.insertTmplVar = function (variable) {
         if (gjsEditorInstance) {
-            gjsEditorInstance.insertHtml(variable);
+            gjsEditorInstance.addComponents('<span>' + variable + '</span>');
         }
     };
 

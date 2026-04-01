@@ -268,7 +268,9 @@ $defaultTemplate = '<p style="text-align:center;"><strong style="font-size:16pt;
         }
 
         function showPreview() {
-            const template = gjsEditor ? gjsEditor.getHtml() : document.getElementById('template_html').value;
+            const css = gjsEditor ? gjsEditor.getCss() : '';
+            const html = gjsEditor ? gjsEditor.getHtml() : document.getElementById('template_html').value;
+            const template = (css && css.trim()) ? '<style>' + css + '</style>' + html : html;
             const previewCard = document.getElementById('preview-card');
             const previewContent = document.getElementById('preview-content');
 

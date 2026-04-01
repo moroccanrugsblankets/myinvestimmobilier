@@ -314,7 +314,8 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 return;
             }
             
-            var content = editor.getHtml() || '';
+                        var css = editor.getCss() || '';
+            var content = (css && css.trim()) ? '<style>' + css + '</style>' + (editor.getHtml() || '') : (editor.getHtml() || '');
             // Map preview card IDs to their corresponding content IDs
             const contentIdMap = {
                 'preview-card-entree': 'preview-content-entree',
