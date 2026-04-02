@@ -34,7 +34,7 @@ window.gjsBuildCombined = function (html, css) {
 
 // Supprime le wrapper <body>…</body> que GrapesJS ajoute autour du contenu.
 window.gjsStripBody = function (html) {
-    return html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '').trim();
+    return html.replace(/<body[^>]*>/i, '').replace(/<\/body>/i, '').trim();
 };
 
 window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
