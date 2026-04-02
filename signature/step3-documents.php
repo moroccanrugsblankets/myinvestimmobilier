@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $lienUpload = $config['SITE_URL'] . '/envoyer-justificatif.php?token=' . $contrat['token_signature'];
                                     
                                     // Préparer le lien vers le contrat signé (visualisation en ligne)
-                                    $lienContratSigne = $config['SITE_URL'] . '/pdf/download.php?contrat_id=' . $contratId . '&view=1';
+                                    $lienContratSigne = $config['SITE_URL'] . '/pdf/contrats/bail-' . basename($contrat['reference_unique']) . '.pdf';
 
                                     // Préparer les variables pour le template
                                     $variables = [
