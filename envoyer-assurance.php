@@ -58,6 +58,12 @@ if ($mode === 'assurance' && $contrat['statut'] !== 'valide') {
 
 $error        = '';
 $success      = false;
+// Flash PRG : récupérer le succès de la soumission assurance après redirection
+$sessionKey = 'assurance_success_' . md5($token);
+if (!empty($_SESSION[$sessionKey])) {
+    $success = true;
+    unset($_SESSION[$sessionKey]);
+}
 $currentStep  = '';  // utilisé en mode garant
 
 // ================================================================
@@ -516,7 +522,8 @@ elseif ($mode === 'assurance') {
                         }
 
                         $success = true;
-                        // PRG : rediriger pour éviter la re-soumission du formulaire
+                        // PRG : stocker le succès en session puis rediriger pour éviter la re-soumission du formulaire
+                        $_SESSION['assurance_success_' . md5($token)] = true;
                         header('Location: envoyer-assurance.php?token=' . urlencode($token));
                         exit;
                     }

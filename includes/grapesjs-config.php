@@ -32,6 +32,11 @@ window.gjsBuildCombined = function (html, css) {
     return '<style>\n' + css + '\n</style>\n' + html;
 };
 
+// Supprime le wrapper <body>…</body> que GrapesJS ajoute autour du contenu.
+window.gjsStripBody = function (html) {
+    return html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '').trim();
+};
+
 window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     var container = document.getElementById(containerId);
     var textarea  = document.getElementById(textareaId);
@@ -98,11 +103,9 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     // Fonctions de bascule
     function switchToVisual() {
         var raw = rawTextarea.value;
-        if (raw) {
-            var parsed = window.gjsExtractStyles(raw);
-            editor.setStyle(parsed.css || '');
-            editor.setComponents(parsed.html);
-        }
+        var parsed = window.gjsExtractStyles(raw);
+        editor.setStyle(parsed.css || '');
+        editor.setComponents(parsed.html || '');
         container.style.display = '';
         rawWrapper.style.display = 'none';
         btnVisual.classList.add('active');
@@ -110,7 +113,8 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     }
 
     function switchToRaw() {
-        rawTextarea.value = window.gjsBuildCombined(editor.getHtml() || '', editor.getCss() || '');
+        var html = window.gjsStripBody(editor.getHtml() || '');
+        rawTextarea.value = window.gjsBuildCombined(html, editor.getCss() || '');
         container.style.display = 'none';
         rawWrapper.style.display = 'block';
         btnVisual.classList.remove('active');
@@ -129,7 +133,7 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
             if (isRaw) {
                 textarea.value = rawTextarea.value;
             } else {
-                textarea.value = window.gjsBuildCombined(editor.getHtml() || '', editor.getCss() || '');
+                textarea.value = window.gjsBuildCombined(window.gjsStripBody(editor.getHtml() || ''), editor.getCss() || '');
             }
         }, true);
     }
