@@ -816,7 +816,7 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
                     </div>
                     <div class="modal-body p-0" style="height:75vh;">
                         <iframe id="iframeApercuDocument"
-                                src=""
+                                src="about:blank"
                                 style="width:100%;height:100%;border:none;"
                                 title="Aperçu du document de caution solidaire"></iframe>
                     </div>
@@ -1095,7 +1095,7 @@ window.addEventListener('DOMContentLoaded', function () {
         modal.addEventListener('show.bs.modal', function () {
             if (!iframeLoaded) {
                 document.getElementById('iframeApercuDocument').src =
-                    'apercu-caution.php?token=<?= urlencode($token) ?>';
+                    'apercu-caution.php?token=' + <?= json_encode(urlencode($token)) ?>;
                 iframeLoaded = true;
             }
         });

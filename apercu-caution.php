@@ -92,7 +92,13 @@ $bannerStyle = 'background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107
 $bannerHtml  = '<div style="' . $bannerStyle . '">⚠ Aperçu du document – Ce document sera finalisé après votre signature électronique.</div>';
 
 // Injecter la bannière juste après <body>
-$html = preg_replace('/<body[^>]*>/i', '$0' . $bannerHtml, $html, 1);
+$htmlWithBanner = preg_replace('/<body[^>]*>/i', '$0' . $bannerHtml, $html, 1);
+if ($htmlWithBanner !== null && $htmlWithBanner !== $html) {
+    $html = $htmlWithBanner;
+} else {
+    // Fallback : ajouter la bannière au début du contenu
+    $html = $bannerHtml . $html;
+}
 
 header('Content-Type: text/html; charset=UTF-8');
 header('X-Frame-Options: SAMEORIGIN');
