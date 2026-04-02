@@ -818,6 +818,7 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
         </div>
 
         <!-- Modal aperçu du document de caution solidaire -->
+            
         <div class="modal fade" id="modalApercuDocument" tabindex="-1" aria-labelledby="modalApercuDocumentLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl modal-dialog-scrollable">
                 <div class="modal-content">
@@ -825,12 +826,18 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
                         <h5 class="modal-title" id="modalApercuDocumentLabel">Aperçu du document de caution solidaire</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                     </div>
+                    <?php /*
                     <div class="modal-body p-0" style="height:75vh;">
                         <iframe id="iframeApercuDocument"
                                 src="about:blank"
                                 style="width:100%;height:100%;border:none;"
                                 title="Aperçu du document de caution solidaire"></iframe>
                     </div>
+                    */  ?>
+                    <div class="modal-body" style="height:75vh; overflow-y:auto; padding:20px;">
+                        <div id="apercuContratContent"></div>
+                    </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
                     </div>
@@ -1096,22 +1103,30 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
 <?php if ($mode === 'garant' && $currentStep === 'signature'): ?>
 <script src="assets/js/signature.js"></script>
 <script>
-window.addEventListener('DOMContentLoaded', function () {
+    window.addEventListener('DOMContentLoaded', function () {
     initSignature();
 
-    // Charger l'aperçu du document dans l'iframe au premier affichage du modal
     const apercuModal = document.getElementById('modalApercuDocument');
     if (apercuModal) {
-        let iframeLoaded = false;
+        let contenuCharge = false;
         apercuModal.addEventListener('show.bs.modal', function () {
-            if (!iframeLoaded) {
-                document.getElementById('iframeApercuDocument').src =
-                    'apercu-caution.php?token=' + <?= json_encode(urlencode($token)) ?>;
-                iframeLoaded = true;
+            if (!contenuCharge) {
+                fetch('apercu-caution.php?token=' + <?= json_encode(urlencode($token)) ?>)
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('apercuContratContent').innerHTML = html;
+                        contenuCharge = true;
+                    })
+                    .catch(err => {
+                        document.getElementById('apercuContratContent').innerHTML =
+                            '<div class="alert alert-danger">Impossible de charger l’aperçu du contrat.</div>';
+                        console.error(err);
+                    });
             }
         });
     }
 });
+
 document.getElementById('signatureForm').addEventListener('submit', function (e) {
     var sigData = getSignatureData();
     if (!sigData || sigData === getEmptyCanvasData()) {
@@ -1121,6 +1136,7 @@ document.getElementById('signatureForm').addEventListener('submit', function (e)
     }
     document.getElementById('signature_data').value = sigData;
 });
+    
 </script>
 <?php endif; ?>
 
