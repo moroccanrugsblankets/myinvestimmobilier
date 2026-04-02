@@ -546,6 +546,14 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
     <title>Documents requis – My Invest Immobilier</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        /* Aperçu modal – responsive */
+        @media (max-width: 767.98px) {
+            #modalApercuDocument .modal-dialog { margin: 0; max-width: 100%; height: 100%; }
+            #modalApercuDocument .modal-content { height: 100%; border-radius: 0; }
+            #modalApercuDocument .modal-body { height: calc(100vh - 120px) !important; }
+        }
+    </style>
 </head>
 <body>
 <div class="container mt-5 mb-5">
@@ -755,14 +763,17 @@ $postTypeGarantie = htmlspecialchars($_POST['type_garantie'] ?? 'visale', ENT_QU
 
                 <p>En signant, vous confirmez votre engagement en tant que caution solidaire pour ce contrat de location.</p>
 
-                <div class="mb-4">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalApercuDocument">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye me-1" viewBox="0 0 16 16">
+                <div class="text-center mb-4">
+                    <button type="button" class="btn btn-warning btn-lg fw-semibold shadow-sm px-4"
+                            data-bs-toggle="modal" data-bs-target="#modalApercuDocument"
+                            style="font-size:1.05rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-eye me-2" viewBox="0 0 16 16">
                             <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
                             <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
                         </svg>
-                        Voir l'aperçu du document avant signature
+                        Voir l'aperçu du contrat avant signature
                     </button>
+                    <p class="text-muted small mt-2 mb-0">Consultez le document complet avant de signer.</p>
                 </div>
 
                 <?php if ($error): ?>
@@ -1089,10 +1100,10 @@ window.addEventListener('DOMContentLoaded', function () {
     initSignature();
 
     // Charger l'aperçu du document dans l'iframe au premier affichage du modal
-    var modal = document.getElementById('modalApercuDocument');
-    if (modal) {
-        var iframeLoaded = false;
-        modal.addEventListener('show.bs.modal', function () {
+    const apercuModal = document.getElementById('modalApercuDocument');
+    if (apercuModal) {
+        let iframeLoaded = false;
+        apercuModal.addEventListener('show.bs.modal', function () {
             if (!iframeLoaded) {
                 document.getElementById('iframeApercuDocument').src =
                     'apercu-caution.php?token=' + <?= json_encode(urlencode($token)) ?>;
@@ -1146,5 +1157,6 @@ document.getElementById('signatureForm').addEventListener('submit', function (e)
 </script>
 <?php endif; ?>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
