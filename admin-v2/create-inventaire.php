@@ -6,7 +6,6 @@ require_once '../includes/inventaire-standard-items.php';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $logement_id = (int)$_POST['logement_id'];
     $type = $_POST['type'];
     $date_inventaire = $_POST['date_inventaire'];
     
@@ -34,39 +33,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // Get logement info
-    $stmt = $pdo->prepare("
-        SELECT l.*
-        FROM logements l
-        WHERE l.id = ?
-    ");
-    $stmt->execute([$logement_id]);
-    $logement = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$logement) {
-        $_SESSION['error'] = "Logement introuvable";
-        header('Location: inventaires.php');
-        exit;
+    // Resolve contract: use explicit contrat_id if provided, otherwise fall back to logement_id lookup
+    if (!empty($_POST['contrat_id'])) {
+        $contrat_id = (int)$_POST['contrat_id'];
+        $stmt = $pdo->prepare("SELECT * FROM contrats WHERE id = ?");
+        $stmt->execute([$contrat_id]);
+        $contrat = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$contrat) {
+            $_SESSION['error'] = "Contrat introuvable";
+            header('Location: inventaires.php');
+            exit;
+        }
+        
+        $logement_id = $contrat['logement_id'];
+        
+        $stmt = $pdo->prepare("SELECT * FROM logements WHERE id = ?");
+        $stmt->execute([$logement_id]);
+        $logement = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$logement) {
+            $_SESSION['error'] = "Logement introuvable";
+            header('Location: inventaires.php');
+            exit;
+        }
+    } else {
+        $logement_id = (int)$_POST['logement_id'];
+        
+        // Get logement info
+        $stmt = $pdo->prepare("SELECT l.* FROM logements l WHERE l.id = ?");
+        $stmt->execute([$logement_id]);
+        $logement = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$logement) {
+            $_SESSION['error'] = "Logement introuvable";
+            header('Location: inventaires.php');
+            exit;
+        }
+        
+        // Find the active contract for this logement
+        $stmt = $pdo->prepare("
+            SELECT c.*
+            FROM contrats c
+            WHERE c.logement_id = ? AND c.statut = 'valide'
+            ORDER BY c.date_creation DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$logement_id]);
+        $contrat = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$contrat) {
+            $_SESSION['error'] = "Aucun contrat validé trouvé pour ce logement";
+            header('Location: inventaires.php');
+            exit;
+        }
+        
+        $contrat_id = $contrat['id'];
     }
-    
-    // Find the active contract for this logement
-    $stmt = $pdo->prepare("
-        SELECT c.*
-        FROM contrats c
-        WHERE c.logement_id = ? AND c.statut = 'valide'
-        ORDER BY c.date_creation DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$logement_id]);
-    $contrat = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$contrat) {
-        $_SESSION['error'] = "Aucun contrat validé trouvé pour ce logement";
-        header('Location: inventaires.php');
-        exit;
-    }
-    
-    $contrat_id = $contrat['id'];
     
     // Get tenant(s) from contract
     $stmt = $pdo->prepare("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 2");
