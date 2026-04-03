@@ -104,14 +104,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $adminInfo = fetchOne("SELECT nom, prenom FROM administrateurs WHERE id = ?", [$adminId]);
         $adminName = $adminInfo ? $adminInfo['prenom'] . ' ' . $adminInfo['nom'] : 'Administrateur';
         
-        // Generate a unique token for the assurance/visale upload link
-        $tokenAssurance = bin2hex(random_bytes(32));
-        $pdo->prepare("UPDATE contrats SET token_assurance = ? WHERE id = ?")->execute([$tokenAssurance, $contractId]);
+        // Generate a unique token per tenant for the assurance/visale upload link.
+        // Store per-tenant token in locataires.token_assurance when the column exists
+        // (migration 130), otherwise fall back to a single contract-level token.
+        $hasLocataireTokenCol = false;
+        try {
+            $colCheck2 = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'token_assurance'");
+            $hasLocataireTokenCol = (bool)$colCheck2->fetch();
+        } catch (\Exception $e) { /* ignore */ }
 
         // Send email to all tenants with admin notification in Cc (isAdminEmail parameter enables Cc to admins)
         if (!empty($locataires)) {
-            $lienAssurance = BASE_URL . '/envoyer-assurance.php?token=' . $tokenAssurance;
             foreach ($locataires as $locataire) {
+                // Generate a unique token per tenant when supported, else one shared token
+                $tokenAssurance = bin2hex(random_bytes(32));
+                if ($hasLocataireTokenCol) {
+                    $pdo->prepare("UPDATE locataires SET token_assurance = ? WHERE id = ?")->execute([$tokenAssurance, $locataire['id']]);
+                } else {
+                    // Fallback: store on contrats (overwrites for each tenant – same as before)
+                    $pdo->prepare("UPDATE contrats SET token_assurance = ? WHERE id = ?")->execute([$tokenAssurance, $contractId]);
+                }
+                $lienAssurance = BASE_URL . '/envoyer-assurance.php?token=' . $tokenAssurance;
                 sendTemplatedEmail('contrat_valide_client', $locataire['email'], [
                     'nom' => $locataire['nom'],
                     'prenom' => $locataire['prenom'],
@@ -320,48 +333,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     // ---- Garantie: envoyer le lien "déclarer un garant" au locataire ----
     if ($_POST['action'] === 'send_garantie_link') {
-        // Générer (ou mettre à jour) le token_garantie du contrat
-        $newTokenGarantie = bin2hex(random_bytes(32));
+        // Check if per-tenant token_garantie column exists (migration 130)
+        $hasLocataireTokenGarantieCol = false;
+        try {
+            $colCheckLoc = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'token_garantie'");
+            $hasLocataireTokenGarantieCol = (bool)$colCheckLoc->fetch();
+        } catch (\Exception $e) { /* ignore */ }
 
-        // Check if token_garantie column exists (migration 126)
+        // Check if contract-level token_garantie column exists (migration 126)
+        $hasContratTokenGarantieCol = false;
         $colCheck = $pdo->query("
             SELECT COLUMN_NAME FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'contrats'
             AND COLUMN_NAME = 'token_garantie'
         ");
         if ($colCheck->fetch()) {
-            $pdo->prepare("UPDATE contrats SET token_garantie = ? WHERE id = ?")
-                ->execute([$newTokenGarantie, $contractId]);
+            $hasContratTokenGarantieCol = true;
+        }
 
-            $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC", [$contractId]);
+        if (!$hasContratTokenGarantieCol && !$hasLocataireTokenGarantieCol) {
+            $_SESSION['error'] = "La migration 126 n'a pas encore été exécutée.";
+            header('Location: contrat-detail.php?id=' . $contractId);
+            exit;
+        }
+
+        $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC", [$contractId]);
+        $refRow = fetchOne("SELECT reference_unique FROM contrats WHERE id = ?", [$contractId]);
+        $refUnique = $refRow ? $refRow['reference_unique'] : $contractId;
+
+        foreach ($locataires as $loc) {
+            if (empty($loc['email'])) continue;
+
+            // Generate a unique token per tenant when supported
+            $newTokenGarantie = bin2hex(random_bytes(32));
+            if ($hasLocataireTokenGarantieCol) {
+                $pdo->prepare("UPDATE locataires SET token_garantie = ? WHERE id = ?")
+                    ->execute([$newTokenGarantie, $loc['id']]);
+            } else {
+                // Fallback: store on contrats (overwrites for each tenant – same as before)
+                $pdo->prepare("UPDATE contrats SET token_garantie = ? WHERE id = ?")
+                    ->execute([$newTokenGarantie, $contractId]);
+            }
+
             $lienGarantie = $config['SITE_URL'] . '/garant/index.php?token=' . $newTokenGarantie;
 
-            foreach ($locataires as $loc) {
-                if (empty($loc['email'])) continue;
-                sendTemplatedEmail('garant_confirmation_locataire', $loc['email'], [
-                    'prenom_locataire' => $loc['prenom'],
-                    'nom_locataire'    => $loc['nom'],
-                    'prenom_garant'    => '(à renseigner)',
-                    'nom_garant'       => '',
-                    'email_garant'     => '',
-                    'email_contact'    => $config['COMPANY_EMAIL'] ?? getAdminEmail(),
-                ], null, false, false, ['contexte' => 'contrat_id=' . $contractId]);
-                // Envoyer directement le lien au locataire via email simple (texte)
-                $refRow = fetchOne("SELECT reference_unique FROM contrats WHERE id = ?", [$contractId]);
-                $refUnique = $refRow ? $refRow['reference_unique'] : $contractId;
-                sendMail($loc['email'],
-                    'Déclarez votre garant – ' . $refUnique,
-                    '<p>Bonjour ' . htmlspecialchars($loc['prenom']) . ',</p>'
-                    . '<p>Veuillez déclarer votre garant en suivant ce lien sécurisé :</p>'
-                    . '<p><a href="' . htmlspecialchars($lienGarantie) . '">' . htmlspecialchars($lienGarantie) . '</a></p>',
-                    null, true
-                );
-            }
-            logAction($contractId, 'garantie_lien_envoye', 'Token: ' . $newTokenGarantie);
-            $_SESSION['success'] = "Lien de déclaration de garant envoyé au(x) locataire(s).";
-        } else {
-            $_SESSION['error'] = "La migration 126 n'a pas encore été exécutée.";
+            sendTemplatedEmail('garant_confirmation_locataire', $loc['email'], [
+                'prenom_locataire' => $loc['prenom'],
+                'nom_locataire'    => $loc['nom'],
+                'prenom_garant'    => '(à renseigner)',
+                'nom_garant'       => '',
+                'email_garant'     => '',
+                'email_contact'    => $config['COMPANY_EMAIL'] ?? getAdminEmail(),
+            ], null, false, false, ['contexte' => 'contrat_id=' . $contractId]);
+
+            sendMail($loc['email'],
+                'Déclarez votre garant – ' . $refUnique,
+                '<p>Bonjour ' . htmlspecialchars($loc['prenom']) . ',</p>'
+                . '<p>Veuillez déclarer votre garant en suivant ce lien sécurisé :</p>'
+                . '<p><a href="' . htmlspecialchars($lienGarantie) . '">' . htmlspecialchars($lienGarantie) . '</a></p>',
+                null, true
+            );
         }
+        logAction($contractId, 'garantie_lien_envoye', 'Tokens générés par locataire (' . count($locataires) . ')');
+        $_SESSION['success'] = "Lien de déclaration de garant envoyé au(x) locataire(s).";
         header('Location: contrat-detail.php?id=' . $contractId);
         exit;
     }
@@ -402,7 +436,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
         if ($garant) {
             $lienGarant    = $config['SITE_URL'] . '/envoyer-assurance.php?token=' . urlencode($garant['token_garant']);
             $emailContact  = $config['COMPANY_EMAIL'] ?? getAdminEmail();
-            $locataire     = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
+            // Use the specific locataire linked to this garant when available (migration 130)
+            if (!empty($garant['locataire_id'])) {
+                $locataire = fetchOne("SELECT * FROM locataires WHERE id = ?", [$garant['locataire_id']]);
+            } else {
+                $locataire = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
+            }
             $contratInfo   = fetchOne("SELECT l.adresse FROM contrats c INNER JOIN logements l ON c.logement_id = l.id WHERE c.id = ?", [$contractId]);
             sendTemplatedEmail('garant_invitation', $garant['email'], [
                 'prenom_garant'    => $garant['prenom'],
@@ -978,17 +1017,153 @@ if ($contrat['validated_by']) {
              Section Garant / Garantie
              ========================================================= -->
         <?php
-        $garantContrat = getGarantByContratId($contractId);
+        // Build per-tenant garant map (requires migration 130 – locataire_id in garants)
+        // Falls back to single contract-level garant for backward compatibility.
+        $allGarantsContrat  = getAllGarantsByContratId($contractId);
+        $garantParLocataire = []; // locataire_id => garant row
+        foreach ($allGarantsContrat as $g) {
+            if (!empty($g['locataire_id']) && !isset($garantParLocataire[$g['locataire_id']])) {
+                $garantParLocataire[$g['locataire_id']] = $g;
+            }
+        }
+        // Backward compat: contract-level garant (locataire_id IS NULL)
+        $garantContrat = null;
+        foreach ($allGarantsContrat as $g) {
+            if (empty($g['locataire_id'])) {
+                $garantContrat = $g;
+                break;
+            }
+        }
+        $anyGarant = !empty($garantParLocataire) || $garantContrat;
+
+        // Helper to render a single garant's details
+        function renderGarantDetails(array $g, int $contractId, string $sitUrl): void {
         ?>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <p class="mb-1">
+                        <strong>Type :</strong>
+                        <?= $g['type_garantie'] === 'visale' ? 'Institutionnelle (ex: Visale)' : 'Solidaire (personne physique)' ?>
+                    </p>
+                    <?php if ($g['type_garantie'] === 'caution_solidaire'): ?>
+                    <p class="mb-1">
+                        <strong>Statut :</strong>
+                        <span class="badge <?= htmlspecialchars(getGarantStatutBadgeClass($g['statut'])) ?>">
+                            <?= htmlspecialchars(formatGarantStatut($g['statut'])) ?>
+                        </span>
+                    </p>
+                    <?php if (!empty($g['date_envoi_invitation'])): ?>
+                    <p class="mb-1 text-muted small">
+                        Invitation envoyée le <?= date('d/m/Y à H:i', strtotime($g['date_envoi_invitation'])) ?>
+                    </p>
+                    <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <?php if ($g['type_garantie'] === 'caution_solidaire'): ?>
+                <div class="col-md-6">
+                    <p class="mb-1">
+                        <strong>Garant :</strong>
+                        <?= htmlspecialchars($g['prenom'] . ' ' . $g['nom']) ?>
+                    </p>
+                    <?php if (!empty($g['date_naissance'])): ?>
+                    <p class="mb-1">
+                        <strong>Né(e) le :</strong>
+                        <?= htmlspecialchars(date('d/m/Y', strtotime($g['date_naissance']))) ?>
+                    </p>
+                    <?php endif; ?>
+                    <p class="mb-1">
+                        <strong>Email :</strong>
+                        <?= htmlspecialchars($g['email'] ?? '') ?>
+                    </p>
+                    <?php if (!empty($g['adresse'])): ?>
+                    <p class="mb-1">
+                        <strong>Adresse :</strong>
+                        <?= htmlspecialchars($g['adresse'] . ', ' . $g['code_postal'] . ' ' . $g['ville']) ?>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <?php elseif ($g['type_garantie'] === 'visale'): ?>
+                <div class="col-md-6">
+                    <?php if (!empty($g['numero_visale'])): ?>
+                    <p class="mb-1">
+                        <strong>Numéro Visale :</strong>
+                        <?= htmlspecialchars($g['numero_visale']) ?>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($g['type_garantie'] === 'caution_solidaire' && !empty($g['signature_timestamp'])): ?>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <p class="mb-1 text-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Signé électroniquement</strong> le
+                        <?= date('d/m/Y à H:i', strtotime($g['signature_timestamp'])) ?>
+                    </p>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php
+            // Documents
+            $visaleDocToShow = ($g['type_garantie'] === 'visale')
+                ? (!empty($g['document_visale']) ? $g['document_visale'] : '')
+                : '';
+            $hasGarantDocs = !empty($g['piece_identite'])
+                          || !empty($g['document_caution'])
+                          || !empty($visaleDocToShow);
+            if ($hasGarantDocs): ?>
+            <h6 class="mt-3"><i class="bi bi-files"></i> Documents</h6>
+            <div class="row mt-2">
+                <?php
+                if (!empty($g['document_caution'])) {
+                    $cautionPath = $g['document_caution'];
+                    $expectedDir = realpath(dirname(__DIR__) . '/pdf/cautions');
+                    $fullPath    = realpath(dirname(__DIR__) . '/' . $cautionPath);
+                    if ($expectedDir !== false && $fullPath !== false && strpos($fullPath, $expectedDir . DIRECTORY_SEPARATOR) === 0) {
+                        $relativeSafe = 'pdf/cautions/' . basename($cautionPath);
+                        echo '<div class="col-md-4 mb-3">';
+                        echo '<div class="card"><div class="card-body">';
+                        echo '<h6 class="card-title"><i class="bi bi-file-earmark-check"></i> Document de caution solidaire</h6>';
+                        echo '<a href="' . htmlspecialchars('../' . $relativeSafe) . '" class="btn btn-sm btn-primary" target="_blank">';
+                        echo '<i class="bi bi-eye"></i> Consulter</a>';
+                        echo '</div></div></div>';
+                    }
+                }
+                if (!empty($g['piece_identite'])) {
+                    renderDocumentCard($g['piece_identite'], "Pièce d'identité du garant", 'card-image');
+                }
+                if (!empty($visaleDocToShow)) {
+                    renderDocumentCard($visaleDocToShow, 'Visa certifié Visale', 'patch-check');
+                }
+                ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- Renvoyer le lien au garant -->
+            <?php if ($g['type_garantie'] === 'caution_solidaire'
+                   && in_array($g['statut'], ['en_attente_garant', 'engage'], true)): ?>
+            <div class="mt-3">
+                <a href="?id=<?= $contractId ?>&action=resend_garant_invite&garant_id=<?= (int)$g['id'] ?>"
+                   class="btn btn-outline-primary btn-sm"
+                   onclick="return confirm('Renvoyer l\'invitation au garant ?');">
+                    <i class="bi bi-envelope-arrow-up"></i> Renvoyer l'invitation au garant
+                </a>
+            </div>
+            <?php endif; ?>
+        <?php
+        } // end renderGarantDetails()
+        ?>
+
         <div class="detail-card mt-4">
             <h5><i class="bi bi-shield-lock"></i> Garant / Garantie</h5>
 
             <?php
-            // Documents assurance habitation et Visale (stockés dans contrats)
+            // Documents assurance habitation et Visale (stockés dans contrats – héritage)
             $hasAssuranceHabitation = !empty($contrat['assurance_habitation']);
-            // Ne pas afficher le visa/numéro Visale de la table contrats si un garant Visale existe
-            // déjà dans la table garants (section 2 le prend en charge).
-            $hasVisaCertifie        = !empty($contrat['visa_certifie']) && !$garantContrat;
+            $hasVisaCertifie        = !empty($contrat['visa_certifie']) && !$anyGarant;
             if ($hasAssuranceHabitation || $hasVisaCertifie): ?>
             <div class="mb-4">
                 <h6><i class="bi bi-shield-check"></i> Assurance habitation<?php if ($hasVisaCertifie): ?> &amp; Visale<?php endif; ?></h6>
@@ -997,7 +1172,7 @@ if ($contrat['validated_by']) {
                         Envoyé le <?php echo date('d/m/Y à H:i', strtotime($contrat['date_envoi_assurance'])); ?>
                     </p>
                 <?php endif; ?>
-                <?php if (!empty($contrat['numero_visale']) && !$garantContrat): ?>
+                <?php if (!empty($contrat['numero_visale']) && !$anyGarant): ?>
                     <p class="mb-2"><strong>Numéro Visale :</strong> <?php echo htmlspecialchars($contrat['numero_visale']); ?></p>
                 <?php endif; ?>
                 <div class="row mt-2">
@@ -1013,144 +1188,62 @@ if ($contrat['validated_by']) {
             </div>
             <?php endif; ?>
 
-            <?php if (!$garantContrat): ?>
-                <p class="text-muted mb-3">Aucun garant déclaré pour ce contrat.</p>
-            <?php else: ?>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <p class="mb-1">
-                            <strong>Type :</strong>
-                            <?= $garantContrat['type_garantie'] === 'visale' ? 'Institutionnelle (ex: Visale)' : 'Solidaire (personne physique)' ?>
-                        </p>
-                        <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
-                        <p class="mb-1">
-                            <strong>Statut :</strong>
-                            <span class="badge <?= htmlspecialchars(getGarantStatutBadgeClass($garantContrat['statut'])) ?>">
-                                <?= htmlspecialchars(formatGarantStatut($garantContrat['statut'])) ?>
-                            </span>
-                        </p>
-                        <?php if (!empty($garantContrat['date_envoi_invitation'])): ?>
-                        <p class="mb-1 text-muted small">
-                            Invitation envoyée le <?= date('d/m/Y à H:i', strtotime($garantContrat['date_envoi_invitation'])) ?>
-                        </p>
-                        <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                    <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'): ?>
-                    <div class="col-md-6">
-                        <p class="mb-1">
-                            <strong>Garant :</strong>
-                            <?= htmlspecialchars($garantContrat['prenom'] . ' ' . $garantContrat['nom']) ?>
-                        </p>
-                        <?php if (!empty($garantContrat['date_naissance'])): ?>
-                        <p class="mb-1">
-                            <strong>Né(e) le :</strong>
-                            <?= htmlspecialchars(date('d/m/Y', strtotime($garantContrat['date_naissance']))) ?>
-                        </p>
-                        <?php endif; ?>
-                        <p class="mb-1">
-                            <strong>Email :</strong>
-                            <?= htmlspecialchars($garantContrat['email'] ?? '') ?>
-                        </p>
-                        <?php if (!empty($garantContrat['adresse'])): ?>
-                        <p class="mb-1">
-                            <strong>Adresse :</strong>
-                            <?= htmlspecialchars($garantContrat['adresse'] . ', ' . $garantContrat['code_postal'] . ' ' . $garantContrat['ville']) ?>
-                        </p>
-                        <?php endif; ?>
-                    </div>
-                    <?php elseif ($garantContrat['type_garantie'] === 'visale'): ?>
-                    <div class="col-md-6">
-                        <?php if (!empty($garantContrat['numero_visale'])): ?>
-                        <p class="mb-1">
-                            <strong>Numéro Visale :</strong>
-                            <?= htmlspecialchars($garantContrat['numero_visale']) ?>
-                        </p>
-                        <?php endif; ?>
-                    </div>
+            <?php
+            // ── Per-tenant garant display ──────────────────────────────────
+            if (!empty($locataires)):
+                foreach ($locataires as $loc):
+                    $garantLoc = $garantParLocataire[$loc['id']] ?? null;
+                    // If per-tenant garant not found, also check fallback contract-level garant
+                    // for the first tenant (backward compat with single-tenant contracts)
+                    if (!$garantLoc && $loc['ordre'] == 1 && $garantContrat) {
+                        $garantLoc = $garantContrat;
+                    }
+            ?>
+            <div class="border rounded p-3 mb-3">
+                <h6 class="mb-3">
+                    <i class="bi bi-person-circle"></i>
+                    Locataire <?= (int)$loc['ordre'] ?> –
+                    <?= htmlspecialchars($loc['prenom'] . ' ' . $loc['nom']) ?>
+                    <small class="text-muted fw-normal">(<?= htmlspecialchars($loc['email']) ?>)</small>
+                </h6>
+
+                <?php if ($garantLoc): ?>
+                    <?php renderGarantDetails($garantLoc, $contractId, $config['SITE_URL']); ?>
+                <?php else: ?>
+                    <p class="text-muted mb-2">Aucun garant déclaré pour ce locataire.</p>
+                    <?php if (in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)): ?>
+                    <form method="POST" action="" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                        <input type="hidden" name="action" value="send_garantie_link">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-send"></i> Envoyer le lien "Déclarer un garant"
+                        </button>
+                    </form>
                     <?php endif; ?>
-                </div>
-
-                <?php if ($garantContrat['type_garantie'] === 'caution_solidaire' &&
-                          !empty($garantContrat['signature_timestamp'])): ?>
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <p class="mb-1 text-success">
-                            <i class="bi bi-check-circle"></i>
-                            <strong>Signé électroniquement</strong> le
-                            <?= date('d/m/Y à H:i', strtotime($garantContrat['signature_timestamp'])) ?>
-                        </p>
-                    </div>
-                </div>
                 <?php endif; ?>
-
-                <!-- Documents garant -->
-                <?php
-                // Pour Visale : utiliser document_visale du garant, ou visa_certifie du contrat en fallback.
-                // N'afficher le document Visale que pour les garants de type Visale.
-                $visaleDocToShow = ($garantContrat['type_garantie'] === 'visale')
-                    ? (!empty($garantContrat['document_visale']) ? $garantContrat['document_visale'] : ($contrat['visa_certifie'] ?? ''))
-                    : '';
-                $hasGarantDocs = !empty($garantContrat['piece_identite'])
-                              || !empty($garantContrat['document_caution'])
-                              || !empty($visaleDocToShow);
-                ?>
-                <?php if ($hasGarantDocs): ?>
-                <h6 class="mt-3"><i class="bi bi-files"></i> Documents</h6>
-                <div class="row mt-2">
-                    <?php
-                    if (!empty($garantContrat['document_caution'])) {
-                        // Document caution is stored as relative path (pdf/cautions/...) - use direct admin link
-                        $cautionPath = $garantContrat['document_caution'];
-                        // Security: validate path is within expected pdf/cautions directory
-                        $expectedDir = realpath(dirname(__DIR__) . '/pdf/cautions');
-                        $fullPath    = realpath(dirname(__DIR__) . '/' . $cautionPath);
-                        if ($expectedDir !== false && $fullPath !== false && strpos($fullPath, $expectedDir . DIRECTORY_SEPARATOR) === 0) {
-                            $relativeSafe = 'pdf/cautions/' . basename($cautionPath);
-                            echo '<div class="col-md-4 mb-3">';
-                            echo '<div class="card">';
-                            echo '<div class="card-body">';
-                            echo '<h6 class="card-title"><i class="bi bi-file-earmark-check"></i> Document de caution solidaire</h6>';
-                            echo '<a href="' . htmlspecialchars('../' . $relativeSafe) . '" class="btn btn-sm btn-primary" target="_blank">';
-                            echo '<i class="bi bi-eye"></i> Consulter</a>';
-                            echo '</div></div></div>';
-                        }
-                    }
-                    if (!empty($garantContrat['piece_identite'])) {
-                        renderDocumentCard($garantContrat['piece_identite'], "Pièce d'identité du garant", 'card-image');
-                    }
-                    if (!empty($visaleDocToShow)) {
-                        renderDocumentCard($visaleDocToShow, 'Visa certifié Visale', 'patch-check');
-                    }
-                    ?>
-                </div>
-                <?php endif; ?>
-
-                <!-- Renvoyer le lien au garant -->
-                <?php if ($garantContrat['type_garantie'] === 'caution_solidaire'
-                       && in_array($garantContrat['statut'], ['en_attente_garant', 'engage'], true)): ?>
-                <div class="mt-3">
-                    <a href="?id=<?= $contractId ?>&action=resend_garant_invite&garant_id=<?= (int)$garantContrat['id'] ?>"
-                       class="btn btn-outline-primary btn-sm"
-                       onclick="return confirm('Renvoyer l\'invitation au garant ?');">
-                        <i class="bi bi-envelope-arrow-up"></i> Renvoyer l'invitation au garant
-                    </a>
-                </div>
-                <?php endif; ?>
-            <?php endif; ?>
-
-            <!-- Envoyer le lien "déclarer un garant" au locataire -->
-            <?php if (!$garantContrat && in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)): ?>
-            <form method="POST" action="" class="mt-3">
-                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                <input type="hidden" name="action" value="send_garantie_link">
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-send"></i> Envoyer le lien "Déclarer un garant" au locataire
-                </button>
-            </form>
-            <?php endif; ?>
+            </div>
+            <?php
+                endforeach;
+            else:
+                // No tenants yet – show old single-garant view
+                if (!$garantContrat): ?>
+                    <p class="text-muted mb-3">Aucun garant déclaré pour ce contrat.</p>
+                    <?php if (in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)): ?>
+                    <form method="POST" action="" class="mt-3">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                        <input type="hidden" name="action" value="send_garantie_link">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-send"></i> Envoyer le lien "Déclarer un garant" au locataire
+                        </button>
+                    </form>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <?php renderGarantDetails($garantContrat, $contractId, $config['SITE_URL']); ?>
+                <?php endif;
+            endif; ?>
         </div>
         <!-- /Section Garant / Garantie -->
+
 
 		<?php if ($contrat['statut'] === 'valide'): ?>
 		<!-- État des lieux Section -->

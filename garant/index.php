@@ -23,17 +23,59 @@ if (empty($token)) {
     die('Token manquant. Veuillez utiliser le lien fourni dans votre email.');
 }
 
-// Le token_garantie est stocké dans la table contrats
-$contrat = fetchOne("
-    SELECT c.*,
-           l.adresse,
-           l.reference  AS ref_logement,
-           l.loyer,
-           l.charges
-    FROM contrats c
-    INNER JOIN logements l ON c.logement_id = l.id
-    WHERE c.token_garantie = ?
+// Le token_garantie peut être stocké dans locataires (migration 130, per-tenant)
+// ou dans contrats (migration 126, backward compat).
+$locataire = null;
+$contrat   = null;
+
+// Try per-tenant token first (locataires.token_garantie – migration 130)
+$locataireRow = fetchOne("
+    SELECT l.*,
+           c.id           AS contrat_db_id,
+           c.statut       AS contrat_statut,
+           c.reference_unique,
+           c.token_garantie AS contrat_token_garantie,
+           lg.adresse,
+           lg.reference   AS ref_logement,
+           lg.loyer,
+           lg.charges
+    FROM locataires l
+    INNER JOIN contrats c  ON l.contrat_id  = c.id
+    INNER JOIN logements lg ON c.logement_id = lg.id
+    WHERE l.token_garantie = ?
 ", [$token]);
+
+if ($locataireRow) {
+    $locataire           = $locataireRow;
+    $contrat             = [
+        'id'               => $locataireRow['contrat_db_id'],
+        'statut'           => $locataireRow['contrat_statut'],
+        'reference_unique' => $locataireRow['reference_unique'],
+        'adresse'          => $locataireRow['adresse'],
+        'ref_logement'     => $locataireRow['ref_logement'],
+        'loyer'            => $locataireRow['loyer'],
+        'charges'          => $locataireRow['charges'],
+    ];
+} else {
+    // Backward compat: token stored in contrats.token_garantie (migration 126)
+    $contrat = fetchOne("
+        SELECT c.*,
+               lg.adresse,
+               lg.reference  AS ref_logement,
+               lg.loyer,
+               lg.charges
+        FROM contrats c
+        INNER JOIN logements lg ON c.logement_id = lg.id
+        WHERE c.token_garantie = ?
+    ", [$token]);
+
+    if ($contrat) {
+        // Use primary tenant (ordre 1) for backward-compat single-tenant contracts
+        $locataire = fetchOne("
+            SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1
+        ", [$contrat['id']]);
+    }
+}
 
 if (!$contrat) {
     die('Lien invalide ou expiré. Veuillez contacter My Invest Immobilier.');
@@ -43,13 +85,20 @@ if (!in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)) {
     die('Ce lien n\'est plus disponible.');
 }
 
-// Locataire principal (ordre 1)
-$locataire = fetchOne("
-    SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1
-", [$contrat['id']]);
+// Garant déjà existant pour ce locataire ou pour ce contrat ?
+$garantExistant = null;
+if ($locataire && !empty($locataire['id'])) {
+    // Try per-tenant lookup first (migration 130)
+    $garantExistant = getGarantByLocataireId((int)$locataire['id']);
+}
+if (!$garantExistant) {
+    $garantExistant = getGarantByContratId((int)$contrat['id']);
+}
 
-// Garant déjà existant pour ce contrat ?
-$garantExistant = getGarantByContratId($contrat['id']);
+// Locataire ID for linking new garant records.
+// Only set when the token was found in locataires.token_garantie (per-tenant flow, migration 130).
+// Null = backward compat (contract-level token, single-tenant behaviour).
+$locataireId = $locataireRow ? (int)$locataire['id'] : null;
 
 $error        = '';
 $success      = false;
@@ -78,13 +127,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Le numéro de visa certifié est obligatoire pour la garantie Visale.';
             } else {
                 // Supprimer les garants en attente avant d'en créer un nouveau
-                deleteGarantsPending($contrat['id']);
+                deleteGarantsPending($contrat['id'], $locataireId);
                 $garant = createGarant($contrat['id'], 'visale', [
                     'numero_visale' => $numeroVisale,
                     'nom'           => $locataire ? $locataire['nom']    : '',
                     'prenom'        => $locataire ? $locataire['prenom'] : '',
                     'email'         => $locataire ? $locataire['email']  : '',
-                ]);
+                ], $locataireId);
 
                 if (!$garant) {
                     $error = 'Erreur lors de l\'enregistrement. Veuillez réessayer.';
@@ -130,12 +179,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'L\'adresse email du garant est invalide.';
             } else {
                 // Supprimer les garants en attente avant d'en créer un nouveau
-                deleteGarantsPending($contrat['id']);
+                deleteGarantsPending($contrat['id'], $locataireId);
                 $garant = createGarant($contrat['id'], 'caution_solidaire', [
                     'nom'    => $nom,
                     'prenom' => $prenom,
                     'email'  => $emailGarant,
-                ]);
+                ], $locataireId);
 
                 if (!$garant) {
                     $error = 'Erreur lors de l\'enregistrement. Veuillez réessayer.';
