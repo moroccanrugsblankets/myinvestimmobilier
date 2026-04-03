@@ -437,22 +437,50 @@ elseif ($mode === 'assurance') {
                         }
                     }
 
-                    // Mettre à jour le contrat
-                    $stmt = $pdo->prepare("
-                        UPDATE contrats
-                        SET assurance_habitation = ?,
-                            numero_visale = ?,
-                            visa_certifie = ?,
-                            date_envoi_assurance = NOW()
-                        WHERE id = ?
-                    ");
+                    // Déterminer si la migration 131 (colonnes assurance per-tenant) est disponible
+                    $hasLocataireAssuranceCol = false;
+                    try {
+                        $colChkAss = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'assurance_habitation'");
+                        $hasLocataireAssuranceCol = (bool)$colChkAss->fetch();
+                    } catch (\Exception $e) { /* ignore */ }
 
-                    if (!$stmt->execute([
-                        $validationAssurance['filename'],
-                        $numeroVisale,
-                        $visaCertifieFilename,
-                        $contrat['id'],
-                    ])) {
+                    // Quand un token per-tenant est utilisé et que la migration 131 est appliquée,
+                    // stocker les documents dans la table locataires (isolé par locataire).
+                    // Sinon, fallback sur la table contrats (rétrocompatibilité 1 locataire).
+                    $saveOk = false;
+                    if ($locataireMode && $hasLocataireAssuranceCol) {
+                        $stmtLoc = $pdo->prepare("
+                            UPDATE locataires
+                            SET assurance_habitation = ?,
+                                numero_visale        = ?,
+                                visa_certifie        = ?,
+                                date_envoi_assurance = NOW()
+                            WHERE id = ?
+                        ");
+                        $saveOk = $stmtLoc->execute([
+                            $validationAssurance['filename'],
+                            $numeroVisale,
+                            $visaCertifieFilename,
+                            (int)$locataireMode['id'],
+                        ]);
+                    } else {
+                        $stmtCtr = $pdo->prepare("
+                            UPDATE contrats
+                            SET assurance_habitation = ?,
+                                numero_visale        = ?,
+                                visa_certifie        = ?,
+                                date_envoi_assurance = NOW()
+                            WHERE id = ?
+                        ");
+                        $saveOk = $stmtCtr->execute([
+                            $validationAssurance['filename'],
+                            $numeroVisale,
+                            $visaCertifieFilename,
+                            $contrat['id'],
+                        ]);
+                    }
+
+                    if (!$saveOk) {
                         $error = 'Erreur lors de l\'enregistrement des informations.';
                     } else {
                         logAction($contrat['id'], 'assurance_visale_recu', 'Documents assurance/Visale uploadés');
