@@ -86,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $locataire_nom_complet = implode(' et ', $locataire_noms);
     $locataire_email = $locataires[0]['email']; // Use first tenant's email
     
-    // Check for duplicate
-    $stmt = $pdo->prepare("SELECT id FROM inventaires WHERE contrat_id = ? AND type = ?");
+    // Check for duplicate (exclude soft-deleted inventories)
+    $stmt = $pdo->prepare("SELECT id FROM inventaires WHERE contrat_id = ? AND type = ? AND deleted_at IS NULL");
     $stmt->execute([$contrat_id, $type]);
     if ($stmt->fetch()) {
         $_SESSION['error'] = "Un inventaire de ce type existe déjà pour ce contrat";
