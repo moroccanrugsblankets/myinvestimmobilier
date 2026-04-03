@@ -357,7 +357,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
 
-        $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC", [$contractId]);
+        // Si un locataire_id est fourni, n'envoyer qu'à ce locataire.
+        // Sinon (rétrocompatibilité), envoyer à tous les locataires du contrat.
+        $targetLocataireId = (int)($_POST['locataire_id'] ?? 0);
+        if ($targetLocataireId > 0) {
+            $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? AND id = ? ORDER BY ordre ASC", [$contractId, $targetLocataireId]);
+        } else {
+            $locataires = fetchAll("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC", [$contractId]);
+        }
         $refRow = fetchOne("SELECT reference_unique FROM contrats WHERE id = ?", [$contractId]);
         $refUnique = $refRow ? $refRow['reference_unique'] : $contractId;
 
@@ -396,6 +403,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         logAction($contractId, 'garantie_lien_envoye', 'Tokens générés par locataire (' . count($locataires) . ')');
         $_SESSION['success'] = "Lien de déclaration de garant envoyé au(x) locataire(s).";
+        header('Location: contrat-detail.php?id=' . $contractId);
+        exit;
+    }
+
+    if ($_POST['action'] === 'resend_assurance_link') {
+        $locataireId = (int)($_POST['locataire_id'] ?? 0);
+        if ($locataireId > 0) {
+            // Verify the locataire belongs to this contract
+            $locRe = fetchOne("SELECT * FROM locataires WHERE id = ? AND contrat_id = ?", [$locataireId, $contractId]);
+            if ($locRe && !empty($locRe['email'])) {
+                // Check if per-tenant token_assurance column exists (migration 130)
+                $hasLocAssuranceTokCol = false;
+                try {
+                    $c2 = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'token_assurance'");
+                    $hasLocAssuranceTokCol = (bool)$c2->fetch();
+                } catch (\Exception $e) { /* ignore */ }
+
+                $newTokenAssurance = bin2hex(random_bytes(32));
+                if ($hasLocAssuranceTokCol) {
+                    $pdo->prepare("UPDATE locataires SET token_assurance = ? WHERE id = ?")
+                        ->execute([$newTokenAssurance, $locataireId]);
+                } else {
+                    $pdo->prepare("UPDATE contrats SET token_assurance = ? WHERE id = ?")
+                        ->execute([$newTokenAssurance, $contractId]);
+                }
+
+                $refRow2 = fetchOne("SELECT reference_unique FROM contrats WHERE id = ?", [$contractId]);
+                $lienAssurance = BASE_URL . '/envoyer-assurance.php?token=' . $newTokenAssurance;
+                sendTemplatedEmail('demande_assurance_visale', $locRe['email'], [
+                    'nom'        => $locRe['nom'],
+                    'prenom'     => $locRe['prenom'],
+                    'reference'  => $refRow2 ? $refRow2['reference_unique'] : $contractId,
+                    'lien_upload' => $lienAssurance,
+                ], null, false, true, ['contexte' => 'contrat_id=' . $contractId]);
+
+                logAction($contractId, 'assurance_lien_renvoye', 'Locataire ID ' . $locataireId);
+                $_SESSION['success'] = "Lien d'envoi de documents renvoyé à " . htmlspecialchars($locRe['prenom'] . ' ' . $locRe['nom']) . ".";
+            }
+        }
         header('Location: contrat-detail.php?id=' . $contractId);
         exit;
     }
@@ -761,6 +807,20 @@ if ($contrat['validated_by']) {
             <?php if (empty($locataires)): ?>
                 <p class="text-muted">Aucun locataire enregistré.</p>
             <?php else: ?>
+                <?php
+                // Check if per-tenant assurance fields exist (migration 131)
+                $hasLocataireAssuranceCols = false;
+                try {
+                    $colChkA = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'assurance_habitation'");
+                    $hasLocataireAssuranceCols = (bool)$colChkA->fetch();
+                } catch (\Exception $e) { /* ignore */ }
+                // Check if per-tenant token_assurance column exists (migration 130)
+                $hasLocataireTokenAssuranceCol = false;
+                try {
+                    $colChkT = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'locataires' AND COLUMN_NAME = 'token_assurance'");
+                    $hasLocataireTokenAssuranceCol = (bool)$colChkT->fetch();
+                } catch (\Exception $e) { /* ignore */ }
+                ?>
                 <?php foreach ($locataires as $locataire): ?>
                     <div class="tenant-card">
                         <div class="row">
@@ -842,6 +902,46 @@ if ($contrat['validated_by']) {
                                 <?php if ($locataire['mention_lu_approuve']): ?>
                                     <div class="mt-2">
                                         <i class="bi bi-check-circle text-success"></i> Mention "Lu et approuvé" validée
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php
+                                // Assurance status per tenant (migration 131) or fallback to contrat level
+                                $locAssuranceDoc = ($hasLocataireAssuranceCols && !empty($locataire['assurance_habitation']))
+                                    ? $locataire['assurance_habitation']
+                                    : null;
+                                $locNumeroVisale = ($hasLocataireAssuranceCols && !empty($locataire['numero_visale']))
+                                    ? $locataire['numero_visale']
+                                    : null;
+                                $locDateAssurance = ($hasLocataireAssuranceCols && !empty($locataire['date_envoi_assurance']))
+                                    ? $locataire['date_envoi_assurance']
+                                    : null;
+                                ?>
+                                <?php if ($locAssuranceDoc || $locNumeroVisale): ?>
+                                    <div class="mt-2">
+                                        <i class="bi bi-shield-check text-success"></i>
+                                        <strong>Assurance reçue</strong>
+                                        <?php if ($locDateAssurance): ?>
+                                            <br><small class="text-muted">Le <?= date('d/m/Y à H:i', strtotime($locDateAssurance)) ?></small>
+                                        <?php endif; ?>
+                                        <?php if ($locNumeroVisale): ?>
+                                            <br><small>N° Visale : <?= htmlspecialchars($locNumeroVisale) ?></small>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="mt-2">
+                                        <i class="bi bi-shield-x text-warning"></i> Assurance non reçue
+                                        <?php if (in_array($contrat['statut'], ['valide', 'actif', 'signe'], true) && !empty($locataire['email'])): ?>
+                                        <form method="POST" action="" class="d-inline ms-2">
+                                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                            <input type="hidden" name="action" value="resend_assurance_link">
+                                            <input type="hidden" name="locataire_id" value="<?= (int)$locataire['id'] ?>">
+                                            <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-1"
+                                                    onclick="return confirm('Renvoyer le lien d\'envoi de documents à <?= htmlspecialchars(addslashes($locataire['prenom'] . ' ' . $locataire['nom'])) ?> ?');">
+                                                <i class="bi bi-envelope-arrow-up"></i> Renvoyer le lien
+                                            </button>
+                                        </form>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
 
@@ -966,6 +1066,11 @@ if ($contrat['validated_by']) {
                     $hasDocuments = true;
                     break;
                 }
+                // Also check per-tenant assurance docs (migration 131)
+                if ($hasLocataireAssuranceCols && !empty($locataire['assurance_habitation'])) {
+                    $hasDocuments = true;
+                    break;
+                }
             }
             
             // Check if contract has justificatif de paiement
@@ -992,7 +1097,10 @@ if ($contrat['validated_by']) {
                 <?php endif; ?>
 
                 <?php foreach ($locataires as $locataire): ?>
-                    <?php if (!tenantHasDocuments($locataire)) continue; ?>
+                    <?php
+                    $hasLocAssuranceDocs = $hasLocataireAssuranceCols && !empty($locataire['assurance_habitation']);
+                    if (!tenantHasDocuments($locataire) && !$hasLocAssuranceDocs) continue;
+                    ?>
                     <div class="mb-4">
                         <h6><i class="bi bi-person"></i> Locataire <?php echo $locataire['ordre']; ?> - <?php echo htmlspecialchars($locataire['prenom'] . ' ' . $locataire['nom']); ?></h6>
                         <div class="row mt-2">
@@ -1005,6 +1113,13 @@ if ($contrat['validated_by']) {
                             }
                             if (!empty($locataire['preuve_paiement_depot'])) {
                                 renderDocumentCard($locataire['preuve_paiement_depot'], 'Justificatif de paiement', 'receipt');
+                            }
+                            // Per-tenant assurance docs (migration 131)
+                            if ($hasLocAssuranceDocs) {
+                                renderDocumentCard($locataire['assurance_habitation'], 'Attestation d\'assurance habitation', 'shield-check');
+                            }
+                            if ($hasLocataireAssuranceCols && !empty($locataire['visa_certifie'])) {
+                                renderDocumentCard($locataire['visa_certifie'], 'Visa certifié Visale', 'patch-check');
                             }
                             ?>
                         </div>
@@ -1162,8 +1277,16 @@ if ($contrat['validated_by']) {
 
             <?php
             // Documents assurance habitation et Visale (stockés dans contrats – héritage)
-            $hasAssuranceHabitation = !empty($contrat['assurance_habitation']);
-            $hasVisaCertifie        = !empty($contrat['visa_certifie']) && !$anyGarant;
+            // Si la migration 131 est appliquée et qu'au moins un locataire a ses docs per-tenant,
+            // on ne montre plus la section contrat-level (les docs sont dans "Documents Envoyés").
+            $anyLocataireAssurance = false;
+            if ($hasLocataireAssuranceCols) {
+                foreach ($locataires as $loc) {
+                    if (!empty($loc['assurance_habitation'])) { $anyLocataireAssurance = true; break; }
+                }
+            }
+            $hasAssuranceHabitation = !$anyLocataireAssurance && !empty($contrat['assurance_habitation']);
+            $hasVisaCertifie        = !$anyLocataireAssurance && !empty($contrat['visa_certifie']) && !$anyGarant;
             if ($hasAssuranceHabitation || $hasVisaCertifie): ?>
             <div class="mb-4">
                 <h6><i class="bi bi-shield-check"></i> Assurance habitation<?php if ($hasVisaCertifie): ?> &amp; Visale<?php endif; ?></h6>
@@ -1215,6 +1338,7 @@ if ($contrat['validated_by']) {
                     <form method="POST" action="" class="mt-2">
                         <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                         <input type="hidden" name="action" value="send_garantie_link">
+                        <input type="hidden" name="locataire_id" value="<?= (int)$loc['id'] ?>">
                         <button type="submit" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-send"></i> Envoyer le lien "Déclarer un garant"
                         </button>
