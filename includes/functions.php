@@ -1417,34 +1417,71 @@ function documentPathToUrl(string $path): string {
  * @param array  $data           Données du garant (nom, prenom, email, …)
  * @return array|false ['id' => int, 'token' => string] ou false en cas d'erreur
  */
-function createGarant(int $contratId, string $typeGarantie, array $data = []) {
+function createGarant(int $contratId, string $typeGarantie, array $data = [], ?int $locataireId = null) {
     global $pdo;
 
     $token = bin2hex(random_bytes(32));
 
-    $stmt = $pdo->prepare("
-        INSERT INTO garants (
-            contrat_id, type_garantie, token_garant,
-            nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
-            numero_visale,
-            date_envoi_invitation
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    ");
+    // Use locataire_id column when the migration 130 column exists.
+    // Cache the result for the request lifetime to avoid repeated schema queries.
+    static $hasLocataireId = null;
+    if ($hasLocataireId === null) {
+        try {
+            $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
+            $hasLocataireId = (bool)$chk->fetch();
+        } catch (\Exception $e) {
+            $hasLocataireId = false;
+        }
+    }
 
-    $result = $stmt->execute([
-        $contratId,
-        $typeGarantie,
-        $token,
-        $data['nom']            ?? null,
-        $data['prenom']         ?? null,
-        $data['date_naissance'] ?? null,
-        $data['email']          ?? null,
-        $data['telephone']      ?? null,
-        $data['adresse']        ?? null,
-        $data['ville']          ?? null,
-        $data['code_postal']    ?? null,
-        $data['numero_visale']  ?? null,
-    ]);
+    if ($hasLocataireId) {
+        $stmt = $pdo->prepare("
+            INSERT INTO garants (
+                contrat_id, locataire_id, type_garantie, token_garant,
+                nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
+                numero_visale,
+                date_envoi_invitation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ");
+        $result = $stmt->execute([
+            $contratId,
+            $locataireId,
+            $typeGarantie,
+            $token,
+            $data['nom']            ?? null,
+            $data['prenom']         ?? null,
+            $data['date_naissance'] ?? null,
+            $data['email']          ?? null,
+            $data['telephone']      ?? null,
+            $data['adresse']        ?? null,
+            $data['ville']          ?? null,
+            $data['code_postal']    ?? null,
+            $data['numero_visale']  ?? null,
+        ]);
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO garants (
+                contrat_id, type_garantie, token_garant,
+                nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
+                numero_visale,
+                date_envoi_invitation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ");
+        $result = $stmt->execute([
+            $contratId,
+            $typeGarantie,
+            $token,
+            $data['nom']            ?? null,
+            $data['prenom']         ?? null,
+            $data['date_naissance'] ?? null,
+            $data['email']          ?? null,
+            $data['telephone']      ?? null,
+            $data['adresse']        ?? null,
+            $data['ville']          ?? null,
+            $data['code_postal']    ?? null,
+            $data['numero_visale']  ?? null,
+        ]);
+    }
 
     if (!$result) {
         return false;
@@ -1460,11 +1497,35 @@ function createGarant(int $contratId, string $typeGarantie, array $data = []) {
  * Supprimer les garants en attente pour un contrat avant d'en créer un nouveau.
  * Ne supprime que les garants au statut 'en_attente_garant'.
  *
- * @param int $contratId
+ * Quand $locataireId est fourni, seuls les garants liés à ce locataire sont
+ * supprimés (comportement multi-locataires). Sans $locataireId, tous les garants
+ * en attente du contrat sont supprimés (comportement historique).
+ *
+ * @param int      $contratId
+ * @param int|null $locataireId  Optionnel – restreindre à un locataire spécifique
  * @return int Nombre de lignes supprimées
  */
-function deleteGarantsPending(int $contratId): int {
+function deleteGarantsPending(int $contratId, ?int $locataireId = null): int {
     global $pdo;
+    if ($locataireId !== null) {
+        // Check if locataire_id column exists (migration 130).
+        // Reuse the same static cache as createGarant().
+        static $hasLocataireIdCol = null;
+        if ($hasLocataireIdCol === null) {
+            try {
+                $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
+                $hasLocataireIdCol = (bool)$chk->fetch();
+            } catch (\Exception $e) {
+                $hasLocataireIdCol = false;
+            }
+        }
+
+        if ($hasLocataireIdCol) {
+            $stmt = $pdo->prepare("DELETE FROM garants WHERE contrat_id = ? AND locataire_id = ? AND statut = 'en_attente_garant'");
+            $stmt->execute([$contratId, $locataireId]);
+            return (int)$stmt->rowCount();
+        }
+    }
     $stmt = $pdo->prepare("DELETE FROM garants WHERE contrat_id = ? AND statut = 'en_attente_garant'");
     $stmt->execute([$contratId]);
     return (int)$stmt->rowCount();
@@ -1504,6 +1565,43 @@ function getGarantByContratId(int $contratId) {
         WHERE contrat_id = ?
         ORDER BY id DESC
         LIMIT 1
+    ", [$contratId]);
+}
+
+/**
+ * Récupérer le garant associé à un locataire spécifique (multi-locataires).
+ * Nécessite la migration 130 (colonne locataire_id dans garants).
+ *
+ * @param int $locataireId
+ * @return array|false
+ */
+function getGarantByLocataireId(int $locataireId) {
+    return fetchOne("
+        SELECT * FROM garants
+        WHERE locataire_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ", [$locataireId]);
+}
+
+/**
+ * Récupérer tous les garants d'un contrat avec les informations du locataire lié.
+ * Retourne les garants les plus récents en premier.
+ *
+ * @param int $contratId
+ * @return array
+ */
+function getAllGarantsByContratId(int $contratId): array {
+    return fetchAll("
+        SELECT g.*,
+               l.nom       AS nom_locataire,
+               l.prenom    AS prenom_locataire,
+               l.email     AS email_locataire,
+               l.ordre     AS ordre_locataire
+        FROM garants g
+        LEFT JOIN locataires l ON g.locataire_id = l.id
+        WHERE g.contrat_id = ?
+        ORDER BY l.ordre ASC, g.id DESC
     ", [$contratId]);
 }
 

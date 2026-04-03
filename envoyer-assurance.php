@@ -25,15 +25,44 @@ if (empty($token)) {
 // ---------------------------------------------------------------
 // Détection du mode : locataire (token_assurance) ou garant
 // ---------------------------------------------------------------
-$contrat = fetchOne("
-    SELECT c.*, l.adresse, l.reference as ref_logement
-    FROM contrats c
-    INNER JOIN logements l ON c.logement_id = l.id
-    WHERE c.token_assurance = ?
+$contrat       = null;
+$mode          = 'assurance';
+$garant        = null;
+$locataireMode = null; // tenant identified by per-tenant token (migration 130)
+
+// Try per-tenant token first (locataires.token_assurance – migration 130)
+$locataireTokenRow = fetchOne("
+    SELECT l.*,
+           c.id           AS contrat_db_id,
+           c.statut       AS contrat_statut,
+           c.reference_unique,
+           c.token_assurance AS contrat_token_assurance,
+           lg.adresse,
+           lg.reference   AS ref_logement
+    FROM locataires l
+    INNER JOIN contrats c  ON l.contrat_id  = c.id
+    INNER JOIN logements lg ON c.logement_id = lg.id
+    WHERE l.token_assurance = ?
 ", [$token]);
 
-$mode   = 'assurance';
-$garant = null;
+if ($locataireTokenRow) {
+    $locataireMode = $locataireTokenRow;
+    $contrat = fetchOne("
+        SELECT c.*, lg.adresse, lg.reference as ref_logement
+        FROM contrats c
+        INNER JOIN logements lg ON c.logement_id = lg.id
+        WHERE c.id = ?
+    ", [$locataireTokenRow['contrat_db_id']]);
+    $mode = 'assurance';
+} else {
+    // Backward compat: token stored in contrats.token_assurance (migration 126)
+    $contrat = fetchOne("
+        SELECT c.*, l.adresse, l.reference as ref_logement
+        FROM contrats c
+        INNER JOIN logements l ON c.logement_id = l.id
+        WHERE c.token_assurance = ?
+    ", [$token]);
+}
 
 if (!$contrat) {
     $garant = getGarantByToken($token);
@@ -110,7 +139,10 @@ if ($mode === 'garant') {
                     $currentStep = 'refused';
 
                     // Emails de notification du refus
-                    $locataireRefus  = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
+                    // Use locataire linked to this garant (migration 130) or fallback to primary tenant
+                    $locataireRefus  = (!empty($garant['locataire_id']))
+                        ? fetchOne("SELECT * FROM locataires WHERE id = ?", [$garant['locataire_id']])
+                        : fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
                     $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
                     $refusVarsBase   = [
                         'prenom_garant'    => $garant['prenom'],
@@ -274,7 +306,10 @@ if ($mode === 'garant') {
                         logAction($garant['contrat_id'], 'garant_documents_recus', "Documents reçus pour garant ID {$garant['id']}");
 
                             // Emails de finalisation
-                            $locataireG     = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
+                            // Use locataire linked to this garant (migration 130) or fallback to primary tenant
+                            $locataireG = (!empty($garant['locataire_id']))
+                                ? fetchOne("SELECT * FROM locataires WHERE id = ?", [$garant['locataire_id']])
+                                : fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
                             $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
                             $dateFinalisation = date('d/m/Y à H:i');
                             $lienDocument    = '';
@@ -319,7 +354,10 @@ if ($mode === 'garant') {
 
     // Recharger le garant après traitement pour actualiser les données
     $garant = getGarantByToken($token);
-    $locataireGarant = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
+    // Use locataire linked to this garant (migration 130) or fallback to primary tenant
+    $locataireGarant = (!empty($garant['locataire_id']))
+        ? fetchOne("SELECT * FROM locataires WHERE id = ?", [$garant['locataire_id']])
+        : fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$garant['contrat_id']]);
 
     // Recalculer l'étape après traitement (en cas d'erreur, on reste sur la même étape)
     if (empty($error)) {
@@ -419,24 +457,31 @@ elseif ($mode === 'assurance') {
                     } else {
                         logAction($contrat['id'], 'assurance_visale_recu', 'Documents assurance/Visale uploadés');
 
-                        // Supprimer les garants en attente avant d'en créer un nouveau
-                        deleteGarantsPending($contrat['id']);
+                        // Locataire identifié par le token per-tenant (migration 130) ou fallback ordre=1
+                        $locataireAssurance = $locataireMode
+                            ?? fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contrat['id']]);
+                        // Only pass locataire_id when a per-tenant token was used (new flow).
+                        // For backward compat (contract-level token), keep null so that
+                        // deleteGarantsPending clears all pending garants for the contract.
+                        $locataireAssuranceId = $locataireMode ? (int)$locataireMode['id'] : null;
+
+                        // Supprimer les garants en attente avant d'en créer un nouveau (scoped au locataire si possible)
+                        deleteGarantsPending($contrat['id'], $locataireAssuranceId);
 
                         // Créer le garant selon le type choisi
                         if ($typeGarantie === 'visale') {
-                            $locatairePrincipal = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contrat['id']]);
+                            $locatairePrincipal = $locataireAssurance;
                             $garantRec = createGarant($contrat['id'], 'visale', [
                                 'numero_visale' => $numeroVisale,
                                 'nom'           => $locatairePrincipal ? $locatairePrincipal['nom']    : '',
                                 'prenom'        => $locatairePrincipal ? $locatairePrincipal['prenom'] : '',
                                 'email'         => $locatairePrincipal ? $locatairePrincipal['email']  : '',
-                            ]);
+                            ], $locataireAssuranceId);
                             if ($garantRec && $visaCertifieFilename) {
                                 executeQuery("UPDATE garants SET document_visale = ? WHERE id = ?", [$visaCertifieFilename, $garantRec['id']]);
                             }
 
                             // Notification admin
-                            $locatairePrincipal = $locatairePrincipal ?? fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contrat['id']]);
                             sendTemplatedEmail('garant_notification_admin', getAdminEmail(), [
                                 'reference'         => $contrat['reference_unique'],
                                 'adresse_logement'  => $contrat['adresse'],
@@ -457,12 +502,12 @@ elseif ($mode === 'assurance') {
                                 'nom'    => $csNom,
                                 'prenom' => $csPrenom,
                                 'email'  => $csEmail,
-                            ]);
+                            ], $locataireAssuranceId);
 
                             if ($garantRec) {
                                 $lienGarant      = $config['SITE_URL'] . '/envoyer-assurance.php?token=' . urlencode($garantRec['token']);
                                 $emailContact    = $config['COMPANY_EMAIL'] ?? getAdminEmail();
-                                $locatairePrinc  = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contrat['id']]);
+                                $locatairePrinc  = $locataireAssurance;
                                 $prenomLocataire = $locatairePrinc ? $locatairePrinc['prenom'] : '';
                                 $nomLocataire    = $locatairePrinc ? $locatairePrinc['nom']    : '';
 
