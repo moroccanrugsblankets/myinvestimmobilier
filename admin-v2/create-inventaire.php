@@ -36,22 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Resolve contract: use explicit contrat_id if provided, otherwise fall back to logement_id lookup
     if (!empty($_POST['contrat_id'])) {
         $contrat_id = (int)$_POST['contrat_id'];
-        $stmt = $pdo->prepare("SELECT c.*, l.* FROM contrats c JOIN logements l ON l.id = c.logement_id WHERE c.id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM contrats WHERE id = ?");
         $stmt->execute([$contrat_id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $contrat = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$row) {
+        if (!$contrat) {
             $_SESSION['error'] = "Contrat introuvable";
             header('Location: inventaires.php');
             exit;
         }
         
-        $logement_id = $row['logement_id'];
-        // Rebuild arrays: contrat columns first, then logement columns (prefixed by join order)
-        // Use separate queries to avoid column collision
-        $stmt = $pdo->prepare("SELECT * FROM contrats WHERE id = ?");
-        $stmt->execute([$contrat_id]);
-        $contrat = $stmt->fetch(PDO::FETCH_ASSOC);
+        $logement_id = $contrat['logement_id'];
         
         $stmt = $pdo->prepare("SELECT * FROM logements WHERE id = ?");
         $stmt->execute([$logement_id]);
