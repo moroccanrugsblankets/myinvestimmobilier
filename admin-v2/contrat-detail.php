@@ -801,7 +801,32 @@ if ($contrat['validated_by']) {
             </div>
         </div>
 
-        <!-- Tenants Information -->
+        <!-- 2. Modifier les dates du contrat -->
+        <div class="detail-card">
+            <h5><i class="bi bi-calendar-date"></i> Modifier les dates du contrat</h5>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_dates">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="date_prise_effet" class="form-label">Date de prise d'effet (date du contrat)</label>
+                        <input type="date" class="form-control" id="date_prise_effet" name="date_prise_effet"
+                               value="<?php echo htmlspecialchars($contrat['date_prise_effet'] ?? ''); ?>">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="date_fin_prevue" class="form-label">Date de fin prévue</label>
+                        <input type="date" class="form-control" id="date_fin_prevue" name="date_fin_prevue"
+                               value="<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? ''); ?>">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer les dates
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 3. Locataires -->
         <div class="detail-card">
             <h5><i class="bi bi-people"></i> Locataires</h5>
             <?php if (empty($locataires)): ?>
@@ -952,7 +977,70 @@ if ($contrat['validated_by']) {
             <?php endif; ?>
         </div>
 
-        <!-- Documents Section -->
+        <!-- 4. Actions de Vérification -->
+        <div class="action-section">
+            <h5><i class="bi bi-clipboard-check"></i> Actions de Vérification</h5>
+            <p>Le contrat a été signé par le client. Vous devez maintenant vérifier les informations et:</p>
+            <ul>
+                <li><strong>Valider</strong> le contrat si tout est correct (la signature électronique de la société sera ajoutée automatiquement)</li>
+                <li><strong>Annuler</strong> le contrat si des corrections sont nécessaires (possibilité de régénérer un nouveau contrat)</li>
+            </ul>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-check-circle"></i> Valider le Contrat</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="" onsubmit="return confirm('Êtes-vous sûr de vouloir valider ce contrat ?\n\nCette action ajoutera la signature électronique de la société au PDF et notifiera le client.');">
+                                <input type="hidden" name="action" value="validate">
+                                <div class="mb-3">
+                                    <label for="validation_notes" class="form-label">Notes de validation (optionnel)</label>
+                                    <textarea 
+                                        class="form-control" 
+                                        id="validation_notes" 
+                                        name="validation_notes" 
+                                        rows="3" 
+                                        placeholder="Notes internes..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-check-circle"></i> Valider le Contrat
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0"><i class="bi bi-x-circle"></i> Annuler le Contrat</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="" onsubmit="return confirm('Êtes-vous sûr de vouloir annuler ce contrat ?\n\nLe client sera notifié de l\'annulation.');">
+                                <input type="hidden" name="action" value="cancel">
+                                <div class="mb-3">
+                                    <label for="motif_annulation" class="form-label">Motif d'annulation <span class="text-danger">*</span></label>
+                                    <textarea 
+                                        class="form-control" 
+                                        id="motif_annulation" 
+                                        name="motif_annulation" 
+                                        rows="3" 
+                                        placeholder="Raison de l'annulation (sera communiquée au client)..."
+                                        required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="bi bi-x-circle"></i> Annuler le Contrat
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Documents Envoyés -->
         <div class="detail-card">
             <h5><i class="bi bi-file-earmark-text"></i> Documents Envoyés</h5>
             <?php
@@ -1066,11 +1154,6 @@ if ($contrat['validated_by']) {
                     $hasDocuments = true;
                     break;
                 }
-                // Also check per-tenant assurance docs (migration 131)
-                if ($hasLocataireAssuranceCols && !empty($locataire['assurance_habitation'])) {
-                    $hasDocuments = true;
-                    break;
-                }
             }
             
             // Check if contract has justificatif de paiement
@@ -1098,8 +1181,7 @@ if ($contrat['validated_by']) {
 
                 <?php foreach ($locataires as $locataire): ?>
                     <?php
-                    $hasLocAssuranceDocs = $hasLocataireAssuranceCols && !empty($locataire['assurance_habitation']);
-                    if (!tenantHasDocuments($locataire) && !$hasLocAssuranceDocs) continue;
+                    if (!tenantHasDocuments($locataire)) continue;
                     ?>
                     <div class="mb-4">
                         <h6><i class="bi bi-person"></i> Locataire <?php echo $locataire['ordre']; ?> - <?php echo htmlspecialchars($locataire['prenom'] . ' ' . $locataire['nom']); ?></h6>
@@ -1113,10 +1195,6 @@ if ($contrat['validated_by']) {
                             }
                             if (!empty($locataire['preuve_paiement_depot'])) {
                                 renderDocumentCard($locataire['preuve_paiement_depot'], 'Justificatif de paiement', 'receipt');
-                            }
-                            // Per-tenant assurance docs (migration 131)
-                            if ($hasLocAssuranceDocs) {
-                                renderDocumentCard($locataire['assurance_habitation'], 'Attestation d\'assurance habitation', 'shield-check');
                             }
                             if ($hasLocataireAssuranceCols && !empty($locataire['visa_certifie'])) {
                                 renderDocumentCard($locataire['visa_certifie'], 'Visa certifié Visale', 'patch-check');
@@ -1345,6 +1423,28 @@ if ($contrat['validated_by']) {
                     </form>
                     <?php endif; ?>
                 <?php endif; ?>
+
+                <?php
+                // Attestation d'assurance habitation per tenant
+                $locAssuranceDoc = ($hasLocataireAssuranceCols && !empty($loc['assurance_habitation']))
+                    ? $loc['assurance_habitation'] : null;
+                $locDateAssurance = ($hasLocataireAssuranceCols && !empty($loc['date_envoi_assurance']))
+                    ? $loc['date_envoi_assurance'] : null;
+                if ($locAssuranceDoc): ?>
+                <div class="mt-3">
+                    <h6 class="mb-2"><i class="bi bi-shield-check text-success"></i> Attestation d'assurance habitation</h6>
+                    <?php if ($locDateAssurance): ?>
+                        <p class="text-muted small mb-2">Reçue le <?= date('d/m/Y à H:i', strtotime($locDateAssurance)) ?></p>
+                    <?php endif; ?>
+                    <div class="row mt-1">
+                        <?php renderDocumentCard($locAssuranceDoc, "Attestation d'assurance habitation", 'shield-check'); ?>
+                    </div>
+                </div>
+                <?php elseif ($hasLocataireAssuranceCols): ?>
+                <div class="mt-3 text-muted small">
+                    <i class="bi bi-shield-x text-warning"></i> Attestation d'assurance habitation non reçue
+                </div>
+                <?php endif; ?>
             </div>
             <?php
                 endforeach;
@@ -1370,27 +1470,38 @@ if ($contrat['validated_by']) {
 
 
 		<?php if ($contrat['statut'] === 'valide'): ?>
-		<!-- État des lieux Section -->
-		<div class="detail-card mt-4">
-            <?php
-            $stmtEdl = $pdo->prepare("SELECT * FROM etats_lieux WHERE contrat_id = ? ORDER BY type, date_etat DESC");
-            $stmtEdl->execute([$contrat['id']]);
-            $etats_lieux_list = $stmtEdl->fetchAll(PDO::FETCH_ASSOC);
-            $edl_entree = null;
-            $edl_sortie = null;
-            foreach ($etats_lieux_list as $edl) {
-                if ($edl['type'] === 'entree' && !$edl_entree) $edl_entree = $edl;
-                elseif ($edl['type'] === 'sortie' && !$edl_sortie) $edl_sortie = $edl;
-            }
-            ?>
-            <h5><i class="bi bi-house-check"></i> État des lieux</h5>
-            <?php $edlBadgeClass = ['brouillon'=>'secondary','finalise'=>'info','envoye'=>'success']; ?>
+        <?php
+        // Fetch etats_lieux and inventaires data for sections 7-9
+        $stmtEdl = $pdo->prepare("SELECT * FROM etats_lieux WHERE contrat_id = ? ORDER BY type, date_etat DESC");
+        $stmtEdl->execute([$contrat['id']]);
+        $etats_lieux_list = $stmtEdl->fetchAll(PDO::FETCH_ASSOC);
+        $edl_entree = null;
+        $edl_sortie = null;
+        foreach ($etats_lieux_list as $edl) {
+            if ($edl['type'] === 'entree' && !$edl_entree) $edl_entree = $edl;
+            elseif ($edl['type'] === 'sortie' && !$edl_sortie) $edl_sortie = $edl;
+        }
+        $stmtInv = $pdo->prepare("SELECT * FROM inventaires WHERE contrat_id = ? ORDER BY type, date_inventaire DESC");
+        $stmtInv->execute([$contrat['id']]);
+        $inventaires = $stmtInv->fetchAll(PDO::FETCH_ASSOC);
+        $inventaire_entree = null;
+        $inventaire_sortie = null;
+        foreach ($inventaires as $inv) {
+            if ($inv['type'] === 'entree') { $inventaire_entree = $inv; }
+            elseif ($inv['type'] === 'sortie') { $inventaire_sortie = $inv; }
+        }
+        $edlBadgeClass = ['brouillon'=>'secondary','finalise'=>'info','envoye'=>'success'];
+        ?>
+
+        <!-- 7. Entrée : État des lieux d'Entrée + Inventaire d'Entrée -->
+        <div class="detail-card mt-4">
+            <h5><i class="bi bi-box-arrow-in-right text-success"></i> Entrée : État des lieux d'Entrée &amp; Inventaire d'Entrée</h5>
             <div class="row mt-2">
                 <!-- EDL Entrée -->
                 <div class="col-md-6 mb-3">
                     <div class="card <?php echo $edl_entree ? 'border-success' : 'border-secondary'; ?>">
                         <div class="card-header <?php echo $edl_entree ? 'bg-success text-white' : 'bg-secondary text-white'; ?>">
-                            <h6 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> État des lieux d'Entrée</h6>
+                            <h6 class="mb-0"><i class="bi bi-house-check"></i> État des lieux d'Entrée</h6>
                         </div>
                         <div class="card-body">
                             <?php if ($edl_entree): ?>
@@ -1414,11 +1525,81 @@ if ($contrat['validated_by']) {
                         </div>
                     </div>
                 </div>
+                <!-- Inventaire Entrée -->
+                <div class="col-md-6 mb-3">
+                    <div class="card <?php echo $inventaire_entree ? 'border-success' : 'border-secondary'; ?>">
+                        <div class="card-header <?php echo $inventaire_entree ? 'bg-success text-white' : 'bg-secondary text-white'; ?>">
+                            <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> Inventaire d'Entrée</h6>
+                        </div>
+                        <div class="card-body">
+                            <?php if ($inventaire_entree): ?>
+                                <p class="mb-2">
+                                    <strong>Référence:</strong> <?php echo htmlspecialchars($inventaire_entree['reference_unique']); ?><br>
+                                    <strong>Date:</strong> <?php echo date('d/m/Y', strtotime($inventaire_entree['date_inventaire'])); ?><br>
+                                    <strong>Statut:</strong>
+                                    <span class="badge bg-<?php echo $inventaire_entree['statut'] === 'finalise' ? 'success' : 'warning'; ?>">
+                                        <?php echo ucfirst($inventaire_entree['statut']); ?>
+                                    </span>
+                                </p>
+                                <div class="btn-group w-100" role="group">
+                                    <a href="edit-inventaire.php?id=<?php echo $inventaire_entree['id']; ?>" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Modifier</a>
+                                    <a href="download-inventaire.php?id=<?php echo $inventaire_entree['id']; ?>" class="btn btn-sm btn-info" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+                                </div>
+                            <?php else: ?>
+                                <p class="text-muted mb-3">Aucun inventaire d'entrée créé.</p>
+                                <form method="POST" action="create-inventaire.php" class="d-inline">
+                                    <input type="hidden" name="contrat_id" value="<?php echo $contrat['id']; ?>">
+                                    <input type="hidden" name="logement_id" value="<?php echo $contrat['logement_id']; ?>">
+                                    <input type="hidden" name="type" value="entree">
+                                    <input type="hidden" name="date_inventaire" value="<?php echo date('Y-m-d'); ?>">
+                                    <button type="submit" class="btn btn-sm btn-success w-100">
+                                        <i class="bi bi-plus-circle"></i> Créer l'inventaire d'entrée
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Procédure de départ -->
+        <?php if (!empty($contrat['date_demande_depart'])): ?>
+        <div class="detail-card mt-4">
+            <h5><i class="bi bi-door-open"></i> Procédure de Départ</h5>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                Le locataire a initié la procédure de départ le
+                <strong><?php echo date('d/m/Y à H:i', strtotime($contrat['date_demande_depart'])); ?></strong>.
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-12 mb-3">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-envelope-check"></i> Confirmation Réception AR24</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">Envoyer au locataire la confirmation que nous avons bien reçu son courrier envoyé via AR24.</p>
+                            <button type="button" class="btn btn-info w-100"
+                                    onclick="openAR24Modal(<?php echo $contractId; ?>, 'detail', '<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? '', ENT_QUOTES); ?>')">
+                                <i class="bi bi-envelope-check"></i> Envoyer confirmation AR24
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- 9. Sortie : État des lieux de Sortie + Inventaire de Sortie -->
+        <div class="detail-card mt-4">
+            <h5><i class="bi bi-box-arrow-right text-danger"></i> Sortie : État des lieux de Sortie &amp; Inventaire de Sortie</h5>
+            <div class="row mt-2">
                 <!-- EDL Sortie -->
                 <div class="col-md-6 mb-3">
                     <div class="card <?php echo $edl_sortie ? 'border-danger' : 'border-secondary'; ?>">
                         <div class="card-header <?php echo $edl_sortie ? 'bg-danger text-white' : 'bg-secondary text-white'; ?>">
-                            <h6 class="mb-0"><i class="bi bi-box-arrow-right"></i> État des lieux de Sortie</h6>
+                            <h6 class="mb-0"><i class="bi bi-house-x"></i> État des lieux de Sortie</h6>
                         </div>
                         <div class="card-body">
                             <?php if ($edl_sortie): ?>
@@ -1449,102 +1630,27 @@ if ($contrat['validated_by']) {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Inventaire Section -->
-        
-        <div class="detail-card mt-4">
-            <h5><i class="bi bi-clipboard-check"></i> Inventaire</h5>
-            <?php
-            // Fetch inventaires for this contract
-            $stmt = $pdo->prepare("
-                SELECT * FROM inventaires 
-                WHERE contrat_id = ? 
-                ORDER BY type, date_inventaire DESC
-            ");
-            $stmt->execute([$contrat['id']]);
-            $inventaires = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            $inventaire_entree = null;
-            $inventaire_sortie = null;
-            foreach ($inventaires as $inv) {
-                if ($inv['type'] === 'entree') {
-                    $inventaire_entree = $inv;
-                } elseif ($inv['type'] === 'sortie') {
-                    $inventaire_sortie = $inv;
-                }
-            }
-            ?>
-            
-            <div class="row mt-3">
-                <!-- Entry Inventory -->
-                <div class="col-md-6 mb-3">
-                    <div class="card <?php echo $inventaire_entree ? 'border-success' : 'border-secondary'; ?>">
-                        <div class="card-header <?php echo $inventaire_entree ? 'bg-success text-white' : 'bg-secondary text-white'; ?>">
-                            <h6 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> Inventaire d'Entrée</h6>
-                        </div>
-                        <div class="card-body">
-                            <?php if ($inventaire_entree): ?>
-                                <p class="mb-2">
-                                    <strong>Référence:</strong> <?php echo htmlspecialchars($inventaire_entree['reference_unique']); ?><br>
-                                    <strong>Date:</strong> <?php echo date('d/m/Y', strtotime($inventaire_entree['date_inventaire'])); ?><br>
-                                    <strong>Statut:</strong> 
-                                    <span class="badge bg-<?php echo $inventaire_entree['statut'] === 'finalise' ? 'success' : 'warning'; ?>">
-                                        <?php echo ucfirst($inventaire_entree['statut']); ?>
-                                    </span>
-                                </p>
-                                <div class="btn-group w-100" role="group">
-                                    <a href="edit-inventaire.php?id=<?php echo $inventaire_entree['id']; ?>" class="btn btn-sm btn-primary">
-                                        <i class="bi bi-pencil"></i> Modifier
-                                    </a>
-                                    <a href="download-inventaire.php?id=<?php echo $inventaire_entree['id']; ?>" class="btn btn-sm btn-info" target="_blank">
-                                        <i class="bi bi-file-pdf"></i> PDF
-                                    </a>
-                                </div>
-                            <?php else: ?>
-                                <p class="text-muted mb-3">Aucun inventaire d'entrée créé.</p>
-                                <form method="POST" action="create-inventaire.php" class="d-inline">
-                                    <input type="hidden" name="contrat_id" value="<?php echo $contrat['id']; ?>">
-                                    <input type="hidden" name="logement_id" value="<?php echo $contrat['logement_id']; ?>">
-                                    <input type="hidden" name="type" value="entree">
-                                    <input type="hidden" name="date_inventaire" value="<?php echo date('Y-m-d'); ?>">
-                                    <button type="submit" class="btn btn-sm btn-success w-100">
-                                        <i class="bi bi-plus-circle"></i> Créer l'inventaire d'entrée
-                                    </button>
-                                </form>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Exit Inventory -->
+                <!-- Inventaire Sortie -->
                 <div class="col-md-6 mb-3">
                     <div class="card <?php echo $inventaire_sortie ? 'border-danger' : 'border-secondary'; ?>">
                         <div class="card-header <?php echo $inventaire_sortie ? 'bg-danger text-white' : 'bg-secondary text-white'; ?>">
-                            <h6 class="mb-0"><i class="bi bi-box-arrow-right"></i> Inventaire de Sortie</h6>
+                            <h6 class="mb-0"><i class="bi bi-clipboard-x"></i> Inventaire de Sortie</h6>
                         </div>
                         <div class="card-body">
                             <?php if ($inventaire_sortie): ?>
                                 <p class="mb-2">
                                     <strong>Référence:</strong> <?php echo htmlspecialchars($inventaire_sortie['reference_unique']); ?><br>
                                     <strong>Date:</strong> <?php echo date('d/m/Y', strtotime($inventaire_sortie['date_inventaire'])); ?><br>
-                                    <strong>Statut:</strong> 
+                                    <strong>Statut:</strong>
                                     <span class="badge bg-<?php echo $inventaire_sortie['statut'] === 'finalise' ? 'success' : 'warning'; ?>">
                                         <?php echo ucfirst($inventaire_sortie['statut']); ?>
                                     </span>
                                 </p>
                                 <div class="btn-group w-100" role="group">
-                                    <a href="edit-inventaire.php?id=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-primary">
-                                        <i class="bi bi-pencil"></i> Modifier
-                                    </a>
-                                    <a href="download-inventaire.php?id=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-info" target="_blank">
-                                        <i class="bi bi-file-pdf"></i> PDF
-                                    </a>
+                                    <a href="edit-inventaire.php?id=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Modifier</a>
+                                    <a href="download-inventaire.php?id=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-info" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
                                     <?php if ($inventaire_entree): ?>
-                                    <a href="compare-inventaire.php?entree=<?php echo $inventaire_entree['id']; ?>&sortie=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-warning">
-                                        <i class="bi bi-arrow-left-right"></i> Comparer
-                                    </a>
+                                    <a href="compare-inventaire.php?entree=<?php echo $inventaire_entree['id']; ?>&sortie=<?php echo $inventaire_sortie['id']; ?>" class="btn btn-sm btn-warning"><i class="bi bi-arrow-left-right"></i> Comparer</a>
                                     <?php endif; ?>
                                 </div>
                             <?php else: ?>
@@ -1567,18 +1673,11 @@ if ($contrat['validated_by']) {
                     </div>
                 </div>
             </div>
-            
-            <div class="alert alert-info mt-3">
-                <i class="bi bi-info-circle"></i> 
-                <strong>Information:</strong> L'inventaire utilise désormais un formulaire standardisé conforme au cahier des charges. 
-                Tous les logements utilisent le même modèle d'inventaire.
-            </div>
         </div>
-		
+
+        <!-- 10. Bilan du Logement -->
         <div class="detail-card mt-4">
             <h5><i class="bi bi-clipboard-check"></i> Bilan du Logement</h5>
-
-
             <div class="row mt-4">
                 <div class="col-12">
                     <div class="card border-warning">
@@ -1595,105 +1694,11 @@ if ($contrat['validated_by']) {
                 </div>
             </div>
         </div>
-        <?php endif; ?>
 
-        <!-- Action Section for signed contracts -->
-        <?php //if ($contrat['statut'] === 'signe'): ?>
-        <div class="action-section">
-            <h5><i class="bi bi-clipboard-check"></i> Actions de Vérification</h5>
-            <p>Le contrat a été signé par le client. Vous devez maintenant vérifier les informations et:</p>
-            <ul>
-                <li><strong>Valider</strong> le contrat si tout est correct (la signature électronique de la société sera ajoutée automatiquement)</li>
-                <li><strong>Annuler</strong> le contrat si des corrections sont nécessaires (possibilité de régénérer un nouveau contrat)</li>
-            </ul>
-            
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="card border-success">
-                        <div class="card-header bg-success text-white">
-                            <h6 class="mb-0"><i class="bi bi-check-circle"></i> Valider le Contrat</h6>
-                        </div>
-                        <div class="card-body">
-                            <form method="POST" action="" onsubmit="return confirm('Êtes-vous sûr de vouloir valider ce contrat ?\n\nCette action ajoutera la signature électronique de la société au PDF et notifiera le client.');">
-                                <input type="hidden" name="action" value="validate">
-                                <div class="mb-3">
-                                    <label for="validation_notes" class="form-label">Notes de validation (optionnel)</label>
-                                    <textarea 
-                                        class="form-control" 
-                                        id="validation_notes" 
-                                        name="validation_notes" 
-                                        rows="3" 
-                                        placeholder="Notes internes..."></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="bi bi-check-circle"></i> Valider le Contrat
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6">
-                    <div class="card border-danger">
-                        <div class="card-header bg-danger text-white">
-                            <h6 class="mb-0"><i class="bi bi-x-circle"></i> Annuler le Contrat</h6>
-                        </div>
-                        <div class="card-body">
-                            <form method="POST" action="" onsubmit="return confirm('Êtes-vous sûr de vouloir annuler ce contrat ?\n\nLe client sera notifié de l\'annulation.');">
-                                <input type="hidden" name="action" value="cancel">
-                                <div class="mb-3">
-                                    <label for="motif_annulation" class="form-label">Motif d'annulation <span class="text-danger">*</span></label>
-                                    <textarea 
-                                        class="form-control" 
-                                        id="motif_annulation" 
-                                        name="motif_annulation" 
-                                        rows="3" 
-                                        placeholder="Raison de l'annulation (sera communiquée au client)..."
-                                        required></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-danger w-100">
-                                    <i class="bi bi-x-circle"></i> Annuler le Contrat
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php //endif; ?>
-
-        <!-- Departure confirmation & End of contract actions -->
-        <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>
+        <!-- 11. Clôture du contrat -->
+        <?php if (!empty($contrat['date_demande_depart'])): ?>
         <div class="detail-card mt-4">
-            <h5><i class="bi bi-door-open"></i> Procédure de Départ</h5>
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i>
-                Le locataire a initié la procédure de départ le
-                <strong><?php echo date('d/m/Y à H:i', strtotime($contrat['date_demande_depart'])); ?></strong>.
-            </div>
-            <div class="row mt-3">
-                <div class="col-md-12 mb-3">
-                    <div class="card border-info">
-                        <div class="card-header bg-info text-white">
-                            <h6 class="mb-0"><i class="bi bi-envelope-check"></i> Confirmation Réception AR24</h6>
-                        </div>
-                        <div class="card-body">
-                            <p class="mb-3">Envoyer au locataire la confirmation que nous avons bien reçu son courrier envoyé via AR24.</p>
-                            <button type="button" class="btn btn-info w-100"
-                                    onclick="openAR24Modal(<?php echo $contractId; ?>, 'detail', '<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? '', ENT_QUOTES); ?>')">
-                                <i class="bi bi-envelope-check"></i> Envoyer confirmation AR24
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Departure confirmation & End of contract actions -->
-        <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>
-        <div class="detail-card mt-4">
-            <h5><i class="bi bi-door-open"></i> Cloôture du contrat</h5>
+            <h5><i class="bi bi-door-open"></i> Clôture du contrat</h5>
             <div class="row mt-3">
                 <div class="col-md-12 mb-3">
                     <div class="card border-dark">
@@ -1717,30 +1722,7 @@ if ($contrat['validated_by']) {
         </div>
         <?php endif; ?>
 
-        <!-- Date Editing Section -->
-        <div class="detail-card">
-            <h5><i class="bi bi-calendar-date"></i> Modifier les dates du contrat</h5>
-            <form method="POST" action="">
-                <input type="hidden" name="action" value="update_dates">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="date_prise_effet" class="form-label">Date de prise d'effet (date du contrat)</label>
-                        <input type="date" class="form-control" id="date_prise_effet" name="date_prise_effet"
-                               value="<?php echo htmlspecialchars($contrat['date_prise_effet'] ?? ''); ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="date_fin_prevue" class="form-label">Date de fin prévue</label>
-                        <input type="date" class="form-control" id="date_fin_prevue" name="date_fin_prevue"
-                               value="<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? ''); ?>">
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Enregistrer les dates
-                    </button>
-                </div>
-            </form>
-        </div>
+        <?php endif; ?>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
