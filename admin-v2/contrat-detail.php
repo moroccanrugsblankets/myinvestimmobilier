@@ -1381,6 +1381,7 @@ if ($contrat['validated_by']) {
                             <?php else: ?>
                                 <p class="text-muted mb-3">Aucun inventaire d'entrée créé.</p>
                                 <form method="POST" action="create-inventaire.php" class="d-inline">
+                                    <input type="hidden" name="contrat_id" value="<?php echo $contrat['id']; ?>">
                                     <input type="hidden" name="logement_id" value="<?php echo $contrat['logement_id']; ?>">
                                     <input type="hidden" name="type" value="entree">
                                     <input type="hidden" name="date_inventaire" value="<?php echo date('Y-m-d'); ?>">
@@ -1426,6 +1427,7 @@ if ($contrat['validated_by']) {
                                 <p class="text-muted mb-3">Aucun inventaire de sortie créé.</p>
                                 <?php if ($inventaire_entree): ?>
                                 <form method="POST" action="create-inventaire.php" class="d-inline">
+                                    <input type="hidden" name="contrat_id" value="<?php echo $contrat['id']; ?>">
                                     <input type="hidden" name="logement_id" value="<?php echo $contrat['logement_id']; ?>">
                                     <input type="hidden" name="type" value="sortie">
                                     <input type="hidden" name="date_inventaire" value="<?php echo date('Y-m-d'); ?>">
