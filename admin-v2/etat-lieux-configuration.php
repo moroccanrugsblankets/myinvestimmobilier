@@ -441,7 +441,6 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
             </form>
         </div>
 
-        <!-- Template Configuration Card for Exit State -->
         <div class="config-card">
             <h5 class="mb-3"><i class="bi bi-box-arrow-right text-danger"></i> Template État des Lieux de Sortie</h5>
             <div class="variables-info">
@@ -465,11 +464,14 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <span class="variable-tag" onclick="copyVariable('{{cles_boite_lettres}}')">{{cles_boite_lettres}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_autre}}')">{{cles_autre}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_total}}')">{{cles_total}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{cles_observations}}')">{{cles_observations}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{piece_principale}}')">{{piece_principale}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{coin_cuisine}}')">{{coin_cuisine}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{salle_eau_wc}}')">{{salle_eau_wc}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{etat_general}}')">{{etat_general}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{observations}}')">{{observations}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{date_fin_prevue}}')">{{date_fin_prevue}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{anomalies_description_logement}}')">{{anomalies_description_logement}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{lieu_signature}}')">{{lieu_signature}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{date_signature}}')">{{date_signature}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{signatures_table}}')">{{signatures_table}}</span>

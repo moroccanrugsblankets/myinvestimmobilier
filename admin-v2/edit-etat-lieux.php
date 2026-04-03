@@ -224,6 +224,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
         
+        // For draft save: redirect back so the page reloads with updated data
+        header("Location: edit-etat-lieux.php?id=$id");
+        exit;
+        
     } catch (Exception $e) {
         $pdo->rollBack();
         error_log("Error updating état des lieux: " . $e->getMessage());
@@ -839,11 +843,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
             </div>
 
             <?php if ($isSortie): ?>
-            <!-- Bilan du logement - Section Compteurs -->
+            <!-- Anomalie(s) constatée(s) - Relevé des compteurs -->
             <div class="bilan-section">
                 <div class="bilan-section-title">
                     <i class="bi bi-clipboard-check"></i>
-                    Bilan du logement - Relevé des compteurs
+                    Anomalie(s) constatée(s) - Relevé des compteurs
                 </div>
                 <table class="bilan-table" id="bilan_compteurs">
                     <thead>
@@ -924,17 +928,7 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                 
                 <?php if ($isSortie): ?>
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label required-field">Conformité</label>
-                        <select name="cles_conformite" class="form-select" required>
-                            <option value="">-- Sélectionner --</option>
-                            <option value="non_applicable" <?php echo ($etat['cles_conformite'] ?? '') === 'non_applicable' ? 'selected' : ''; ?>>Non applicable</option>
-                            <option value="conforme" <?php echo ($etat['cles_conformite'] ?? '') === 'conforme' ? 'selected' : ''; ?>>Conforme à l'entrée</option>
-                            <option value="non_conforme" <?php echo ($etat['cles_conformite'] ?? '') === 'non_conforme' ? 'selected' : ''; ?>>Non conforme</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-12 mb-3">
                         <label class="form-label">Observations</label>
                         <textarea name="cles_observations" class="form-control" rows="2"><?php echo htmlspecialchars($etat['cles_observations'] ?? ''); ?></textarea>
                     </div>
@@ -979,11 +973,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
             </div>
 
             <?php if ($isSortie): ?>
-            <!-- Bilan du logement - Section Clés -->
+            <!-- Anomalie(s) constatée(s) - Restitution des clés -->
             <div class="bilan-section">
                 <div class="bilan-section-title">
                     <i class="bi bi-clipboard-check"></i>
-                    Bilan du logement - Restitution des clés
+                    Anomalie(s) constatée(s) - Restitution des clés
                 </div>
                 <table class="bilan-table" id="bilan_cles">
                     <thead>
@@ -1006,56 +1000,29 @@ if ($isSortie && !empty($etat['contrat_id'])) {
             <!-- 4. Description du logement -->
             <div class="form-card">
                 <div class="section-title">
-                    <i class="bi bi-house"></i> 4. Description du logement - État <?php echo $isEntree ? 'd\'entrée' : 'de sortie'; ?>
+                    <i class="bi bi-house"></i> 4. Description du logement
                 </div>
-                
-                <!-- Pièce principale -->
-                <div class="section-subtitle">Pièce principale</div>
+
+                <?php if ($isEntree): ?>
+                <!-- Entry state: single combined textarea -->
                 <div class="row">
                     <div class="col-md-12 mb-3">
-                        <?php if ($isSortie && $etat_entree && !empty($etat_entree['piece_principale'])): ?>
-                            <!-- Entry state reference -->
-                            <div class="entry-reference mb-2">
-                                <span class="icon-green">🟢</span>
-                                <span class="entry-reference-label">État d'entrée :</span>
-                                <div class="entry-reference-value mt-1" style="white-space: pre-line; font-size: 0.9rem;">
-                                    <?php echo htmlspecialchars($etat_entree['piece_principale']); ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <label class="form-label required-field <?php echo $isSortie ? 'exit-input-label' : ''; ?>">
-                            <?php if ($isSortie): ?><span class="icon-red">🔴</span><?php endif; ?>
-                            État<?php echo $isSortie ? ' de sortie' : ''; ?>
-                        </label>
-                        <textarea name="piece_principale" class="form-control" rows="4" required><?php 
-                            echo htmlspecialchars($etat['piece_principale'] ?? ($isEntree 
-                                ? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles"
-                                : "")); // Empty for exit state - user must fill
+                        <label class="form-label required-field">Description du logement</label>
+                        <textarea name="piece_principale" class="form-control" rows="8" required
+                                  placeholder="Décrivez l'état général du logement (revêtements, murs, plafonds, installations, etc.)..."><?php
+                            echo htmlspecialchars($etat['piece_principale'] ?? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles");
                         ?></textarea>
+                        <!-- Keep hidden fields so backend receives empty values for unused fields -->
+                        <input type="hidden" name="coin_cuisine" value="">
+                        <input type="hidden" name="salle_eau_wc" value="">
                     </div>
-                    
+                </div>
+
+                <!-- Photos (single zone for entry) -->
+                <div class="row">
                     <div class="col-md-12 mb-3">
-                        <label class="form-label">Photos de la pièce principale <em>(optionnel)</em></label>
-                        
-                        <?php if ($isSortie && $etat_entree && isset($etat_entree_photos['piece_principale']) && !empty($etat_entree_photos['piece_principale'])): ?>
-                            <!-- Entry photos as reference -->
-                            <div class="mb-2">
-                                <small class="text-success fw-bold"><span class="icon-green">🟢</span> Photos de l'état d'entrée (référence) :</small>
-                                <div class="d-flex flex-wrap gap-2 mt-1">
-                                    <?php foreach ($etat_entree_photos['piece_principale'] as $photo): ?>
-                                        <div class="entry-photo-thumbnail">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo pièce principale (entrée)" 
-                                                 title="Photo de l'état d'entrée">
-                                            <div class="entry-photo-badge">🟢</div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                            <hr class="my-2">
-                        <?php endif; ?>
-                        
+                        <label class="form-label">Photos du logement <em>(optionnel)</em></label>
+
                         <?php if (isset($photos_by_category['piece_principale']) && !empty($photos_by_category['piece_principale'])): ?>
                             <div class="mb-2">
                                 <div class="alert alert-success d-flex justify-content-between align-items-center">
@@ -1064,10 +1031,10 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                                 <div class="d-flex flex-wrap gap-2">
                                     <?php foreach ($photos_by_category['piece_principale'] as $photo): ?>
                                         <div class="position-relative">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo pièce principale" 
+                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>"
+                                                 alt="Photo logement"
                                                  style="max-width: 150px; max-height: 100px; border: 1px solid #dee2e6; border-radius: 4px;">
-                                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0" 
+                                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0"
                                                     style="padding: 2px 6px; font-size: 10px;"
                                                     onclick="deletePhoto(<?php echo $photo['id']; ?>, this)">
                                                 <i class="bi bi-x"></i>
@@ -1077,80 +1044,48 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                                 </div>
                             </div>
                         <?php endif; ?>
-                        
+
                         <div class="photo-upload-zone" onclick="document.getElementById('photo_piece_principale').click()">
                             <i class="bi bi-camera" style="font-size: 2rem; color: #6c757d;"></i>
                             <p class="mb-0 mt-2">Cliquer pour ajouter des photos</p>
-                            <input type="file" id="photo_piece_principale" name="photo_piece_principale[]" 
+                            <input type="file" id="photo_piece_principale" name="photo_piece_principale[]"
                                    accept="image/*" multiple style="display: none;" onchange="previewPhoto(this, 'preview_piece')">
                         </div>
                         <div id="preview_piece" class="mt-2"></div>
                     </div>
                 </div>
-                
-                <?php if ($isSortie): ?>
-                <!-- Bilan du logement - Pièce principale -->
-                <div class="bilan-section">
-                    <div class="bilan-section-title">
-                        <i class="bi bi-clipboard-check"></i>
-                        Bilan du logement - Pièce principale
+
+                <?php else: /* EXIT STATE */ ?>
+                <!-- Exit state: show entry description reference, no textarea -->
+                <input type="hidden" name="piece_principale" value="<?php echo htmlspecialchars($etat['piece_principale'] ?? ''); ?>">
+                <input type="hidden" name="coin_cuisine" value="<?php echo htmlspecialchars($etat['coin_cuisine'] ?? ''); ?>">
+                <input type="hidden" name="salle_eau_wc" value="<?php echo htmlspecialchars($etat['salle_eau_wc'] ?? ''); ?>">
+
+                <?php if ($etat_entree && !empty($etat_entree['piece_principale'])): ?>
+                <div class="entry-reference mb-3">
+                    <span class="icon-green">🟢</span>
+                    <span class="entry-reference-label">Description à l'entrée :</span>
+                    <div class="entry-reference-value mt-1" style="white-space: pre-line; font-size: 0.9rem;">
+                        <?php echo htmlspecialchars($etat_entree['piece_principale']); ?>
                     </div>
-                    <table class="bilan-table" id="bilan_piece_principale">
-                        <thead>
-                            <tr>
-                                <th style="width: 35%;">Équipement</th>
-                                <th style="width: 55%;">Commentaire</th>
-                                <th style="width: 10%;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="bilan_piece_principale_body">
-                            <!-- Rows will be added dynamically -->
-                        </tbody>
-                    </table>
-                    <button type="button" class="btn-add-bilan-row" onclick="addBilanRow('piece_principale')">
-                        <i class="bi bi-plus-circle"></i> Ajouter une ligne
-                    </button>
                 </div>
                 <?php endif; ?>
-                
-                <!-- Coin cuisine -->
-                <div class="section-subtitle">Coin cuisine</div>
+
+                <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> Les anomalies constatées sont à saisir dans la rubrique <strong>Anomalie(s) constatée(s) - Description du logement</strong> ci-dessous.</p>
+
+                <!-- Photos (entry reference + current upload) -->
                 <div class="row">
                     <div class="col-md-12 mb-3">
-                        <?php if ($isSortie && $etat_entree && !empty($etat_entree['coin_cuisine'])): ?>
-                            <!-- Entry state reference -->
-                            <div class="entry-reference mb-2">
-                                <span class="icon-green">🟢</span>
-                                <span class="entry-reference-label">État d'entrée :</span>
-                                <div class="entry-reference-value mt-1" style="white-space: pre-line; font-size: 0.9rem;">
-                                    <?php echo htmlspecialchars($etat_entree['coin_cuisine']); ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <label class="form-label required-field <?php echo $isSortie ? 'exit-input-label' : ''; ?>">
-                            <?php if ($isSortie): ?><span class="icon-red">🔴</span><?php endif; ?>
-                            État<?php echo $isSortie ? ' de sortie' : ''; ?>
-                        </label>
-                        <textarea name="coin_cuisine" class="form-control" rows="4" required><?php 
-                            echo htmlspecialchars($etat['coin_cuisine'] ?? ($isEntree 
-                                ? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles"
-                                : "")); // Empty for exit state - user must fill
-                        ?></textarea>
-                    </div>
-                    
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Photos du coin cuisine <em>(optionnel)</em></label>
-                        
-                        <?php if ($isSortie && $etat_entree && isset($etat_entree_photos['cuisine']) && !empty($etat_entree_photos['cuisine'])): ?>
-                            <!-- Entry photos as reference -->
+                        <label class="form-label">Photos du logement <em>(optionnel)</em></label>
+
+                        <?php if ($etat_entree && isset($etat_entree_photos['piece_principale']) && !empty($etat_entree_photos['piece_principale'])): ?>
                             <div class="mb-2">
                                 <small class="text-success fw-bold"><span class="icon-green">🟢</span> Photos de l'état d'entrée (référence) :</small>
                                 <div class="d-flex flex-wrap gap-2 mt-1">
-                                    <?php foreach ($etat_entree_photos['cuisine'] as $photo): ?>
+                                    <?php foreach ($etat_entree_photos['piece_principale'] as $photo): ?>
                                         <div class="entry-photo-thumbnail">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo cuisine (entrée)" 
+                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>"
+                                                 alt="Photo logement (entrée)"
                                                  title="Photo de l'état d'entrée">
                                             <div class="entry-photo-badge">🟢</div>
                                         </div>
@@ -1159,19 +1094,19 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                             </div>
                             <hr class="my-2">
                         <?php endif; ?>
-                        
-                        <?php if (isset($photos_by_category['cuisine']) && !empty($photos_by_category['cuisine'])): ?>
+
+                        <?php if (isset($photos_by_category['piece_principale']) && !empty($photos_by_category['piece_principale'])): ?>
                             <div class="mb-2">
                                 <div class="alert alert-success d-flex justify-content-between align-items-center">
-                                    <span><i class="bi bi-check-circle"></i> <?php echo count($photos_by_category['cuisine']); ?> photo(s) enregistrée(s)</span>
+                                    <span><i class="bi bi-check-circle"></i> <?php echo count($photos_by_category['piece_principale']); ?> photo(s) enregistrée(s)</span>
                                 </div>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <?php foreach ($photos_by_category['cuisine'] as $photo): ?>
+                                    <?php foreach ($photos_by_category['piece_principale'] as $photo): ?>
                                         <div class="position-relative">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo cuisine" 
+                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>"
+                                                 alt="Photo logement"
                                                  style="max-width: 150px; max-height: 100px; border: 1px solid #dee2e6; border-radius: 4px;">
-                                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0" 
+                                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0"
                                                     style="padding: 2px 6px; font-size: 10px;"
                                                     onclick="deletePhoto(<?php echo $photo['id']; ?>, this)">
                                                 <i class="bi bi-x"></i>
@@ -1181,142 +1116,39 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                                 </div>
                             </div>
                         <?php endif; ?>
-                        
-                        <div class="photo-upload-zone" onclick="document.getElementById('photo_cuisine').click()">
+
+                        <div class="photo-upload-zone" onclick="document.getElementById('photo_piece_principale').click()">
                             <i class="bi bi-camera" style="font-size: 2rem; color: #6c757d;"></i>
                             <p class="mb-0 mt-2">Cliquer pour ajouter des photos</p>
-                            <input type="file" id="photo_cuisine" name="photo_cuisine[]" 
-                                   accept="image/*" multiple style="display: none;" onchange="previewPhoto(this, 'preview_cuisine')">
+                            <input type="file" id="photo_piece_principale" name="photo_piece_principale[]"
+                                   accept="image/*" multiple style="display: none;" onchange="previewPhoto(this, 'preview_piece')">
                         </div>
-                        <div id="preview_cuisine" class="mt-2"></div>
+                        <div id="preview_piece" class="mt-2"></div>
                     </div>
-                </div>
-                
-                <?php if ($isSortie): ?>
-                <!-- Bilan du logement - Coin cuisine -->
-                <div class="bilan-section">
-                    <div class="bilan-section-title">
-                        <i class="bi bi-clipboard-check"></i>
-                        Bilan du logement - Coin cuisine
-                    </div>
-                    <table class="bilan-table" id="bilan_cuisine">
-                        <thead>
-                            <tr>
-                                <th style="width: 35%;">Équipement</th>
-                                <th style="width: 55%;">Commentaire</th>
-                                <th style="width: 10%;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="bilan_cuisine_body">
-                            <!-- Rows will be added dynamically -->
-                        </tbody>
-                    </table>
-                    <button type="button" class="btn-add-bilan-row" onclick="addBilanRow('cuisine')">
-                        <i class="bi bi-plus-circle"></i> Ajouter une ligne
-                    </button>
                 </div>
                 <?php endif; ?>
-                
-                <!-- Salle d'eau et WC -->
-                <div class="section-subtitle">Salle d'eau et WC</div>
-                <div class="row">
-                    <div class="col-md-12 mb-3">
-                        <?php if ($isSortie && $etat_entree && !empty($etat_entree['salle_eau_wc'])): ?>
-                            <!-- Entry state reference -->
-                            <div class="entry-reference mb-2">
-                                <span class="icon-green">🟢</span>
-                                <span class="entry-reference-label">État d'entrée :</span>
-                                <div class="entry-reference-value mt-1" style="white-space: pre-line; font-size: 0.9rem;">
-                                    <?php echo htmlspecialchars($etat_entree['salle_eau_wc']); ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <label class="form-label required-field <?php echo $isSortie ? 'exit-input-label' : ''; ?>">
-                            <?php if ($isSortie): ?><span class="icon-red">🔴</span><?php endif; ?>
-                            État<?php echo $isSortie ? ' de sortie' : ''; ?>
-                        </label>
-                        <textarea name="salle_eau_wc" class="form-control" rows="4" required><?php 
-                            echo htmlspecialchars($etat['salle_eau_wc'] ?? ($isEntree 
-                                ? "• Revêtement de sol : carrelage très bon état d'usage\n• Faïence : très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles"
-                                : "")); // Empty for exit state - user must fill
-                        ?></textarea>
-                    </div>
-                    
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Photos de la salle d'eau et WC <em>(optionnel)</em></label>
-                        
-                        <?php if ($isSortie && $etat_entree && isset($etat_entree_photos['salle_eau']) && !empty($etat_entree_photos['salle_eau'])): ?>
-                            <!-- Entry photos as reference -->
-                            <div class="mb-2">
-                                <small class="text-success fw-bold"><span class="icon-green">🟢</span> Photos de l'état d'entrée (référence) :</small>
-                                <div class="d-flex flex-wrap gap-2 mt-1">
-                                    <?php foreach ($etat_entree_photos['salle_eau'] as $photo): ?>
-                                        <div class="entry-photo-thumbnail">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo salle d'eau (entrée)" 
-                                                 title="Photo de l'état d'entrée">
-                                            <div class="entry-photo-badge">🟢</div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                            <hr class="my-2">
-                        <?php endif; ?>
-                        
-                        <?php if (isset($photos_by_category['salle_eau']) && !empty($photos_by_category['salle_eau'])): ?>
-                            <div class="mb-2">
-                                <div class="alert alert-success d-flex justify-content-between align-items-center">
-                                    <span><i class="bi bi-check-circle"></i> <?php echo count($photos_by_category['salle_eau']); ?> photo(s) enregistrée(s)</span>
-                                </div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <?php foreach ($photos_by_category['salle_eau'] as $photo): ?>
-                                        <div class="position-relative">
-                                            <img src="../<?php echo htmlspecialchars($photo['chemin_fichier']); ?>" 
-                                                 alt="Photo salle d'eau" 
-                                                 style="max-width: 150px; max-height: 100px; border: 1px solid #dee2e6; border-radius: 4px;">
-                                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0" 
-                                                    style="padding: 2px 6px; font-size: 10px;"
-                                                    onclick="deletePhoto(<?php echo $photo['id']; ?>, this)">
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <div class="photo-upload-zone" onclick="document.getElementById('photo_salle_eau').click()">
-                            <i class="bi bi-camera" style="font-size: 2rem; color: #6c757d;"></i>
-                            <p class="mb-0 mt-2">Cliquer pour ajouter des photos</p>
-                            <input type="file" id="photo_salle_eau" name="photo_salle_eau[]" 
-                                   accept="image/*" multiple style="display: none;" onchange="previewPhoto(this, 'preview_salle_eau')">
-                        </div>
-                        <div id="preview_salle_eau" class="mt-2"></div>
-                    </div>
-                </div>
             </div>
 
             <?php if ($isSortie): ?>
-            <!-- Bilan du logement - Salle d'eau et WC -->
+            <!-- Anomalie(s) constatée(s) - Description du logement -->
             <div class="bilan-section">
                 <div class="bilan-section-title">
                     <i class="bi bi-clipboard-check"></i>
-                    Bilan du logement - Salle d'eau et WC
+                    Anomalie(s) constatée(s) - Description du logement
                 </div>
-                <table class="bilan-table" id="bilan_salle_eau">
+                <table class="bilan-table" id="bilan_piece_principale">
                     <thead>
                         <tr>
-                            <th style="width: 35%;">Équipement</th>
-                            <th style="width: 55%;">Commentaire</th>
+                            <th style="width: 35%;">Élément</th>
+                            <th style="width: 55%;">Anomalie constatée</th>
                             <th style="width: 10%;"></th>
                         </tr>
                     </thead>
-                    <tbody id="bilan_salle_eau_body">
-                        <!-- Rows will be added dynamically -->
+                    <tbody id="bilan_piece_principale_body">
+                        <!-- Rows will be added dynamically; default empty row shown via JS -->
                     </tbody>
                 </table>
-                <button type="button" class="btn-add-bilan-row" onclick="addBilanRow('salle_eau')">
+                <button type="button" class="btn-add-bilan-row" onclick="addBilanRow('piece_principale')">
                     <i class="bi bi-plus-circle"></i> Ajouter une ligne
                 </button>
             </div>
@@ -1832,7 +1664,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
         
         // Load existing bilan data (if editing)
         function loadBilanData() {
-            <?php if ($isSortie && !empty($etat['bilan_sections_data'])): ?>
+            <?php if ($isSortie): ?>
+            // Sections that should have anomaly tables
+            const bilanSections = ['compteurs', 'cles', 'piece_principale'];
+            
+            <?php if (!empty($etat['bilan_sections_data'])): ?>
                 try {
                     const savedData = <?php echo json_encode(json_decode($etat['bilan_sections_data'], true) ?? []); ?>;
                     
@@ -1856,9 +1692,23 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                             });
                         }
                     });
+                    
+                    // For any section with no loaded data, add one default empty row
+                    bilanSections.forEach(section => {
+                        const tbody = document.getElementById(`bilan_${section}_body`);
+                        if (tbody && tbody.children.length === 0) {
+                            addBilanRow(section);
+                        }
+                    });
                 } catch (e) {
                     console.error('Error loading bilan data:', e);
+                    // Add default empty rows on error
+                    bilanSections.forEach(section => addBilanRow(section));
                 }
+            <?php else: ?>
+                // No saved data: add one default empty row to each section
+                bilanSections.forEach(section => addBilanRow(section));
+            <?php endif; ?>
             <?php endif; ?>
         }
         
@@ -1979,10 +1829,8 @@ if ($isSortie && !empty($etat['contrat_id'])) {
         document.addEventListener('DOMContentLoaded', function() {
             calculateTotalKeys();
             
-            // Load bilan data if editing
-            <?php if ($isSortie): ?>
-                loadBilanData();
-            <?php endif; ?>
+            // Load bilan data (for sortie: loads existing data + adds default empty rows)
+            loadBilanData();
             
             // Initialize tenant signatures based on actual IDs in the page
             <?php if (!empty($existing_tenants)): ?>

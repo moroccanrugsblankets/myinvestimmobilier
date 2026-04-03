@@ -8,9 +8,40 @@ require_once __DIR__ . '/../includes/db.php';
 
 $error = '';
 
+// Check for persistent login cookie
+if (!isset($_SESSION['admin_id']) && isset($_COOKIE['admin_remember'])) {
+    $cookieValue = $_COOKIE['admin_remember'];
+    // Format: token:admin_id (token is SHA-256 hash)
+    if (preg_match('/^([a-f0-9]{64}):(\d+)$/', $cookieValue, $matches)) {
+        $cookieToken = $matches[1];
+        $cookieAdminId = (int)$matches[2];
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM administrateurs WHERE id = ? AND actif = 1 AND remember_token IS NOT NULL");
+            $stmt->execute([$cookieAdminId]);
+            $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($admin && hash_equals($admin['remember_token'], $cookieToken)) {
+                // Valid persistent token — restore session
+                session_start();
+                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_username'] = $admin['username'];
+                $_SESSION['admin_nom'] = $admin['nom'];
+                $_SESSION['admin_prenom'] = $admin['prenom'];
+                $_SESSION['last_activity'] = time();
+                $updateStmt = $pdo->prepare("UPDATE administrateurs SET derniere_connexion = NOW() WHERE id = ?");
+                $updateStmt->execute([$admin['id']]);
+                header('Location: index.php');
+                exit;
+            }
+        } catch (Exception $e) {
+            error_log("Remember cookie check error: " . $e->getMessage());
+        }
+    }
+}
+
 if (isset($_POST['login'])) {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
+    $rememberMe = isset($_POST['remember_me']);
     
     try {
         $stmt = $pdo->prepare("SELECT * FROM administrateurs WHERE username = ? AND actif = 1");
@@ -26,6 +57,27 @@ if (isset($_POST['login'])) {
             // Update last login
             $updateStmt = $pdo->prepare("UPDATE administrateurs SET derniere_connexion = NOW() WHERE id = ?");
             $updateStmt->execute([$admin['id']]);
+            
+            // Handle "Rester connecté" persistent cookie
+            if ($rememberMe) {
+                $token = bin2hex(random_bytes(32));
+                $cookieValue = $token . ':' . $admin['id'];
+                $expiry = time() + (30 * 24 * 3600); // 30 days
+                // Save token hash in DB (requires remember_token column)
+                try {
+                    $tokenStmt = $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?");
+                    $tokenStmt->execute([$token, $admin['id']]);
+                    setcookie('admin_remember', $cookieValue, [
+                        'expires' => $expiry,
+                        'path' => '/',
+                        'httponly' => true,
+                        'samesite' => 'Strict',
+                    ]);
+                } catch (Exception $e) {
+                    error_log("Remember token save error: " . $e->getMessage());
+                    // Non-fatal: just don't set the cookie
+                }
+            }
             
             // Redirect to originally requested URL if available and on the same host
             $redirectUrl = 'index.php';
@@ -47,6 +99,75 @@ if (isset($_POST['login'])) {
         error_log("Login error: " . $e->getMessage());
     }
 }
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - My Invest Immobilier</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <h2>My Invest Immobilier</h2>
+            <p class="text-muted">Administration</p>
+        </div>
+        
+        <?php if ($error): ?>
+            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+        
+        <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label">Nom d'utilisateur</label>
+                <input type="text" class="form-control" id="username" name="username" required autofocus>
+            </div>
+            
+            <div class="mb-3">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                <label class="form-check-label" for="remember_me">Rester connecté</label>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" name="login" class="btn btn-primary btn-lg">Se connecter</button>
+            </div>
+        </form>
+        
+        <p class="text-center text-muted mt-4 mb-0">
+            <small>Accès réservé aux administrateurs</small>
+        </p>
+    </div>
+</body>
+</html>
 ?>
 <!DOCTYPE html>
 <html lang="fr">
