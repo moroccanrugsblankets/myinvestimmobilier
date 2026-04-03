@@ -1465,7 +1465,7 @@ function createGarant(int $contratId, string $typeGarantie, array $data = [], ?i
                 nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
                 numero_visale,
                 date_envoi_invitation
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         $result = $stmt->execute([
             $contratId,
