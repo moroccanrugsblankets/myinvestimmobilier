@@ -10,7 +10,7 @@
 -- New columns on locataires are nullable.
 
 ALTER TABLE locataires
-    ADD COLUMN assurance_habitation   VARCHAR(255) NULL AFTER token_assurance,
-    ADD COLUMN numero_visale          VARCHAR(100) NULL AFTER assurance_habitation,
-    ADD COLUMN visa_certifie          VARCHAR(255) NULL AFTER numero_visale,
-    ADD COLUMN date_envoi_assurance   DATETIME     NULL AFTER visa_certifie;
+    ADD COLUMN assurance_habitation   VARCHAR(255) NULL,
+    ADD COLUMN numero_visale          VARCHAR(100) NULL,
+    ADD COLUMN visa_certifie          VARCHAR(255) NULL,
+    ADD COLUMN date_envoi_assurance   DATETIME     NULL;

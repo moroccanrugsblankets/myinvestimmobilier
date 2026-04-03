@@ -937,7 +937,7 @@ if ($contrat['validated_by']) {
                                             <input type="hidden" name="action" value="resend_assurance_link">
                                             <input type="hidden" name="locataire_id" value="<?= (int)$locataire['id'] ?>">
                                             <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-1"
-                                                    onclick="return confirm('Renvoyer le lien d\'envoi de documents à <?= htmlspecialchars(addslashes($locataire['prenom'] . ' ' . $locataire['nom'])) ?> ?');">
+                                                    onclick="return confirm('Renvoyer le lien d\'envoi de documents à <?= htmlspecialchars($locataire['prenom'] . ' ' . $locataire['nom'], ENT_QUOTES) ?> ?');">
                                                 <i class="bi bi-envelope-arrow-up"></i> Renvoyer le lien
                                             </button>
                                         </form>
