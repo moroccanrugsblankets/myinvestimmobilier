@@ -10,7 +10,9 @@
 
 -- 1. Link each garant record to the specific tenant who declared it
 ALTER TABLE garants
-    ADD COLUMN locataire_id INT NULL AFTER contrat_id;
+    ADD COLUMN locataire_id INT NULL AFTER contrat_id,
+    ADD CONSTRAINT fk_garants_locataire
+        FOREIGN KEY (locataire_id) REFERENCES locataires(id) ON DELETE SET NULL;
 
 -- 2. Per-tenant token for the garant declaration form (/garant/index.php)
 ALTER TABLE locataires

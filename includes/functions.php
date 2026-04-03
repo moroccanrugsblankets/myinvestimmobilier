@@ -1422,12 +1422,17 @@ function createGarant(int $contratId, string $typeGarantie, array $data = [], ?i
 
     $token = bin2hex(random_bytes(32));
 
-    // Use locataire_id column when the migration 130 column exists
-    $hasLocataireId = false;
-    try {
-        $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
-        $hasLocataireId = (bool)$chk->fetch();
-    } catch (\Exception $e) { /* ignore */ }
+    // Use locataire_id column when the migration 130 column exists.
+    // Cache the result for the request lifetime to avoid repeated schema queries.
+    static $hasLocataireId = null;
+    if ($hasLocataireId === null) {
+        try {
+            $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
+            $hasLocataireId = (bool)$chk->fetch();
+        } catch (\Exception $e) {
+            $hasLocataireId = false;
+        }
+    }
 
     if ($hasLocataireId) {
         $stmt = $pdo->prepare("
@@ -1436,7 +1441,7 @@ function createGarant(int $contratId, string $typeGarantie, array $data = [], ?i
                 nom, prenom, date_naissance, email, telephone, adresse, ville, code_postal,
                 numero_visale,
                 date_envoi_invitation
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         $result = $stmt->execute([
             $contratId,
@@ -1503,14 +1508,19 @@ function createGarant(int $contratId, string $typeGarantie, array $data = [], ?i
 function deleteGarantsPending(int $contratId, ?int $locataireId = null): int {
     global $pdo;
     if ($locataireId !== null) {
-        // Check if locataire_id column exists (migration 130)
-        $hasCol = false;
-        try {
-            $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
-            $hasCol = (bool)$chk->fetch();
-        } catch (\Exception $e) { /* ignore */ }
+        // Check if locataire_id column exists (migration 130).
+        // Reuse the same static cache as createGarant().
+        static $hasLocataireIdCol = null;
+        if ($hasLocataireIdCol === null) {
+            try {
+                $chk = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'garants' AND COLUMN_NAME = 'locataire_id'");
+                $hasLocataireIdCol = (bool)$chk->fetch();
+            } catch (\Exception $e) {
+                $hasLocataireIdCol = false;
+            }
+        }
 
-        if ($hasCol) {
+        if ($hasLocataireIdCol) {
             $stmt = $pdo->prepare("DELETE FROM garants WHERE contrat_id = ? AND locataire_id = ? AND statut = 'en_attente_garant'");
             $stmt->execute([$contratId, $locataireId]);
             return (int)$stmt->rowCount();

@@ -1037,7 +1037,7 @@ if ($contrat['validated_by']) {
         $anyGarant = !empty($garantParLocataire) || $garantContrat;
 
         // Helper to render a single garant's details
-        function renderGarantDetails(array $g, int $contractId, string $sitUrl): void {
+        function renderGarantDetails(array $g, int $contractId): void {
         ?>
             <div class="row mb-3">
                 <div class="col-md-6">
@@ -1208,7 +1208,7 @@ if ($contrat['validated_by']) {
                 </h6>
 
                 <?php if ($garantLoc): ?>
-                    <?php renderGarantDetails($garantLoc, $contractId, $config['SITE_URL']); ?>
+                    <?php renderGarantDetails($garantLoc, $contractId); ?>
                 <?php else: ?>
                     <p class="text-muted mb-2">Aucun garant déclaré pour ce locataire.</p>
                     <?php if (in_array($contrat['statut'], ['valide', 'actif', 'signe'], true)): ?>
@@ -1238,7 +1238,7 @@ if ($contrat['validated_by']) {
                     </form>
                     <?php endif; ?>
                 <?php else: ?>
-                    <?php renderGarantDetails($garantContrat, $contractId, $config['SITE_URL']); ?>
+                    <?php renderGarantDetails($garantContrat, $contractId); ?>
                 <?php endif;
             endif; ?>
         </div>
