@@ -198,7 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             $ext = strtolower(pathinfo($_FILES[$fileKey]['name'], PATHINFO_EXTENSION));
                             $filename = 'etat_lieux_' . $id . '_locataire_' . $tenantId . '_' . $side . '_' . time() . '.' . $ext;
                             if (saveUploadedFile($_FILES[$fileKey], $filename)) {
-                                $col = 'piece_identite_' . $side;
+                                // Whitelist column name to prevent SQL injection
+                                $col = ($side === 'recto') ? 'piece_identite_recto' : 'piece_identite_verso';
                                 $stmt = $pdo->prepare("UPDATE etat_lieux_locataires SET {$col} = ? WHERE id = ?");
                                 $stmt->execute([$filename, $tenantId]);
                             } else {

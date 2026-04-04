@@ -186,7 +186,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $ext = strtolower(pathinfo($_FILES[$fileKey]['name'], PATHINFO_EXTENSION));
                             $filename = 'inventaire_' . $inventaire_id . '_locataire_' . $tenantId . '_' . $side . '_' . time() . '.' . $ext;
                             if (saveUploadedFile($_FILES[$fileKey], $filename)) {
-                                $col = 'piece_identite_' . $side;
+                                // Whitelist column name to prevent SQL injection
+                                $col = ($side === 'recto') ? 'piece_identite_recto' : 'piece_identite_verso';
                                 $stmt = $pdo->prepare("UPDATE inventaire_locataires SET {$col} = ? WHERE id = ? AND inventaire_id = ?");
                                 $stmt->execute([$filename, $tenantId, $inventaire_id]);
                             } else {
