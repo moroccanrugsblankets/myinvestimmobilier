@@ -697,11 +697,13 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
         $lines = [];
         foreach ($bilanSectionsData['piece_principale'] as $item) {
             if (!empty($item['equipement']) || !empty($item['commentaire'])) {
-                $lines[] = '<strong>' . htmlspecialchars($item['equipement'] ?? '') . ' :</strong> ' . htmlspecialchars($item['commentaire'] ?? '');
+                $element = htmlspecialchars($item['equipement'] ?? '');
+                $anomalie = htmlspecialchars($item['commentaire'] ?? '');
+                $lines[] = '- ' . $element . ' : ' . $anomalie;
             }
         }
         if (!empty($lines)) {
-            $anomaliesDescriptionLogement = '<div style="text-align: left; line-height: 1.2;">' . implode('<br>', $lines) . '</div>';
+            $anomaliesDescriptionLogement = '<p>' . implode('<br>', $lines) . '</p>';
         }
     }
     
