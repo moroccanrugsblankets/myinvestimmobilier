@@ -544,7 +544,7 @@ function voirEmail(id) {
             const htmlContent = e.corps_html || '<em style="color:#6c757d">Aucun contenu disponible.</em>';
             iframe.srcdoc = htmlContent;
 
-            new bootstrap.Modal(document.getElementById('emailModal')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('emailModal')).show();
         })
         .catch(err => alert('Erreur de communication avec le serveur : ' + err.message));
 }
