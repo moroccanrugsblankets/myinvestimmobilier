@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/contract-templates.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 // Style CSS pour les images de signature (sans bordures)
 define('SIGNATURE_IMG_STYLE', 'width: 25mm; height: auto; display: block; margin-bottom: 15mm; border: none; outline: none; box-shadow: none; background: transparent;');
@@ -99,13 +100,13 @@ function generateContratPDF($contratId) {
 
         // Générer le PDF
         $typeContratLabel = getTypeContratLabel($typeContrat);
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf = new MIIPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
         $pdf->SetTitle('Contrat de Bail (' . $typeContratLabel . ') - ' . $contrat['reference_unique']);
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
         $pdf->AddPage();
         $pdf->writeHTML($html, true, false, true, false, '');
 

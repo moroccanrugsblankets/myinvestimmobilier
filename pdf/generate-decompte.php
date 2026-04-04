@@ -10,6 +10,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 /**
  * Générer le PDF d'un décompte d'intervention.
@@ -108,13 +109,13 @@ function generateDecomptePDF(int $decompteId, array $vars)
         $html = str_replace(array_keys($templateVars), array_values($templateVars), $templateHtml);
 
         // Générer le PDF avec TCPDF
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf = new MIIPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
         $pdf->SetTitle('Décompte d\'intervention — ' . ($vars['reference'] ?? (string)$decompteId));
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
         $pdf->AddPage();
         $pdf->writeHTML($html, true, false, true, false, '');
 

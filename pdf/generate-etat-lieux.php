@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/mail-templates.php';
 
 // Import the default template function
 require_once __DIR__ . '/../includes/etat-lieux-template.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 // Signature image display size constants (for PDF rendering)
 define('ETAT_LIEUX_SIGNATURE_MAX_WIDTH', '20mm');
@@ -229,7 +230,7 @@ function generateEtatDesLieuxPDF($contratId, $type = 'entree') {
 
         // Créer le PDF avec TCPDF
         error_log("Creating TCPDF instance...");
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf = new MIIPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
         
         $typeLabel = ($type === 'entree') ? 'Entrée' : 'Sortie';
@@ -238,7 +239,7 @@ function generateEtatDesLieuxPDF($contratId, $type = 'entree') {
         $pdf->SetMargins(15, 10, 15);
         $pdf->SetAutoPageBreak(true, 10);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
         $pdf->AddPage();
         
         // Write HTML to PDF with error handling

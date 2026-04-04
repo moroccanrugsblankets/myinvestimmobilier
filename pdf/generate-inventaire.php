@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/mail-templates.php';
 require_once __DIR__ . '/../includes/inventaire-template.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 // Signature image display size constants (for PDF rendering)
 define('INVENTAIRE_SIGNATURE_MAX_WIDTH', '20mm');
@@ -212,7 +213,7 @@ function generateInventairePDF($inventaireId) {
 
         // Créer le PDF avec TCPDF
         error_log("Creating TCPDF instance...");
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf = new MIIPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
         
         $pdf->SetTitle("Inventaire - " . ($inventaire['reference_unique'] ?? ''));
@@ -220,7 +221,7 @@ function generateInventairePDF($inventaireId) {
         $pdf->SetMargins(10, 10, 10);
         $pdf->SetAutoPageBreak(true, 10);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
         $pdf->AddPage();
         
         // Write HTML to PDF with error handling

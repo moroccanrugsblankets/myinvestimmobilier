@@ -10,6 +10,7 @@ if (!function_exists('generateCautionSolidairePDF')) {
     require_once __DIR__ . '/../includes/config.php';
     require_once __DIR__ . '/../includes/db.php';
     require_once __DIR__ . '/../includes/functions.php';
+    require_once __DIR__ . '/pdf-pagination.php';
 }
 
 /**
@@ -75,13 +76,13 @@ function generateCautionSolidairePDF(int $garantId) {
         }
 
         // Initialiser TCPDF
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf = new MIIPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MY INVEST IMMOBILIER');
         $pdf->SetTitle('Acte de caution solidaire – ' . $garant['reference_contrat']);
         $pdf->SetMargins(20, 20, 20);
         $pdf->SetAutoPageBreak(true, 20);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
         $pdf->AddPage();
         $pdf->writeHTML($html, true, false, true, false, '');
 
