@@ -9,19 +9,20 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 // Build query – only soft-deleted contracts (deleted_at IS NOT NULL)
 $sql = "
     SELECT c.*,
-           l.reference as logement_ref,
-           l.adresse as logement_adresse,
-           l.type as logement_type,
+           COALESCE(cl.reference, l.reference) as logement_ref,
+           COALESCE(cl.adresse, l.adresse) as logement_adresse,
+           COALESCE(cl.type, l.type) as logement_type,
            (SELECT COUNT(*) FROM locataires WHERE contrat_id = c.id) as nb_locataires_signed,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) ORDER BY ordre SEPARATOR ', ') FROM locataires WHERE contrat_id = c.id) as noms_locataires
     FROM contrats c
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE c.deleted_at IS NOT NULL
 ";
 $params = [];
 
 if ($search) {
-    $sql .= " AND (c.reference_unique LIKE ? OR l.reference LIKE ? OR l.adresse LIKE ?)";
+    $sql .= " AND (c.reference_unique LIKE ? OR COALESCE(cl.reference, l.reference) LIKE ? OR COALESCE(cl.adresse, l.adresse) LIKE ?)";
     $search_param = "%$search%";
     $params[] = $search_param;
     $params[] = $search_param;

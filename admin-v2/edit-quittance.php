@@ -32,17 +32,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get quittance details
+// Get quittance details (using contrat_logement for frozen reference/address)
 $stmt = $pdo->prepare("
     SELECT q.*, 
            c.reference_unique as contrat_ref,
-           l.reference as logement_ref,
-           l.adresse as logement_adresse,
+           COALESCE(cl.reference, l.reference) as logement_ref,
+           COALESCE(cl.adresse, l.adresse) as logement_adresse,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ') 
             FROM locataires 
             WHERE contrat_id = q.contrat_id) as locataires_noms
     FROM quittances q
     INNER JOIN contrats c ON q.contrat_id = c.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE q.id = ?
 ");

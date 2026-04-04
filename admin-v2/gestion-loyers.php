@@ -444,9 +444,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($nouveauStatut === 'paye') {
                 // Récupérer les informations du contrat et du logement depuis loyers_tracking
                 $stmtPayment = $pdo->prepare("
-                    SELECT lt.contrat_id, l.adresse, l.reference as logement_ref, l.loyer, l.charges
+                    SELECT lt.contrat_id,
+                           COALESCE(cl.adresse, l.adresse) as adresse,
+                           COALESCE(cl.reference, l.reference) as logement_ref,
+                           COALESCE(cl.loyer, l.loyer) as loyer,
+                           COALESCE(cl.charges, l.charges) as charges
                     FROM loyers_tracking lt
                     INNER JOIN logements l ON l.id = lt.logement_id
+                    LEFT JOIN contrat_logement cl ON cl.contrat_id = lt.contrat_id
                     WHERE lt.logement_id = ? AND lt.mois = ? AND lt.annee = ?
                 ");
                 $stmtPayment->execute([$logementId, $mois, $annee]);
@@ -657,11 +662,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Le paiement en ligne Stripe n\'est pas activé. Configurez-le dans Paramètres → Paiement Stripe.');
             }
 
-            // Récupérer les infos du logement et du contrat
+            // Récupérer les infos du logement et du contrat (données figées depuis contrat_logement)
             $stmtInfo = $pdo->prepare("
-                SELECT l.*, c.id as contrat_id, l.loyer, l.charges
+                SELECT l.*, c.id as contrat_id,
+                       COALESCE(cl.loyer, l.loyer) as loyer,
+                       COALESCE(cl.charges, l.charges) as charges
                 FROM logements l
                 INNER JOIN contrats c ON c.logement_id = l.id
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
                 WHERE l.id = ? AND c.id = ? AND " . CONTRAT_ACTIF_FILTER . "
             ");
             $stmtInfo->execute([$logementId, $contratId]);

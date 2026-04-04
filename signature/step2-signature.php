@@ -45,21 +45,23 @@ error_log("Session current_locataire_id: $locataireId");
 error_log("Session current_locataire_numero: $numeroLocataire");
 error_log("Contrat ID: $contratId");
 
-// Important: Select c.* first, then explicitly name logements columns to avoid column name collision
+// Important: Select c.* first, then explicitly name columns to avoid collision
 // Both tables have 'statut' column, and we need contrats.statut, not logements.statut
+// Using contrat_logement for frozen data with fallback to logements
 $contrat = fetchOne("
     SELECT c.*, 
-           l.reference,
-           l.adresse,
+           COALESCE(cl.reference, l.reference) as reference,
+           COALESCE(cl.adresse, l.adresse) as adresse,
            
-           l.type,
-           l.surface,
-           l.loyer,
-           l.charges,
-           l.depot_garantie,
-           l.parking
+           COALESCE(cl.type, l.type) as type,
+           COALESCE(cl.surface, l.surface) as surface,
+           COALESCE(cl.loyer, l.loyer) as loyer,
+           COALESCE(cl.charges, l.charges) as charges,
+           COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+           COALESCE(cl.parking, l.parking) as parking
     FROM contrats c 
-    INNER JOIN logements l ON c.logement_id = l.id 
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+    LEFT JOIN logements l ON c.logement_id = l.id 
     WHERE c.id = ?
 ", [$contratId]);
 

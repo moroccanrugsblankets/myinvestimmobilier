@@ -76,13 +76,14 @@ function generateBilanLogementPDF($contratId) {
     }
 
     try {
-        // Get contract and logement details (including depot_garantie from logements table)
+        // Get contract and logement details (données figées depuis contrat_logement)
         $stmt = $pdo->prepare("
             SELECT c.*, 
-                   l.adresse as logement_adresse,
-                   l.depot_garantie as depot_garantie,
+                   COALESCE(cl.adresse, l.adresse) as logement_adresse,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
                    c.reference_unique as contrat_ref
             FROM contrats c
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
             LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ");

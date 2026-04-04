@@ -20,9 +20,12 @@ if (empty($token)) {
 } else {
     // Find the contract by its token (reference_unique)
     $stmt = $pdo->prepare("
-        SELECT c.*, l.reference as logement_ref, l.adresse as logement_adresse
+        SELECT c.*,
+               COALESCE(cl.reference, l.reference) as logement_ref,
+               COALESCE(cl.adresse, l.adresse) as logement_adresse
         FROM contrats c
-        INNER JOIN logements l ON c.logement_id = l.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+        LEFT JOIN logements l ON c.logement_id = l.id
         WHERE c.reference_unique = ? AND c.statut = 'valide'
     ");
     $stmt->execute([$token]);

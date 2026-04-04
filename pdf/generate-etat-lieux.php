@@ -110,21 +110,22 @@ function generateEtatDesLieuxPDF($contratId, $type = 'entree') {
     }
 
     try {
-        // Récupérer les données du contrat
+        // Récupérer les données du contrat (données figées depuis contrat_logement)
         error_log("Fetching contrat data from database...");
         $stmt = $pdo->prepare("
             SELECT c.*, 
-                   l.reference,
-                   l.adresse,
+                   COALESCE(cl.reference, l.reference) as reference,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
                    
-                   l.type as type_logement,
-                   l.surface,
-                   l.loyer,
-                   l.charges,
-                   l.depot_garantie,
-                   l.parking
+                   COALESCE(cl.type, l.type) as type_logement,
+                   COALESCE(cl.surface, l.surface) as surface,
+                   COALESCE(cl.loyer, l.loyer) as loyer,
+                   COALESCE(cl.charges, l.charges) as charges,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+                   COALESCE(cl.parking, l.parking) as parking
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ");
         $stmt->execute([$contratId]);
@@ -1520,11 +1521,14 @@ function sendEtatDesLieuxEmail($contratId, $type, $pdfPath) {
     global $pdo, $config;
     
     try {
-        // Récupérer le contrat et locataires
+        // Récupérer le contrat et locataires (données figées depuis contrat_logement)
         $stmt = $pdo->prepare("
-            SELECT c.*, l.adresse,  l.reference
+            SELECT c.*,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
+                   COALESCE(cl.reference, l.reference) as reference
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ");
         $stmt->execute([$contratId]);

@@ -86,7 +86,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $contrat_id = $pdo->lastInsertId();
     
-    // Note: Property status will be updated when contract is signed/active, not here
+    // Snapshot logement data into contrat_logement (frozen at contract creation time)
+    try {
+        $logSnapshot = $pdo->prepare("
+            SELECT l.reference, l.adresse, l.type, l.surface, l.loyer, l.charges,
+                   l.depot_garantie, l.parking,
+                   COALESCE(l.description, '') as description,
+                   COALESCE(l.equipements, '') as equipements,
+                   COALESCE(l.type_contrat, 'meuble') as type_contrat,
+                   COALESCE(l.duree_garantie, 1) as duree_garantie,
+                   l.lien_externe, l.dpe_file, l.dpe_classe, l.dpe_ges, l.dpe_numero,
+                   l.dpe_valable_jusqu_a,
+                   COALESCE(l.default_cles_appartement, 2) as default_cles_appartement,
+                   COALESCE(l.default_cles_boite_lettres, 1) as default_cles_boite_lettres,
+                   l.default_etat_logement
+            FROM logements l WHERE l.id = ?
+        ");
+        $logSnapshot->execute([$logement_id]);
+        $logData = $logSnapshot->fetch(PDO::FETCH_ASSOC);
+
+        if ($logData) {
+            // Snapshot equipment list from inventaire_equipements
+            $equipJson = null;
+            try {
+                $eqStmt = $pdo->prepare("
+                    SELECT ie.*, ic.nom as categorie_nom
+                    FROM inventaire_equipements ie
+                    LEFT JOIN inventaire_categories ic ON ie.categorie_id = ic.id
+                    WHERE ie.logement_id = ? ORDER BY ie.ordre ASC
+                ");
+                $eqStmt->execute([$logement_id]);
+                $equipItems = $eqStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($equipItems)) {
+                    $equipJson = json_encode($equipItems, JSON_UNESCAPED_UNICODE);
+                }
+            } catch (\Exception $eqEx) {
+                error_log("generer-contrat: equipment snapshot failed: " . $eqEx->getMessage());
+            }
+
+            $insSnap = $pdo->prepare("
+                INSERT IGNORE INTO contrat_logement (
+                    contrat_id, logement_id, reference, adresse, type, surface,
+                    loyer, charges, depot_garantie, parking, description,
+                    type_contrat, duree_garantie, lien_externe,
+                    dpe_file, dpe_classe, dpe_ges, dpe_numero, dpe_valable_jusqu_a,
+                    default_cles_appartement, default_cles_boite_lettres, default_etat_logement,
+                    equipements, equipements_json
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            ");
+            $insSnap->execute([
+                $contrat_id,
+                $logement_id,
+                $logData['reference'],
+                $logData['adresse'],
+                $logData['type'],
+                $logData['surface'],
+                $logData['loyer'],
+                $logData['charges'],
+                $logData['depot_garantie'],
+                $logData['parking'],
+                $logData['description'],
+                $logData['type_contrat'],
+                $logData['duree_garantie'],
+                $logData['lien_externe'],
+                $logData['dpe_file'],
+                $logData['dpe_classe'],
+                $logData['dpe_ges'],
+                $logData['dpe_numero'],
+                $logData['dpe_valable_jusqu_a'],
+                $logData['default_cles_appartement'],
+                $logData['default_cles_boite_lettres'],
+                $logData['default_etat_logement'],
+                $logData['equipements'],
+                $equipJson,
+            ]);
+        }
+    } catch (\Exception $snapEx) {
+        // Non-blocking: log the error but continue (table may not exist yet)
+        error_log("generer-contrat: contrat_logement snapshot failed: " . $snapEx->getMessage());
+    }
     // For now, we keep it as is since the contract is still 'en_attente'
     
     // Update candidature status

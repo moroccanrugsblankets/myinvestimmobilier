@@ -43,19 +43,20 @@ function generateQuittancePDF($contratId, $mois, $annee) {
     }
 
     try {
-        // Récupérer les données du contrat et du logement
+        // Récupérer les données du contrat et du logement (données figées depuis contrat_logement)
         $stmt = $pdo->prepare("
             SELECT c.*, 
-                   l.reference,
-                   l.adresse,
-                   l.type,
-                   l.surface,
-                   l.loyer,
-                   l.charges,
-                   l.depot_garantie,
-                   l.parking
+                   COALESCE(cl.reference, l.reference) as reference,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
+                   COALESCE(cl.type, l.type) as type,
+                   COALESCE(cl.surface, l.surface) as surface,
+                   COALESCE(cl.loyer, l.loyer) as loyer,
+                   COALESCE(cl.charges, l.charges) as charges,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+                   COALESCE(cl.parking, l.parking) as parking
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ");
         $stmt->execute([$contratId]);
