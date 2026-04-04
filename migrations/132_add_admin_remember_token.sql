@@ -4,4 +4,4 @@
 ALTER TABLE administrateurs 
     ADD COLUMN remember_token VARCHAR(64) NULL DEFAULT NULL COMMENT 'Token for persistent login cookie';
 
-CREATE INDEX IF NOT EXISTS idx_admin_remember_token ON administrateurs(remember_token);
+CREATE INDEX  idx_admin_remember_token ON administrateurs(remember_token);
