@@ -364,11 +364,12 @@ $templatesList = $templatesStmt->fetchAll(PDO::FETCH_COLUMN);
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary"
-                                            onclick="voirEmail(<?= $email['id'] ?>)"
-                                            title="Voir le contenu">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="email-details.php?id=<?= $email['id'] ?>"
+                                       target="_blank" rel="noopener"
+                                       title="Voir le contenu">
                                         <i class="bi bi-eye"></i>
-                                    </button>
+                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -423,131 +424,6 @@ $templatesList = $templatesStmt->fetchAll(PDO::FETCH_COLUMN);
     </div><!-- .main-content -->
 </div>
 
-<!-- Modal : contenu de l'email -->
-<div class="modal fade" id="emailModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-envelope-open"></i> <span id="modalSujet"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-sm-6">
-                        <strong>Destinataire :</strong>
-                        <span id="modalDestinataire"></span>
-                    </div>
-                    <div class="col-sm-3">
-                        <strong>Date :</strong>
-                        <span id="modalDate"></span>
-                    </div>
-                    <div class="col-sm-3">
-                        <strong>Statut :</strong>
-                        <span id="modalStatut"></span>
-                    </div>
-                </div>
-                <div class="row mb-2 d-none" id="modalTemplateRow">
-                    <div class="col-sm-6">
-                        <strong>Template :</strong>
-                        <span id="modalTemplate"></span>
-                    </div>
-                    <div class="col-sm-6">
-                        <strong>Contexte :</strong>
-                        <span id="modalContexte"></span>
-                    </div>
-                </div>
-                <div id="modalErreurRow" class="alert alert-danger mb-2" style="display:none"></div>
-                <div id="modalPieceJointeRow" class="mb-2 d-none">
-                    <strong><i class="bi bi-paperclip"></i> Pièce(s) jointe(s) :</strong>
-                    <span id="modalPieceJointe"></span>
-                </div>
-                <hr>
-                <iframe id="modalCorps" class="email-preview-body w-100" style="border:1px solid #dee2e6; border-radius:4px; min-height:400px;" srcdoc="" sandbox="allow-same-origin"></iframe>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function voirEmail(id) {
-    fetch('email-tracker.php?action=view_email&id=' + id)
-        .then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.text();
-        })
-        .then(text => {
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                throw new Error('Réponse invalide du serveur');
-            }
-            if (!data.success) { alert('Erreur: ' + data.error); return; }
-            const e = data.email;
-            document.getElementById('modalSujet').textContent        = e.sujet;
-            document.getElementById('modalDestinataire').textContent  = e.destinataire;
-            document.getElementById('modalDate').textContent         = e.date_envoi;
-            document.getElementById('modalStatut').innerHTML         =
-                e.statut === 'success'
-                    ? '<span class="badge bg-success">Envoyé</span>'
-                    : '<span class="badge bg-danger">Échec</span>';
-
-            const tplRow = document.getElementById('modalTemplateRow');
-            if (e.template_id || e.contexte) {
-                document.getElementById('modalTemplate').textContent = e.template_id || '—';
-                document.getElementById('modalContexte').textContent = e.contexte    || '—';
-                tplRow.classList.remove('d-none');
-            } else {
-                tplRow.classList.add('d-none');
-            }
-
-            const errRow = document.getElementById('modalErreurRow');
-            if (e.message_erreur) {
-                errRow.textContent = 'Erreur : ' + e.message_erreur;
-                errRow.style.display = '';
-            } else {
-                errRow.style.display = 'none';
-            }
-
-            // Afficher la pièce jointe avec lien de téléchargement
-            const pjRow = document.getElementById('modalPieceJointeRow');
-            const pjSpan = document.getElementById('modalPieceJointe');
-            if (e.piece_jointe) {
-                const files = e.piece_jointe.split(', ');
-                pjSpan.innerHTML = '';
-                files.forEach((f, i) => {
-                    const filePath = f.replace(/\\/g, '/');
-                    const fname = filePath.split('/').pop();
-                    if (i > 0) pjSpan.appendChild(document.createTextNode(' '));
-                    const a = document.createElement('a');
-                    a.href = filePath;
-                    a.className = 'ms-1';
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    const icon = document.createElement('i');
-                    icon.className = 'bi bi-file-earmark-arrow-down';
-                    a.appendChild(icon);
-                    a.appendChild(document.createTextNode(' ' + fname));
-                    pjSpan.appendChild(a);
-                });
-                pjRow.classList.remove('d-none');
-            } else {
-                pjRow.classList.add('d-none');
-            }
-
-            // Afficher le corps de l'email dans un iframe pour préserver les styles
-            const iframe = document.getElementById('modalCorps');
-            const htmlContent = e.corps_html || '<em style="color:#6c757d">Aucun contenu disponible.</em>';
-            iframe.srcdoc = htmlContent;
-
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('emailModal')).show();
-        })
-        .catch(err => alert('Erreur de communication avec le serveur : ' + err.message));
-}
-</script>
 </body>
 </html>

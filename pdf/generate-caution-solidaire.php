@@ -5,13 +5,11 @@
  * My Invest Immobilier
  */
 
-if (!function_exists('generateCautionSolidairePDF')) {
-    require_once __DIR__ . '/../vendor/autoload.php';
-    require_once __DIR__ . '/../includes/config.php';
-    require_once __DIR__ . '/../includes/db.php';
-    require_once __DIR__ . '/../includes/functions.php';
-    require_once __DIR__ . '/pdf-pagination.php';
-}
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 /**
  * Générer le PDF du document de caution solidaire.
