@@ -491,7 +491,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
             } else {
                 $locataire = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
             }
-            $contratInfo   = fetchOne("SELECT COALESCE(cl.adresse, l.adresse) as adresse FROM contrats c LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id LEFT JOIN logements l ON c.logement_id = l.id WHERE c.id = ?", [$contractId]);
+            $contratInfo = fetchOne("
+                SELECT COALESCE(cl.adresse, l.adresse) as adresse
+                FROM contrats c
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+                LEFT JOIN logements l ON c.logement_id = l.id
+                WHERE c.id = ?
+            ", [$contractId]);
             sendTemplatedEmail('garant_invitation', $garant['email'], [
                 'prenom_garant'    => $garant['prenom'],
                 'nom_garant'       => $garant['nom'],

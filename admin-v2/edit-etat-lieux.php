@@ -1058,8 +1058,6 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                                   placeholder="Décrivez l'état général du logement (revêtements, murs, plafonds, installations, etc.)..."><?php
                             echo htmlspecialchars($etat['etat_logement'] ?? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles");
                         ?></textarea>
-                        <!-- Backward-compat: coin_cuisine column is kept in DB for historical data but no longer used in forms since migration 134 -->
-                        <input type="hidden" name="coin_cuisine" value="">
                     </div>
                 </div>
 

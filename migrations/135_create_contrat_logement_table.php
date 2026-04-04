@@ -173,7 +173,6 @@ try {
             $selectSQL
         FROM contrats c
         INNER JOIN logements l ON c.logement_id = l.id
-        WHERE l.deleted_at IS NULL OR l.deleted_at IS NOT NULL
     ";
 
     $affected = $pdo->exec($insertSQL);
