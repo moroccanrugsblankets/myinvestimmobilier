@@ -398,9 +398,7 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <span class="variable-tag" onclick="copyVariable('{{cles_boite_lettres}}')">{{cles_boite_lettres}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_autre}}')">{{cles_autre}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_total}}')">{{cles_total}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{piece_principale}}')">{{piece_principale}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{coin_cuisine}}')">{{coin_cuisine}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{salle_eau_wc}}')">{{salle_eau_wc}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{etat_logement}}')">{{etat_logement}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{etat_general}}')">{{etat_general}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{observations}}')">{{observations}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{lieu_signature}}')">{{lieu_signature}}</span>
@@ -465,9 +463,7 @@ $signatureEnabled = $stmt->fetchColumn() === 'true';
                     <span class="variable-tag" onclick="copyVariable('{{cles_autre}}')">{{cles_autre}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_total}}')">{{cles_total}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{cles_observations}}')">{{cles_observations}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{piece_principale}}')">{{piece_principale}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{coin_cuisine}}')">{{coin_cuisine}}</span>
-                    <span class="variable-tag" onclick="copyVariable('{{salle_eau_wc}}')">{{salle_eau_wc}}</span>
+                    <span class="variable-tag" onclick="copyVariable('{{etat_logement}}')">{{etat_logement}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{etat_general}}')">{{etat_general}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{observations}}')">{{observations}}</span>
                     <span class="variable-tag" onclick="copyVariable('{{date_fin_prevue}}')">{{date_fin_prevue}}</span>
