@@ -16,7 +16,8 @@ if (!empty($_SESSION['admin_id'])) {
 
 // Clear remember cookie
 if (isset($_COOKIE['admin_remember'])) {
-    setcookie('admin_remember', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict']);
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    setcookie('admin_remember', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict', 'secure' => $isSecure]);
 }
 
 session_destroy();

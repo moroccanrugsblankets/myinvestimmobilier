@@ -8,6 +8,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Session timeout constants
+const SESSION_TIMEOUT_NORMAL   = 7200;       // 2 hours
+const SESSION_TIMEOUT_REMEMBER = 2592000;    // 30 days
+
 // Check if this is an AJAX request
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 // Also check if the request expects JSON response (for fetch API calls)
@@ -35,7 +39,7 @@ if (!isset($_SESSION['admin_id'])) {
                 $stmt = $pdo->prepare("SELECT * FROM administrateurs WHERE id = ? AND actif = 1 AND remember_token IS NOT NULL");
                 $stmt->execute([$cookieAdminId]);
                 $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($admin && hash_equals($admin['remember_token'], $cookieToken)) {
+                if ($admin && hash_equals($admin['remember_token'], hash('sha256', $cookieToken))) {
                     $_SESSION['admin_id'] = $admin['id'];
                     $_SESSION['admin_username'] = $admin['username'];
                     $_SESSION['admin_nom'] = $admin['nom'] ?? '';
@@ -74,7 +78,7 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 // Session timeout: 2 hours for normal sessions, 30 days for "Rester connecté"
-$sessionTimeout = !empty($_SESSION['remember_me']) ? (30 * 24 * 3600) : 7200;
+$sessionTimeout = !empty($_SESSION['remember_me']) ? SESSION_TIMEOUT_REMEMBER : SESSION_TIMEOUT_NORMAL;
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
     // Clear remember cookie if set
     if (isset($_COOKIE['admin_remember'])) {

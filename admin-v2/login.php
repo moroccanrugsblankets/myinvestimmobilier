@@ -30,7 +30,7 @@ if (isset($_COOKIE['admin_remember'])) {
             $stmt = $pdo->prepare("SELECT * FROM administrateurs WHERE id = ? AND actif = 1 AND remember_token IS NOT NULL");
             $stmt->execute([$cookieAdminId]);
             $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($admin && hash_equals($admin['remember_token'], $cookieToken)) {
+            if ($admin && hash_equals($admin['remember_token'], hash('sha256', $cookieToken))) {
                 // Valid persistent token — restore session
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_username'] = $admin['username'];
@@ -74,12 +74,14 @@ if (isset($_POST['login'])) {
                 $cookieValue = $token . ':' . $admin['id'];
                 $expiry = time() + (30 * 24 * 3600); // 30 days
                 try {
-                    $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?")->execute([$token, $admin['id']]);
+                    $tokenHash = hash('sha256', $token);
+                    $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?")->execute([$tokenHash, $admin['id']]);
                     setcookie('admin_remember', $cookieValue, [
                         'expires' => $expiry,
                         'path' => '/',
                         'httponly' => true,
                         'samesite' => 'Strict',
+                        'secure' => $isSecure,
                     ]);
                     $_SESSION['remember_me'] = true;
                 } catch (Exception $e) {
