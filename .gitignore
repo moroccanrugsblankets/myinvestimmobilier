@@ -22,6 +22,7 @@ pdf/*
 !pdf/generate-inventaire.php
 !pdf/generate-quittance.php
 !pdf/download.php
+!pdf/pdf-pagination.php
 
 # Configuration locale (peut contenir des credentials)
 includes/config.local.php
