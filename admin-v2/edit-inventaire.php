@@ -65,6 +65,22 @@ if ($inventaire['type'] === 'sortie' && !empty($inventaire['contrat_id'])) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Pre-validate: every tenant must provide a new signature on every save
+    if (isset($_POST['tenants']) && is_array($_POST['tenants'])) {
+        $missingSignatures = [];
+        foreach ($_POST['tenants'] as $tenantIndex => $tenantInfo) {
+            if (empty($tenantInfo['signature'])) {
+                $tenantName = trim(($tenantInfo['prenom'] ?? '') . ' ' . ($tenantInfo['nom'] ?? ''));
+                $missingSignatures[] = !empty($tenantName) ? htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8') : "Locataire " . ($tenantIndex + 1);
+            }
+        }
+        if (!empty($missingSignatures)) {
+            $_SESSION['error'] = "La signature est obligatoire pour : " . implode(", ", $missingSignatures) . ". Veuillez signer avant d'enregistrer.";
+            header("Location: edit-inventaire.php?id=" . urlencode((string)$inventaire_id));
+            exit;
+        }
+    }
+
     try {
         $pdo->beginTransaction();
         
@@ -821,9 +837,11 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                     <div class="row">
                         <div class="col-md-12">
                             <?php if (!empty($tenant['signature_data'])): ?>
-                                <div class="alert alert-success mb-2">
-                                    <i class="bi bi-check-circle"></i> 
-                                    Signé le <?php echo !empty($tenant['signature_timestamp']) ? date('d/m/Y à H:i', strtotime($tenant['signature_timestamp'])) : 'Date inconnue'; ?>
+                                <div class="alert alert-warning mb-2">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <strong>Signature précédente détectée</strong> (signée le <?php echo !empty($tenant['signature_timestamp']) ? date('d/m/Y à H:i', strtotime($tenant['signature_timestamp'])) : 'Date inconnue'; ?>)<br>
+                                    Pour des raisons de sécurité et d'audit, toute modification du formulaire nécessite une nouvelle signature.
+                                    <strong>Veuillez signer à nouveau ci-dessous pour que la signature apparaisse correctement dans le PDF.</strong>
                                 </div>
                                 <div class="mb-2">
                                     <?php
@@ -854,13 +872,15 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
-                            <label class="form-label">Veuillez signer dans le cadre ci-dessous :</label>
+                            <label class="form-label required-field">Veuillez signer dans le cadre ci-dessous :</label>
                             <div class="signature-container" style="max-width: 300px;">
                                 <canvas id="tenantCanvas_<?php echo $index; ?>" width="300" height="150" style="background: transparent; border: none; outline: none; padding: 0;"></canvas>
                             </div>
+                            <!-- IMPORTANT: Signature field is intentionally empty (even if previously signed)
+                                 This is by design - every save requires a fresh signature for audit purposes -->
                             <input type="hidden" name="tenants[<?php echo $index; ?>][signature]" 
                                    id="tenantSignature_<?php echo $index; ?>" 
-                                   value="<?php echo htmlspecialchars($tenant['signature_data'] ?? ''); ?>">
+                                   value="">
                             <input type="hidden" name="tenants[<?php echo $index; ?>][db_id]" 
                                    value="<?php echo $tenant['id']; ?>">
                             <input type="hidden" name="tenants[<?php echo $index; ?>][locataire_id]" 
@@ -1040,6 +1060,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             // Prevent duplicate initialization
             if (canvas.dataset.initialized === 'true') return;
             canvas.dataset.initialized = 'true';
+            canvas.dataset.drawn = 'false';
             
             const ctx = canvas.getContext('2d');
             
@@ -1092,6 +1113,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             canvas.addEventListener('mouseup', () => {
                 if (isDrawing) {
                     isDrawing = false;
+                    canvas.dataset.drawn = 'true';
                     saveTenantSignature(id);
                 }
             });
@@ -1099,6 +1121,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             canvas.addEventListener('mouseleave', () => {
                 if (isDrawing) {
                     isDrawing = false;
+                    canvas.dataset.drawn = 'true';
                     saveTenantSignature(id);
                 }
             });
@@ -1133,6 +1156,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                 e.preventDefault();
                 if (isDrawing) {
                     isDrawing = false;
+                    canvas.dataset.drawn = 'true';
                     saveTenantSignature(id);
                 }
             });
@@ -1142,6 +1166,11 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             const canvas = document.getElementById(`tenantCanvas_${id}`);
             if (!canvas) {
                 console.error(`Canvas not found for tenant ID: ${id}`);
+                return;
+            }
+            
+            // Only save signature if the canvas was actually drawn on
+            if (canvas.dataset.drawn !== 'true') {
                 return;
             }
             
@@ -1178,6 +1207,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             const canvas = document.getElementById(`tenantCanvas_${id}`);
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.dataset.drawn = 'false';
             document.getElementById(`tenantSignature_${id}`).value = '';
         }
         

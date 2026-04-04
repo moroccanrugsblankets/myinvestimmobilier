@@ -88,6 +88,24 @@ if (empty($etat['reference_unique'])) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
+    // Pre-validate: every tenant must provide a new signature on every save
+    if (isset($_POST['tenants']) && is_array($_POST['tenants'])) {
+        $missingSignatures = [];
+        $tenantCounter = 1;
+        foreach ($_POST['tenants'] as $tenantId => $tenantInfo) {
+            if (empty($tenantInfo['signature'])) {
+                $tenantName = trim(($tenantInfo['prenom'] ?? '') . ' ' . ($tenantInfo['nom'] ?? ''));
+                $missingSignatures[] = !empty($tenantName) ? htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8') : "Locataire $tenantCounter";
+            }
+            $tenantCounter++;
+        }
+        if (!empty($missingSignatures)) {
+            $_SESSION['error'] = "La signature est obligatoire pour : " . implode(", ", $missingSignatures) . ". Veuillez signer avant d'enregistrer.";
+            header("Location: edit-etat-lieux.php?id=" . urlencode((string)$id));
+            exit;
+        }
+    }
+
     try {
         $pdo->beginTransaction();
         
@@ -1813,6 +1831,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
         function initTenantSignature(id) {
             const canvas = document.getElementById(`tenantCanvas_${id}`);
             if (!canvas) return;
+
+            // Prevent duplicate initialization
+            if (canvas.dataset.initialized === 'true') return;
+            canvas.dataset.initialized = 'true';
+            canvas.dataset.drawn = 'false';
             
             const ctx = canvas.getContext('2d');
             
@@ -1858,8 +1881,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
             });
             
             canvas.addEventListener('mouseup', () => {
-                isDrawing = false;
-                saveTenantSignature(id);
+                if (isDrawing) {
+                    isDrawing = false;
+                    canvas.dataset.drawn = 'true';
+                    saveTenantSignature(id);
+                }
             });
             
             // Touch support
@@ -1893,6 +1919,11 @@ if ($isSortie && !empty($etat['contrat_id'])) {
         function saveTenantSignature(id) {
             const canvas = document.getElementById(`tenantCanvas_${id}`);
             
+            // Only save signature if the canvas was actually drawn on
+            if (!canvas || canvas.dataset.drawn !== 'true') {
+                return;
+            }
+            
             // Create a temporary canvas to add white background before JPEG conversion
             // JPEG doesn't support transparency, so we need to fill with white
             const tempCanvas = document.createElement('canvas');
@@ -1916,6 +1947,7 @@ if ($isSortie && !empty($etat['contrat_id'])) {
             const canvas = document.getElementById(`tenantCanvas_${id}`);
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.dataset.drawn = 'false';
             document.getElementById(`tenantSignature_${id}`).value = '';
         }
         

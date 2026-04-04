@@ -169,7 +169,7 @@ if (isset($_POST['login'])) {
 
             <div class="mb-3 form-check">
                 <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
-                <label class="form-check-label" for="remember_me">Rester connecté</label>
+                <label class="form-check-label" for="remember_me">Se souvenir de moi</label>
             </div>
 
             <div class="d-grid">
