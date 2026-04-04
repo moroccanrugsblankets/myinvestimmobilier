@@ -91,11 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // Pre-validate: every tenant must provide a new signature on every save
     if (isset($_POST['tenants']) && is_array($_POST['tenants'])) {
         $missingSignatures = [];
+        $tenantCounter = 1;
         foreach ($_POST['tenants'] as $tenantId => $tenantInfo) {
             if (empty($tenantInfo['signature'])) {
                 $tenantName = trim(($tenantInfo['prenom'] ?? '') . ' ' . ($tenantInfo['nom'] ?? ''));
-                $missingSignatures[] = !empty($tenantName) ? htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8') : "Locataire ID $tenantId";
+                $missingSignatures[] = !empty($tenantName) ? htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8') : "Locataire $tenantCounter";
             }
+            $tenantCounter++;
         }
         if (!empty($missingSignatures)) {
             $_SESSION['error'] = "La signature est obligatoire pour : " . implode(", ", $missingSignatures) . ". Veuillez signer avant d'enregistrer.";
