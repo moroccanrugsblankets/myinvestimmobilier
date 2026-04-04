@@ -8,6 +8,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/pdf-pagination.php';
 
 /**
  * Convert relative image paths to absolute URLs for TCPDF
@@ -279,7 +280,7 @@ function generateBilanLogementPDF($contratId) {
         $html = convertBilanImagePathsToAbsolute($html, $config);
 
         // Generate PDF using TCPDF
-        $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+        $pdf = new MIIPdf(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
         
         // Set document information
         $pdf->SetCreator('My Invest Immobilier');
@@ -289,7 +290,7 @@ function generateBilanLogementPDF($contratId) {
 
         // Remove default header/footer
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
+        $pdf->setPrintFooter(true);
 
         // Set margins
         $pdf->SetMargins(4, 10, 4);

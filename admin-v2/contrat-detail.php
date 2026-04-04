@@ -1196,9 +1196,6 @@ if ($contrat['validated_by']) {
                             if (!empty($locataire['preuve_paiement_depot'])) {
                                 renderDocumentCard($locataire['preuve_paiement_depot'], 'Justificatif de paiement', 'receipt');
                             }
-                            if ($hasLocataireAssuranceCols && !empty($locataire['visa_certifie'])) {
-                                renderDocumentCard($locataire['visa_certifie'], 'Visa certifié Visale', 'patch-check');
-                            }
                             ?>
                         </div>
                     </div>
@@ -1305,8 +1302,16 @@ if ($contrat['validated_by']) {
                 ? (!empty($g['document_visale']) ? $g['document_visale'] : '')
                 : '';
             $hasGarantDocs = !empty($g['piece_identite'])
+                          || !empty($g['piece_identite_recto'])
                           || !empty($g['document_caution'])
-                          || !empty($visaleDocToShow);
+                          || !empty($visaleDocToShow)
+                          || ($g['type_garantie'] === 'caution_solidaire' && (
+                              !empty($g['bulletin_salaire_1'])
+                              || !empty($g['bulletin_salaire_2'])
+                              || !empty($g['bulletin_salaire_3'])
+                              || !empty($g['fiche_imposition'])
+                              || !empty($g['justificatif_domicile'])
+                          ));
             if ($hasGarantDocs): ?>
             <h6 class="mt-3"><i class="bi bi-files"></i> Documents</h6>
             <div class="row mt-2">
@@ -1327,6 +1332,29 @@ if ($contrat['validated_by']) {
                 }
                 if (!empty($g['piece_identite'])) {
                     renderDocumentCard($g['piece_identite'], "Pièce d'identité du garant", 'card-image');
+                }
+                if ($g['type_garantie'] === 'caution_solidaire') {
+                    if (!empty($g['piece_identite_recto'])) {
+                        renderDocumentCard($g['piece_identite_recto'], "Pièce d'identité (Recto)", 'card-image');
+                    }
+                    if (!empty($g['piece_identite_verso'])) {
+                        renderDocumentCard($g['piece_identite_verso'], "Pièce d'identité (Verso)", 'card-image');
+                    }
+                    if (!empty($g['bulletin_salaire_1'])) {
+                        renderDocumentCard($g['bulletin_salaire_1'], '1er bulletin de salaire', 'file-earmark-text');
+                    }
+                    if (!empty($g['bulletin_salaire_2'])) {
+                        renderDocumentCard($g['bulletin_salaire_2'], '2ème bulletin de salaire', 'file-earmark-text');
+                    }
+                    if (!empty($g['bulletin_salaire_3'])) {
+                        renderDocumentCard($g['bulletin_salaire_3'], '3ème bulletin de salaire', 'file-earmark-text');
+                    }
+                    if (!empty($g['fiche_imposition'])) {
+                        renderDocumentCard($g['fiche_imposition'], "Fiche d'imposition", 'file-earmark-ruled');
+                    }
+                    if (!empty($g['justificatif_domicile'])) {
+                        renderDocumentCard($g['justificatif_domicile'], 'Justificatif de domicile', 'house');
+                    }
                 }
                 if (!empty($visaleDocToShow)) {
                     renderDocumentCard($visaleDocToShow, 'Visa certifié Visale', 'patch-check');
