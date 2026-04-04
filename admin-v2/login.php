@@ -76,6 +76,7 @@ if (isset($_POST['login'])) {
                 try {
                     $tokenHash = hash('sha256', $token);
                     $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?")->execute([$tokenHash, $admin['id']]);
+                    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
                     setcookie('admin_remember', $cookieValue, [
                         'expires' => $expiry,
                         'path' => '/',

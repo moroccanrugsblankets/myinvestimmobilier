@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!empty($validationErrors)) {
                 $_SESSION['error'] = "Impossible de finaliser l'état des lieux :<br>" . implode("<br>", $validationErrors);
                 // Redirect back to edit form instead of finalizing
-                header("Location: edit-etat-lieux.php?id=$id");
+                header("Location: edit-etat-lieux.php?id=" . urlencode((string)$id));
                 exit;
             }
             
@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
         
         // For draft save: redirect back so the page reloads with updated data
-        header("Location: edit-etat-lieux.php?id=$id");
+        header("Location: edit-etat-lieux.php?id=" . urlencode((string)$id));
         exit;
         
     } catch (Exception $e) {
