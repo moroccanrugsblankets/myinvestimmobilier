@@ -694,17 +694,15 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
     // Anomalie(s) constatée(s) - Description du logement (piece_principale bilan rows)
     $anomaliesDescriptionLogement = '';
     if (!empty($bilanSectionsData['piece_principale']) && is_array($bilanSectionsData['piece_principale'])) {
-        $anomaliesDescriptionLogement = '<table class="bilan-table" cellspacing="0" cellpadding="6">';
-        $anomaliesDescriptionLogement .= '<thead><tr><th width="35%">Élément</th><th width="65%">Anomalie constatée</th></tr></thead><tbody>';
+        $lines = [];
         foreach ($bilanSectionsData['piece_principale'] as $item) {
             if (!empty($item['equipement']) || !empty($item['commentaire'])) {
-                $anomaliesDescriptionLogement .= '<tr>';
-                $anomaliesDescriptionLogement .= '<td>' . htmlspecialchars($item['equipement'] ?? '') . '</td>';
-                $anomaliesDescriptionLogement .= '<td>' . htmlspecialchars($item['commentaire'] ?? '') . '</td>';
-                $anomaliesDescriptionLogement .= '</tr>';
+                $lines[] = '<strong>' . htmlspecialchars($item['equipement'] ?? '') . ' :</strong> ' . htmlspecialchars($item['commentaire'] ?? '');
             }
         }
-        $anomaliesDescriptionLogement .= '</tbody></table>';
+        if (!empty($lines)) {
+            $anomaliesDescriptionLogement = '<div style="text-align: left; line-height: 1.2;">' . implode('<br>', $lines) . '</div>';
+        }
     }
     
     // Prepare variable replacements
@@ -726,9 +724,7 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
         '{{cles_autre}}' => $clesAutre,
         '{{cles_total}}' => $clesTotal,
         '{{cles_observations}}' => htmlspecialchars($clesObservations),
-        '{{piece_principale}}' => $piecePrincipale,
-        '{{coin_cuisine}}' => $coinCuisine,
-        '{{salle_eau_wc}}' => $salleEauWC,
+        '{{etat_logement}}' => $piecePrincipale,
         '{{etat_general}}' => $etatGeneral,
         '{{observations}}' => $observationsEscaped,
         '{{date_fin_prevue}}' => $datefinPrevue,

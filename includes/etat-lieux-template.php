@@ -194,13 +194,7 @@ function getDefaultEtatLieuxTemplate() {
     <h2 class="no-border">6. Description de l'état du logement</h2>
     
     <h3>Pièce principale</h3>
-    <p class="observations description">{{piece_principale}}</p>
-    
-    <h3>Coin cuisine</h3>
-    <p class="observations description">{{coin_cuisine}}</p>
-    
-    <h3>Salle d'eau / WC</h3>
-    <p class="observations description">{{salle_eau_wc}}</p>
+    <p class="observations description">{{etat_logement}}</p>
     
     <h3>État général</h3>
     <p class="observations">{{etat_general}}</p>
@@ -458,13 +452,7 @@ function getDefaultExitEtatLieuxTemplate() {
     <h2 class="no-border">6. Description de l'état du logement</h2>
     
     <h3>Pièce principale</h3>
-    <p class="observations description">{{piece_principale}}</p>
-    
-    <h3>Coin cuisine</h3>
-    <p class="observations description">{{coin_cuisine}}</p>
-    
-    <h3>Salle d'eau / WC</h3>
-    <p class="observations description">{{salle_eau_wc}}</p>
+    <p class="observations description">{{etat_logement}}</p>
     
     <h3>État général</h3>
     <p class="observations">{{etat_general}}</p>
