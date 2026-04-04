@@ -570,6 +570,9 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
                 $sectionTitles = [
                     'compteurs' => 'Relevé des compteurs',
                     'cles' => 'Restitution des clés',
+                    // Note: 'piece_principale' is the JSON key stored in bilan_sections_data for backward compat.
+                    // The DB text column was renamed to 'etat_logement' in migration 134,
+                    // but the bilan JSON key is kept unchanged to avoid breaking existing data.
                     'piece_principale' => 'Description du logement',
                     'cuisine' => 'Coin cuisine',
                     'salle_eau' => 'Salle d\'eau et WC'

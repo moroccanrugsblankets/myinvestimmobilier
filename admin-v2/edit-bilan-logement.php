@@ -102,13 +102,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 throw new Exception("Erreur lors de la génération du PDF du bilan");
             }
             
-            // Get contract and locataire info for email
+            // Get contract and locataire info for email (using contrat_logement for frozen data)
             $stmt = $pdo->prepare("
                 SELECT c.reference_unique as contrat_ref,
-                       l.adresse as logement_adresse,
-                       l.depot_garantie,
+                       COALESCE(cl.adresse, l.adresse) as logement_adresse,
+                       COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
                        loc.prenom, loc.nom
                 FROM contrats c
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
                 LEFT JOIN logements l ON c.logement_id = l.id
                 LEFT JOIN locataires loc ON loc.contrat_id = c.id
                 WHERE c.id = ?
@@ -249,15 +250,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// Get contract details
+// Get contract details (using contrat_logement for frozen data)
 $stmt = $pdo->prepare("
     SELECT c.*, 
            c.id as contrat_id,
            c.reference_unique as contrat_ref,
            l.id as logement_id,
-           l.adresse as logement_adresse,
-           l.depot_garantie
+           COALESCE(cl.adresse, l.adresse) as logement_adresse,
+           COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie
     FROM contrats c
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE c.id = ?
 ");

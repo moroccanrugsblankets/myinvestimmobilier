@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $logData['default_cles_boite_lettres'],
                 $logData['default_etat_logement'],
                 $logData['equipements'],
-                $equipJson,
+                $equipJson
             ]);
         }
     } catch (\Exception $snapEx) {
