@@ -47,8 +47,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_attachment' && isset
         echo 'Pièce jointe introuvable.';
         exit;
     }
-    // Handle comma-separated multiple files: serve the first one
-    $storedPath = explode(', ', $row['piece_jointe'])[0];
+    // Handle comma-separated multiple files: serve the requested index (default 0)
+    $files = explode(', ', $row['piece_jointe']);
+    $fileIndex = max(0, (int)($_GET['file_index'] ?? 0));
+    $storedPath = $files[$fileIndex] ?? $files[0];
     // Normalize path separators
     $normalized = str_replace('\\', '/', $storedPath);
     $projectRoot = realpath(dirname(__DIR__));

@@ -104,13 +104,12 @@ if (!$email) {
         <hr>
         <p class="mb-1"><strong><i class="bi bi-paperclip"></i> Pièce(s) jointe(s) :</strong></p>
         <?php
-        $projectRoot = realpath(dirname(__DIR__));
         $files = explode(', ', $email['piece_jointe']);
-        foreach ($files as $f):
+        foreach ($files as $index => $f):
             $f = str_replace('\\', '/', trim($f));
             $fname = basename($f);
         ?>
-            <a href="email-tracker.php?action=download_attachment&id=<?= $id ?>"
+            <a href="email-tracker.php?action=download_attachment&id=<?= $id ?>&file_index=<?= $index ?>"
                class="btn btn-sm btn-outline-secondary me-2 mb-1" target="_blank" rel="noopener">
                 <i class="bi bi-file-earmark-arrow-down"></i> <?= htmlspecialchars($fname) ?>
             </a>
