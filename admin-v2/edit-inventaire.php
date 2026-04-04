@@ -176,14 +176,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         error_log("SAVE: ✓ Successfully saved signature for tenant index $tenantIndex (DB ID: $tenantId)");
                     }
                 }
+
+                // Handle pièce d'identité uploads (recto/verso)
+                foreach (['recto', 'verso'] as $side) {
+                    $fileKey = "tenant_piece_identite_{$side}_{$tenantId}";
+                    if (!empty($_FILES[$fileKey]['name']) && $_FILES[$fileKey]['error'] !== UPLOAD_ERR_NO_FILE) {
+                        $validation = validateUploadedFile($_FILES[$fileKey]);
+                        if ($validation['success']) {
+                            $ext = strtolower(pathinfo($_FILES[$fileKey]['name'], PATHINFO_EXTENSION));
+                            $filename = 'inventaire_' . $inventaire_id . '_locataire_' . $tenantId . '_' . $side . '_' . time() . '.' . $ext;
+                            if (saveUploadedFile($_FILES[$fileKey], $filename)) {
+                                $col = 'piece_identite_' . $side;
+                                $stmt = $pdo->prepare("UPDATE inventaire_locataires SET {$col} = ? WHERE id = ? AND inventaire_id = ?");
+                                $stmt->execute([$filename, $tenantId, $inventaire_id]);
+                            } else {
+                                error_log("Failed to save piece_identite_{$side} for inventaire_locataire ID: $tenantId");
+                            }
+                        } else {
+                            error_log("Invalid piece_identite_{$side} upload for tenant index $tenantIndex (DB ID: $tenantId): " . $validation['error']);
+                        }
+                    }
+                }
             }
         }
         
         $pdo->commit();
         $_SESSION['success'] = "Inventaire mis à jour avec succès";
         
-        // If finalizing, redirect to finalize page
+        // If finalizing, validate before redirecting
         if (isset($_POST['finalize']) && $_POST['finalize'] === '1') {
+            // Re-fetch tenants from DB to get current piece_identite_recto status
+            $stmtCheck = $pdo->prepare("SELECT id, nom, prenom, signature, piece_identite_recto, certifie_exact FROM inventaire_locataires WHERE inventaire_id = ?");
+            $stmtCheck->execute([$inventaire_id]);
+            $tenantsForCheck = $stmtCheck->fetchAll(PDO::FETCH_ASSOC);
+            $finalizeErrors = [];
+            foreach ($tenantsForCheck as $t) {
+                $tenantName = htmlspecialchars(trim($t['prenom'] . ' ' . $t['nom']), ENT_QUOTES, 'UTF-8');
+                if (empty($t['signature'])) {
+                    $finalizeErrors[] = "Signature manquante pour " . $tenantName;
+                }
+                if (empty($t['piece_identite_recto'])) {
+                    $finalizeErrors[] = "Pièce d'identité (recto) manquante pour " . $tenantName;
+                }
+                if (empty($t['certifie_exact'])) {
+                    $finalizeErrors[] = "La case \"Certifié exact\" doit être cochée pour " . $tenantName;
+                }
+            }
+            if (!empty($finalizeErrors)) {
+                $_SESSION['error'] = "Impossible de finaliser l'inventaire :<br>" . implode("<br>", $finalizeErrors);
+                header("Location: edit-inventaire.php?id=" . urlencode((string)$inventaire_id));
+                exit;
+            }
             header("Location: finalize-inventaire.php?id=$inventaire_id");
             exit;
         }
@@ -576,7 +619,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             </div>
         <?php endif; ?>
 
-        <form method="POST" id="inventaireForm">
+        <form method="POST" id="inventaireForm" enctype="multipart/form-data">
             <?php 
             $itemIndex = 0;
             foreach ($standardItems as $categoryName => $categoryContent): 
@@ -844,6 +887,70 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                                     </label>
                                 </div>
                             </div>
+
+                            <!-- Pièces d'identité Signataire -->
+                            <div class="mt-3 pt-3 border-top">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-person-vcard"></i> Pièces d'identité Signataire
+                                </label>
+                                <?php
+                                $rectoPath = $tenant['piece_identite_recto'] ?? '';
+                                $versoPath = $tenant['piece_identite_verso'] ?? '';
+                                ?>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Recto <span class="text-danger">*</span></label>
+                                        <?php if (!empty($rectoPath)): ?>
+                                            <div class="mb-1">
+                                                <?php
+                                                $rectoExt = strtolower(pathinfo($rectoPath, PATHINFO_EXTENSION));
+                                                if (in_array($rectoExt, ['jpg','jpeg','png'])): ?>
+                                                    <img src="../uploads/<?php echo htmlspecialchars($rectoPath); ?>" alt="Recto actuel" style="max-width:160px;max-height:100px;border:1px solid #dee2e6;padding:3px;">
+                                                <?php else: ?>
+                                                    <a href="../uploads/<?php echo htmlspecialchars($rectoPath); ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                                        <i class="bi bi-file-earmark"></i> Voir le recto
+                                                    </a>
+                                                <?php endif; ?>
+                                                <p class="text-muted small mb-0">Recto enregistré – déposer un nouveau fichier pour remplacer</p>
+                                            </div>
+                                        <?php endif; ?>
+                                        <input type="file" class="form-control form-control-sm"
+                                               id="tenant_piece_identite_recto_<?php echo $tenant['id']; ?>"
+                                               name="tenant_piece_identite_recto_<?php echo $tenant['id']; ?>"
+                                               accept=".jpg,.jpeg,.png,.pdf"
+                                               data-tenant-id="<?php echo $tenant['id']; ?>"
+                                               data-tenant-index="<?php echo $index; ?>"
+                                               data-side="recto"
+                                               <?php echo empty($rectoPath) ? 'required' : ''; ?>>
+                                        <div class="form-text">JPG, PNG ou PDF – max 5 Mo</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Verso <span class="text-muted">(optionnel)</span></label>
+                                        <?php if (!empty($versoPath)): ?>
+                                            <div class="mb-1">
+                                                <?php
+                                                $versoExt = strtolower(pathinfo($versoPath, PATHINFO_EXTENSION));
+                                                if (in_array($versoExt, ['jpg','jpeg','png'])): ?>
+                                                    <img src="../uploads/<?php echo htmlspecialchars($versoPath); ?>" alt="Verso actuel" style="max-width:160px;max-height:100px;border:1px solid #dee2e6;padding:3px;">
+                                                <?php else: ?>
+                                                    <a href="../uploads/<?php echo htmlspecialchars($versoPath); ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                                        <i class="bi bi-file-earmark"></i> Voir le verso
+                                                    </a>
+                                                <?php endif; ?>
+                                                <p class="text-muted small mb-0">Verso enregistré – déposer un nouveau fichier pour remplacer</p>
+                                            </div>
+                                        <?php endif; ?>
+                                        <input type="file" class="form-control form-control-sm"
+                                               id="tenant_piece_identite_verso_<?php echo $tenant['id']; ?>"
+                                               name="tenant_piece_identite_verso_<?php echo $tenant['id']; ?>"
+                                               accept=".jpg,.jpeg,.png,.pdf"
+                                               data-tenant-id="<?php echo $tenant['id']; ?>"
+                                               data-tenant-index="<?php echo $index; ?>"
+                                               data-side="verso">
+                                        <div class="form-text">JPG, PNG ou PDF – max 5 Mo</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1080,15 +1187,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                 saveTenantSignature(<?php echo $index; ?>);
             <?php endforeach; ?>
             
-            // Check if this is a draft save (no finalize parameter)
-            const isDraftSave = !e.submitter || e.submitter.name !== 'finalize';
-            
-            // Skip validation for draft saves
-            if (isDraftSave) {
-                return true;
-            }
-            
-            // Validate that all tenants have signed and checked "Certifié exact" (only for finalization)
+            // Validate that all tenants have signed, checked "Certifié exact", and uploaded recto
             let allValid = true;
             let errors = [];
             
@@ -1100,7 +1199,9 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                     tenantDbId: <?php echo $tenant['id']; ?>,
                     name: <?php echo json_encode($tenant['prenom'] . ' ' . $tenant['nom']); ?>,
                     signatureId: 'tenantSignature_<?php echo $index; ?>',
-                    certifieId: 'certifie_exact_<?php echo $index; ?>'
+                    certifieId: 'certifie_exact_<?php echo $index; ?>',
+                    rectoInputId: 'tenant_piece_identite_recto_<?php echo $tenant['id']; ?>',
+                    hasRectoDB: <?php echo !empty($tenant['piece_identite_recto']) ? 'true' : 'false'; ?>
                 }<?php echo ($index < count($existing_tenants) - 1) ? ',' : ''; ?>
                 <?php endforeach; ?>
             ];
@@ -1108,6 +1209,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             tenantValidations.forEach(function(tenant) {
                 const signatureValue = document.getElementById(tenant.signatureId).value;
                 const certifieChecked = document.getElementById(tenant.certifieId).checked;
+                const rectoInput = document.getElementById(tenant.rectoInputId);
                 
                 if (!signatureValue || signatureValue.trim() === '') {
                     errors.push('La signature de ' + tenant.name + ' est obligatoire');
@@ -1116,6 +1218,12 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                 
                 if (!certifieChecked) {
                     errors.push('La case "Certifié exact" doit être cochée pour ' + tenant.name);
+                    allValid = false;
+                }
+
+                // Recto required: either already in DB or newly selected
+                if (!tenant.hasRectoDB && (!rectoInput || !rectoInput.files.length)) {
+                    errors.push('La pièce d\'identité (recto) de ' + tenant.name + ' est obligatoire');
                     allValid = false;
                 }
             });
