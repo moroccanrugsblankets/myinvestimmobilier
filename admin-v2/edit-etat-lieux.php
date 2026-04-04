@@ -148,9 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 cles_total = ?,
                 cles_conformite = ?,
                 cles_observations = ?,
-                piece_principale = ?,
-                coin_cuisine = ?,
-                salle_eau_wc = ?,
+                etat_logement = ?,
                 etat_general = ?,
                 observations = ?,
                 bilan_sections_data = ?,
@@ -172,9 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             (int)($_POST['cles_total'] ?? 0),
             $_POST['cles_conformite'] ?? 'non_applicable',
             $_POST['cles_observations'] ?? '',
-            $_POST['piece_principale'] ?? '',
-            $_POST['coin_cuisine'] ?? '',
-            $_POST['salle_eau_wc'] ?? '',
+            $_POST['etat_logement'] ?? '',
             $_POST['etat_general'] ?? '',
             $_POST['observations'] ?? '',
             $bilanSectionsData,
@@ -1058,13 +1054,12 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                 <div class="row">
                     <div class="col-md-12 mb-3">
                         <label class="form-label required-field">Description du logement</label>
-                        <textarea name="piece_principale" class="form-control" rows="8" required
+                        <textarea name="etat_logement" class="form-control" rows="8" required
                                   placeholder="Décrivez l'état général du logement (revêtements, murs, plafonds, installations, etc.)..."><?php
-                            echo htmlspecialchars($etat['piece_principale'] ?? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles");
+                            echo htmlspecialchars($etat['etat_logement'] ?? "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles");
                         ?></textarea>
-                        <!-- Keep hidden fields so backend receives empty values for unused fields -->
+                        <!-- Keep hidden field so backend receives empty value for unused fields -->
                         <input type="hidden" name="coin_cuisine" value="">
-                        <input type="hidden" name="salle_eau_wc" value="">
                     </div>
                 </div>
 
@@ -1107,16 +1102,15 @@ if ($isSortie && !empty($etat['contrat_id'])) {
 
                 <?php else: /* EXIT STATE */ ?>
                 <!-- Exit state: show entry description reference, no textarea -->
-                <input type="hidden" name="piece_principale" value="<?php echo htmlspecialchars($etat['piece_principale'] ?? ''); ?>">
+                <input type="hidden" name="etat_logement" value="<?php echo htmlspecialchars($etat['etat_logement'] ?? ''); ?>">
                 <input type="hidden" name="coin_cuisine" value="<?php echo htmlspecialchars($etat['coin_cuisine'] ?? ''); ?>">
-                <input type="hidden" name="salle_eau_wc" value="<?php echo htmlspecialchars($etat['salle_eau_wc'] ?? ''); ?>">
 
-                <?php if ($etat_entree && !empty($etat_entree['piece_principale'])): ?>
+                <?php if ($etat_entree && !empty($etat_entree['etat_logement'])): ?>
                 <div class="entry-reference mb-3">
                     <span class="icon-green">🟢</span>
                     <span class="entry-reference-label">Description à l'entrée :</span>
                     <div class="entry-reference-value mt-1" style="white-space: pre-line; font-size: 0.9rem;">
-                        <?php echo htmlspecialchars($etat_entree['piece_principale']); ?>
+                        <?php echo htmlspecialchars($etat_entree['etat_logement']); ?>
                     </div>
                 </div>
                 <?php endif; ?>

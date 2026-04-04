@@ -339,13 +339,11 @@ function createDefaultEtatLieux($contratId, $type, $contrat, $locataires) {
                 cles_boite_lettres,
                 cles_autre,
                 cles_total,
-                piece_principale,
-                coin_cuisine,
-                salle_eau_wc,
+                etat_logement,
                 etat_general,
                 lieu_signature,
                 statut
-            ) VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon')
+            ) VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon')
         ");
         
         $defaultTexts = getDefaultPropertyDescriptions($type);
@@ -365,9 +363,7 @@ function createDefaultEtatLieux($contratId, $type, $contrat, $locataires) {
             0,  // cles_boite_lettres - default 0
             0,  // cles_autre - default 0
             0,  // cles_total - default 0
-            $defaultTexts['piece_principale'],
-            $defaultTexts['coin_cuisine'],
-            $defaultTexts['salle_eau_wc'],
+            $defaultTexts['etat_logement'],
             $defaultTexts['etat_general'],
             '' // lieu_signature
         ];
@@ -471,15 +467,11 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
     
     // Description - use defaults if empty
     $defaultTexts = getDefaultPropertyDescriptions($type);
-    $piecePrincipale = getValueOrDefault($etatLieux, 'piece_principale', $defaultTexts['piece_principale']);
-    $coinCuisine = getValueOrDefault($etatLieux, 'coin_cuisine', $defaultTexts['coin_cuisine']);
-    $salleEauWC = getValueOrDefault($etatLieux, 'salle_eau_wc', $defaultTexts['salle_eau_wc']);
+    $piecePrincipale = getValueOrDefault($etatLieux, 'etat_logement', $defaultTexts['etat_logement']);
     $etatGeneral = getValueOrDefault($etatLieux, 'etat_general', $defaultTexts['etat_general']);
     
     // Replace <br> tags with newlines before escaping HTML
     $piecePrincipale = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $piecePrincipale);
-    $coinCuisine = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $coinCuisine);
-    $salleEauWC = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $salleEauWC);
     $etatGeneral = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $etatGeneral);
     
     // Convert sentence-ending periods into line breaks
@@ -488,15 +480,11 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
     // The lookbehind checks the characters immediately before the period (e.g., 'M', 'Mr', 'Mme', etc.)
     $sentencePattern = '/(?<!\d)(?<!M)(?<!Mr)(?<!Ms)(?<!Dr)(?<!St)(?<!Mme)(?<!Mrs)(?<!Ste)(?<!Mlle)\.\s+(?=[A-ZÀÂÄÇÉÈÊËÏÎÔÙÛÜ])/';
     $piecePrincipale = preg_replace($sentencePattern, ".\n", $piecePrincipale);
-    $coinCuisine = preg_replace($sentencePattern, ".\n", $coinCuisine);
-    $salleEauWC = preg_replace($sentencePattern, ".\n", $salleEauWC);
     $etatGeneral = preg_replace($sentencePattern, ".\n", $etatGeneral);
     
     // Escape HTML for descriptions (preserve newlines)
     // Replace \n with <br> and ensure proper line spacing for TCPDF
     $piecePrincipale = str_replace("\n", '<br>', htmlspecialchars($piecePrincipale));
-    $coinCuisine = str_replace("\n", '<br>', htmlspecialchars($coinCuisine));
-    $salleEauWC = str_replace("\n", '<br>', htmlspecialchars($salleEauWC));
     $etatGeneral = str_replace("\n", '<br>', htmlspecialchars($etatGeneral));
     
     // Observations - trim, replace <br> with newlines, escape and convert to <br> for HTML
@@ -581,7 +569,7 @@ function replaceEtatLieuxTemplateVariables($template, $contrat, $locataires, $et
                 $sectionTitles = [
                     'compteurs' => 'Relevé des compteurs',
                     'cles' => 'Restitution des clés',
-                    'piece_principale' => 'Pièce principale',
+                    'piece_principale' => 'Description du logement',
                     'cuisine' => 'Coin cuisine',
                     'salle_eau' => 'Salle d\'eau et WC'
                 ];
@@ -807,16 +795,12 @@ function convertAndEscapeText($text) {
 function getDefaultPropertyDescriptions($type) {
     if ($type === 'entree') {
         return [
-            'piece_principale' => "État général : Bon état. Murs et plafonds propres. Revêtement de sol en bon état. Fenêtres et volets fonctionnels.",
-            'coin_cuisine' => "État général : Bon état. Équipements (évier, plaques, réfrigérateur) fonctionnels et propres. Placards en bon état.",
-            'salle_eau_wc' => "État général : Bon état. Sanitaires (lavabo, douche/baignoire, WC) propres et fonctionnels. Carrelage en bon état.",
+            'etat_logement' => "État général : Bon état. Murs et plafonds propres. Revêtement de sol en bon état. Fenêtres et volets fonctionnels.",
             'etat_general' => "Le logement est remis en bon état général, propre et conforme à l'usage d'habitation."
         ];
     } else {
         return [
-            'piece_principale' => "État constaté à la sortie : [À compléter]",
-            'coin_cuisine' => "État constaté à la sortie : [À compléter]",
-            'salle_eau_wc' => "État constaté à la sortie : [À compléter]",
+            'etat_logement' => "État constaté à la sortie : [À compléter]",
             'etat_general' => "État général du logement à la sortie : [À compléter]"
         ];
     }
@@ -869,21 +853,15 @@ function generateEntreeHTML($contrat, $locataires, $etatLieux) {
     
     // Description - use defaults if empty
     $defaultTexts = getDefaultPropertyDescriptions('entree');
-    $piecePrincipale = getValueOrDefault($etatLieux, 'piece_principale', $defaultTexts['piece_principale']);
-    $coinCuisine = getValueOrDefault($etatLieux, 'coin_cuisine', $defaultTexts['coin_cuisine']);
-    $salleEauWC = getValueOrDefault($etatLieux, 'salle_eau_wc', $defaultTexts['salle_eau_wc']);
+    $piecePrincipale = getValueOrDefault($etatLieux, 'etat_logement', $defaultTexts['etat_logement']);
     $etatGeneral = getValueOrDefault($etatLieux, 'etat_general', $defaultTexts['etat_general']);
     
     // Step 1: Replace <br> tags with newlines
     $piecePrincipale = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $piecePrincipale);
-    $coinCuisine = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $coinCuisine);
-    $salleEauWC = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $salleEauWC);
     $etatGeneral = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $etatGeneral);
     
     // Step 2: Escape HTML and convert newlines to <br> tags for TCPDF rendering
     $piecePrincipale = str_replace("\n", '<br>', htmlspecialchars($piecePrincipale));
-    $coinCuisine = str_replace("\n", '<br>', htmlspecialchars($coinCuisine));
-    $salleEauWC = str_replace("\n", '<br>', htmlspecialchars($salleEauWC));
     $etatGeneral = str_replace("\n", '<br>', htmlspecialchars($etatGeneral));
     
     // Observations complémentaires - replace <br> with newlines
@@ -1017,16 +995,10 @@ HTML;
     <div class="section">
         <h2>4. DESCRIPTION DU LOGEMENT</h2>
         
-        <h3>4.1 Pièce principale</h3>
+        <h3>4.1 Description de l'état du logement</h3>
         <p class="description">$piecePrincipale</p>
         
-        <h3>4.2 Coin cuisine</h3>
-        <p class="description">$coinCuisine</p>
-        
-        <h3>4.3 Salle d'eau / WC</h3>
-        <p class="description">$salleEauWC</p>
-        
-        <h3>4.4 État général</h3>
+        <h3>4.2 État général</h3>
         <p>$etatGeneral</p>
     </div>
     
@@ -1105,21 +1077,15 @@ function generateSortieHTML($contrat, $locataires, $etatLieux) {
     
     // Description - use defaults if empty
     $defaultTexts = getDefaultPropertyDescriptions('sortie');
-    $piecePrincipale = getValueOrDefault($etatLieux, 'piece_principale', $defaultTexts['piece_principale']);
-    $coinCuisine = getValueOrDefault($etatLieux, 'coin_cuisine', $defaultTexts['coin_cuisine']);
-    $salleEauWC = getValueOrDefault($etatLieux, 'salle_eau_wc', $defaultTexts['salle_eau_wc']);
+    $piecePrincipale = getValueOrDefault($etatLieux, 'etat_logement', $defaultTexts['etat_logement']);
     $etatGeneral = getValueOrDefault($etatLieux, 'etat_general', $defaultTexts['etat_general']);
     
     // Step 1: Replace <br> tags with newlines
     $piecePrincipale = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $piecePrincipale);
-    $coinCuisine = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $coinCuisine);
-    $salleEauWC = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $salleEauWC);
     $etatGeneral = str_ireplace(['<br>', '<br/>', '<br />'], "\n", $etatGeneral);
     
     // Step 2: Escape HTML and convert newlines to <br> tags for TCPDF rendering
     $piecePrincipale = str_replace("\n", '<br>', htmlspecialchars($piecePrincipale));
-    $coinCuisine = str_replace("\n", '<br>', htmlspecialchars($coinCuisine));
-    $salleEauWC = str_replace("\n", '<br>', htmlspecialchars($salleEauWC));
     $etatGeneral = str_replace("\n", '<br>', htmlspecialchars($etatGeneral));
     
     // Observations complémentaires - replace <br> with newlines
@@ -1286,16 +1252,10 @@ HTML;
     <div class="section">
         <h2>4. DESCRIPTION DU LOGEMENT</h2>
         
-        <h3>4.1 Pièce principale</h3>
+        <h3>4.1 Description de l'état du logement</h3>
         <p class="description">$piecePrincipale</p>
         
-        <h3>4.2 Coin cuisine</h3>
-        <p class="description">$coinCuisine</p>
-        
-        <h3>4.3 Salle d'eau / WC</h3>
-        <p class="description">$salleEauWC</p>
-        
-        <h3>4.4 État général</h3>
+        <h3>4.2 État général</h3>
         <p>$etatGeneral</p>
     </div>
     

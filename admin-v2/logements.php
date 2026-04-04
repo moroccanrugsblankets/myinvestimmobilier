@@ -120,36 +120,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         exit;
                     }
                     
-                    // Default room description template - used for main room and kitchen
+                    // Default room description template
                     $default_room_description = "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
                     
-                    // Default bathroom description
-                    $default_bathroom_description = "• Revêtement de sol : carrelage très bon état d'usage\n• Faïence : très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
-                    
                     // Sanitize and validate text inputs
-                    $piece_principale = !empty($_POST['default_etat_piece_principale']) 
-                        ? trim($_POST['default_etat_piece_principale']) 
+                    $etat_logement = !empty($_POST['default_etat_logement']) 
+                        ? trim($_POST['default_etat_logement']) 
                         : $default_room_description;
-                    $cuisine = !empty($_POST['default_etat_cuisine']) 
-                        ? trim($_POST['default_etat_cuisine']) 
-                        : $default_room_description;
-                    $salle_eau = !empty($_POST['default_etat_salle_eau']) 
-                        ? trim($_POST['default_etat_salle_eau']) 
-                        : $default_bathroom_description;
                     
-                    // Validate text length (max 5000 characters per field)
-                    if (strlen($piece_principale) > 5000) {
-                        $_SESSION['error'] = "La description de la pièce principale est trop longue (max 5000 caractères).";
-                        header('Location: logements.php');
-                        exit;
-                    }
-                    if (strlen($cuisine) > 5000) {
-                        $_SESSION['error'] = "La description du coin cuisine est trop longue (max 5000 caractères).";
-                        header('Location: logements.php');
-                        exit;
-                    }
-                    if (strlen($salle_eau) > 5000) {
-                        $_SESSION['error'] = "La description de la salle d'eau est trop longue (max 5000 caractères).";
+                    // Validate text length (max 5000 characters)
+                    if (strlen($etat_logement) > 5000) {
+                        $_SESSION['error'] = "La description de l'état du logement est trop longue (max 5000 caractères).";
                         header('Location: logements.php');
                         exit;
                     }
@@ -158,17 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         UPDATE logements SET 
                             default_cles_appartement = ?,
                             default_cles_boite_lettres = ?,
-                            default_etat_piece_principale = ?,
-                            default_etat_cuisine = ?,
-                            default_etat_salle_eau = ?
+                            default_etat_logement = ?
                         WHERE id = ?
                     ");
                     $stmt->execute([
                         $cles_appartement,
                         $cles_boite_lettres,
-                        $piece_principale,
-                        $cuisine,
-                        $salle_eau,
+                        $etat_logement,
                         $_POST['logement_id']
                     ]);
                     $_SESSION['success'] = "Valeurs par défaut enregistrées avec succès";
@@ -209,9 +186,7 @@ $sql = "SELECT l.id, l.reference, l.adresse, l.type, l.surface, l.loyer, l.charg
         l.lien_externe, l.type_contrat, COALESCE(l.duree_garantie, 1) as duree_garantie,
         COALESCE(l.default_cles_appartement, 2) as default_cles_appartement,
         COALESCE(l.default_cles_boite_lettres, 1) as default_cles_boite_lettres,
-        l.default_etat_piece_principale,
-        l.default_etat_cuisine,
-        l.default_etat_salle_eau,
+        l.default_etat_logement,
         (SELECT c.id FROM contrats c 
          WHERE c.logement_id = l.id 
          AND c.statut IN ('actif', 'signe', 'valide')
@@ -490,9 +465,7 @@ $stats = [
                                             data-reference="<?php echo htmlspecialchars($logement['reference']); ?>"
                                             data-default-cles-appartement="<?php echo $logement['default_cles_appartement']; ?>"
                                             data-default-cles-boite-lettres="<?php echo $logement['default_cles_boite_lettres']; ?>"
-                                            data-default-etat-piece-principale="<?php echo htmlspecialchars($logement['default_etat_piece_principale'] ?? ''); ?>"
-                                            data-default-etat-cuisine="<?php echo htmlspecialchars($logement['default_etat_cuisine'] ?? ''); ?>"
-                                            data-default-etat-salle-eau="<?php echo htmlspecialchars($logement['default_etat_salle_eau'] ?? ''); ?>"
+                                            data-default-etat-logement="<?php echo htmlspecialchars($logement['default_etat_logement'] ?? ''); ?>"
                                             data-bs-toggle="modal"
                                             data-bs-target="#setDefaultsModal"
                                             title="Définir les valeurs par défaut">
@@ -780,30 +753,10 @@ $stats = [
                             <h6 class="mb-3"><i class="bi bi-house-door"></i> Description du logement - État d'entrée</h6>
                             
                             <div class="mb-3">
-                                <label class="form-label">Pièce principale</label>
-                                <textarea name="default_etat_piece_principale" id="defaults_etat_piece_principale" 
+                                <label class="form-label">Description de l'état du logement</label>
+                                <textarea name="default_etat_logement" id="defaults_etat_logement" 
                                           class="form-control" rows="4" maxlength="5000">• Revêtement de sol : parquet très bon état d'usage
 • Murs : peintures très bon état
-• Plafond : peintures très bon état
-• Installations électriques et plomberie : fonctionnelles</textarea>
-                                <small class="form-text text-muted">Modifiez le texte ci-dessus selon vos besoins</small>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Coin cuisine</label>
-                                <textarea name="default_etat_cuisine" id="defaults_etat_cuisine" 
-                                          class="form-control" rows="4" maxlength="5000">• Revêtement de sol : parquet très bon état d'usage
-• Murs : peintures très bon état
-• Plafond : peintures très bon état
-• Installations électriques et plomberie : fonctionnelles</textarea>
-                                <small class="form-text text-muted">Modifiez le texte ci-dessus selon vos besoins</small>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Salle d'eau et WC</label>
-                                <textarea name="default_etat_salle_eau" id="defaults_etat_salle_eau" 
-                                          class="form-control" rows="4" maxlength="5000">• Revêtement de sol : carrelage très bon état d'usage
-• Faïence : très bon état
 • Plafond : peintures très bon état
 • Installations électriques et plomberie : fonctionnelles</textarea>
                                 <small class="form-text text-muted">Modifiez le texte ci-dessus selon vos besoins</small>
@@ -851,9 +804,7 @@ $stats = [
         });
 
         const textareaDefaults = {
-            piecePrincipale: document.getElementById('defaults_etat_piece_principale')?.value.trim() || '',
-            cuisine: document.getElementById('defaults_etat_cuisine')?.value.trim() || '',
-            salleEau: document.getElementById('defaults_etat_salle_eau')?.value.trim() || ''
+            etatLogement: document.getElementById('defaults_etat_logement')?.value.trim() || '',
         };
         
         // Calculate total mensuel and revenus requis
@@ -932,9 +883,7 @@ $stats = [
                 document.getElementById('defaults_cles_boite_lettres').value = this.dataset.defaultClesBoiteLettres || '1';
                 
                 // For textareas, use stored value if available, otherwise use the defaults captured at page load
-                document.getElementById('defaults_etat_piece_principale').value = this.dataset.defaultEtatPiecePrincipale || textareaDefaults.piecePrincipale;
-                document.getElementById('defaults_etat_cuisine').value = this.dataset.defaultEtatCuisine || textareaDefaults.cuisine;
-                document.getElementById('defaults_etat_salle_eau').value = this.dataset.defaultEtatSalleEau || textareaDefaults.salleEau;
+                document.getElementById('defaults_etat_logement').value = this.dataset.defaultEtatLogement || textareaDefaults.etatLogement;
             });
         });
         
