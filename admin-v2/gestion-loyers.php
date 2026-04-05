@@ -40,7 +40,7 @@ $vueDetaillee = ($contratIdFilter !== null);
 if ($vueDetaillee) {
     // Use contrat_logement for frozen data (loyer, charges, reference, adresse) with fallback to logements
     $stmtLogements = $pdo->prepare("
-        SELECT DISTINCT l.*,
+        SELECT DISTINCT l.id,
                COALESCE(cl.reference, l.reference) as reference,
                COALESCE(cl.adresse, l.adresse) as adresse,
                COALESCE(cl.loyer, l.loyer) as loyer,
@@ -71,7 +71,7 @@ if ($vueDetaillee) {
     // alors qu'il a encore un contrat actif (par exemple si le locataire va partir bientôt)
     // Use contrat_logement for frozen data (loyer, charges, reference, adresse) with fallback to logements
     $stmtLogements = $pdo->query("
-        SELECT l.*,
+        SELECT l.id,
                COALESCE(cl.reference, l.reference) as reference,
                COALESCE(cl.adresse, l.adresse) as adresse,
                COALESCE(cl.loyer, l.loyer) as loyer,
