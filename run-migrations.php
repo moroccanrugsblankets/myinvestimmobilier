@@ -94,9 +94,13 @@ try {
     exit(1);
 }
 
-// Get all migration files
+// Get all migration files (.sql and numbered .php)
 $migrationDir = __DIR__ . '/migrations';
-$files = glob($migrationDir . '/*.sql');
+$sqlFiles = glob($migrationDir . '/*.sql') ?: [];
+// Only include PHP files that start with a number (e.g. 135_create_*.php), not utility scripts
+$allPhpFiles = glob($migrationDir . '/*.php') ?: [];
+$phpFiles = array_filter($allPhpFiles, fn($f) => preg_match('/\/[0-9]/', $f));
+$files = array_merge($sqlFiles, array_values($phpFiles));
 sort($files);
 
 if (empty($files)) {
@@ -111,6 +115,7 @@ $skipped = 0;
 
 foreach ($files as $file) {
     $filename = basename($file);
+    $ext = pathinfo($filename, PATHINFO_EXTENSION);
     
     // Skip the tracking table creation file since we handle it above
     if ($filename === '000_create_migrations_table.sql') {
@@ -136,52 +141,74 @@ foreach ($files as $file) {
     
     echo "Applying migration: $filename\n";
     
-    try {
-        $sql = file_get_contents($file);
-        
-        // Start transaction for this migration
-        $pdo->beginTransaction();
-        
-        // Split SQL into statements, respecting string literals
-        $statements = splitSqlStatements($sql);
-        
-        foreach ($statements as $statement) {
-            $trimmed = trim($statement);
-            // Skip empty statements
-            if (empty($trimmed)) {
-                continue;
+    if ($ext === 'php') {
+        // PHP migrations manage their own transactions; just include and track them
+        try {
+            include $file;
+            
+            // Record the migration as executed
+            $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
+            $stmt->execute([$filename]);
+            
+            echo "  ✓ Success\n";
+            $executed++;
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            echo "  ✗ Error: " . $e->getMessage() . "\n";
+            echo "  Migration failed - changes rolled back\n";
+            echo "  Please fix the error and run migrations again.\n";
+            exit(1);
+        }
+    } else {
+        try {
+            $sql = file_get_contents($file);
+            
+            // Start transaction for this migration
+            $pdo->beginTransaction();
+            
+            // Split SQL into statements, respecting string literals
+            $statements = splitSqlStatements($sql);
+            
+            foreach ($statements as $statement) {
+                $trimmed = trim($statement);
+                // Skip empty statements
+                if (empty($trimmed)) {
+                    continue;
+                }
+                
+                // Execute the statement and consume any result set
+                // query() always returns PDOStatement (or false on error)
+                $result = $pdo->query($statement);
+                if ($result instanceof PDOStatement) {
+                    // Fetch all results to consume the result set
+                    // This prevents "Cannot execute queries while other unbuffered queries are active" errors
+                    $result->fetchAll();
+                    $result->closeCursor();
+                }
             }
             
-            // Execute the statement and consume any result set
-            // query() always returns PDOStatement (or false on error)
-            $result = $pdo->query($statement);
-            if ($result instanceof PDOStatement) {
-                // Fetch all results to consume the result set
-                // This prevents "Cannot execute queries while other unbuffered queries are active" errors
-                $result->fetchAll();
-                $result->closeCursor();
+            // Record the migration as executed
+            $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
+            $stmt->execute([$filename]);
+            
+            // Commit transaction
+            $pdo->commit();
+            
+            echo "  ✓ Success\n";
+            $executed++;
+        } catch (PDOException $e) {
+            // Rollback on error
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
+            
+            echo "  ✗ Error: " . $e->getMessage() . "\n";
+            echo "  Migration failed - changes rolled back\n";
+            echo "  Please fix the error and run migrations again.\n";
+            exit(1);
         }
-        
-        // Record the migration as executed
-        $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
-        $stmt->execute([$filename]);
-        
-        // Commit transaction
-        $pdo->commit();
-        
-        echo "  ✓ Success\n";
-        $executed++;
-    } catch (PDOException $e) {
-        // Rollback on error
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        
-        echo "  ✗ Error: " . $e->getMessage() . "\n";
-        echo "  Migration failed - changes rolled back\n";
-        echo "  Please fix the error and run migrations again.\n";
-        exit(1);
     }
     
     echo "\n";
