@@ -76,10 +76,12 @@ function estLoyerPaye($pdo, $logementId, $mois, $annee) {
 function creerEntriesTrackingMoisCourant($pdo, $mois, $annee) {
     try {
         // Récupérer tous les logements avec leur dernier contrat actif (valide et en cours)
+        // Use contrat_logement for frozen loyer/charges with fallback to logements
         $stmt = $pdo->query("
-            SELECT l.id, l.loyer, l.charges, c.id as contrat_id
+            SELECT l.id, COALESCE(cl.loyer, l.loyer) as loyer, COALESCE(cl.charges, l.charges) as charges, c.id as contrat_id
             FROM logements l
             INNER JOIN contrats c ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
             INNER JOIN (
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats
@@ -233,17 +235,19 @@ function envoyerRappelLocataires($pdo, $mois, $annee) {
         }
         
         // Récupérer les logements avec loyer impayé ou en attente (dernier contrat actif seulement)
+        // Use contrat_logement for frozen reference/adresse/loyer/charges with fallback to logements
         $stmt = $pdo->prepare("
             SELECT 
                 l.id as logement_id,
-                l.reference,
-                l.adresse,
-                l.loyer,
-                l.charges,
+                COALESCE(cl.reference, l.reference) as reference,
+                COALESCE(cl.adresse, l.adresse) as adresse,
+                COALESCE(cl.loyer, l.loyer) as loyer,
+                COALESCE(cl.charges, l.charges) as charges,
                 lt.statut_paiement,
                 c.id as contrat_id
             FROM logements l
             INNER JOIN contrats c ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
             INNER JOIN (
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats

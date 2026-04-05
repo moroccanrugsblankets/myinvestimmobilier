@@ -64,11 +64,17 @@ function getNthWorkingDayOfMonth(int $n, int $year, int $month): int {
 
 logSection("Démarrage du cron - mode=$stripeMode, jour=$aujourdHui");
 
+// Use contrat_logement for frozen adresse/reference/loyer/charges with fallback to logements
 $sqlContrats = "
     SELECT c.id as contrat_id, c.date_prise_effet,
-           l.id as logement_id, l.adresse, l.reference, l.loyer, l.charges
+           l.id as logement_id,
+           COALESCE(cl.adresse, l.adresse) as adresse,
+           COALESCE(cl.reference, l.reference) as reference,
+           COALESCE(cl.loyer, l.loyer) as loyer,
+           COALESCE(cl.charges, l.charges) as charges
     FROM contrats c
     INNER JOIN logements l ON c.logement_id = l.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     INNER JOIN (
         SELECT logement_id, MAX(id) AS max_id
         FROM contrats
