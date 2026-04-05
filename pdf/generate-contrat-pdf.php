@@ -27,25 +27,26 @@ function generateContratPDF($contratId) {
     }
 
     try {
-        // Récupérer les données du contrat
+        // Récupérer les données du contrat (données figées depuis contrat_logement)
         $stmt = $pdo->prepare("
             SELECT c.*, 
-                   l.reference,
-                   l.adresse,
-                   l.type,
-                   l.surface,
-                   l.loyer,
-                   l.charges,
-                   l.depot_garantie,
-                   l.parking,
-                   l.type_contrat as logement_type_contrat,
-                   COALESCE(l.duree_garantie, 1) as duree_garantie,
-                   l.dpe_classe,
-                   l.dpe_ges,
-                   l.dpe_numero,
-                   l.dpe_valable_jusqu_a
+                   COALESCE(cl.reference, l.reference) as reference,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
+                   COALESCE(cl.type, l.type) as type,
+                   COALESCE(cl.surface, l.surface) as surface,
+                   COALESCE(cl.loyer, l.loyer) as loyer,
+                   COALESCE(cl.charges, l.charges) as charges,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+                   COALESCE(cl.parking, l.parking) as parking,
+                   COALESCE(cl.type_contrat, l.type_contrat) as logement_type_contrat,
+                   COALESCE(cl.duree_garantie, l.duree_garantie, 1) as duree_garantie,
+                   COALESCE(cl.dpe_classe, l.dpe_classe) as dpe_classe,
+                   COALESCE(cl.dpe_ges, l.dpe_ges) as dpe_ges,
+                   COALESCE(cl.dpe_numero, l.dpe_numero) as dpe_numero,
+                   COALESCE(cl.dpe_valable_jusqu_a, l.dpe_valable_jusqu_a) as dpe_valable_jusqu_a
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ");
         $stmt->execute([$contratId]);

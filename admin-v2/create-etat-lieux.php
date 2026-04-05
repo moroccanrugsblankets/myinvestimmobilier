@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['contrat_id'])) {
         SELECT c.*,
                l.adresse,
                l.default_cles_appartement, l.default_cles_boite_lettres,
-               l.default_etat_piece_principale, l.default_etat_cuisine, l.default_etat_salle_eau
+               l.default_etat_logement
         FROM contrats c
         LEFT JOIN logements l ON c.logement_id = l.id
         WHERE c.id = ? AND c.statut = 'valide'
@@ -75,9 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['contrat_id'])) {
     $default_cles_observations = null;
     $default_compteur_electricite = null;
     $default_compteur_eau_froide = null;
-    $default_piece_principale = null;
-    $default_coin_cuisine = null;
-    $default_salle_eau_wc = null;
+    $default_etat_logement = null;
     $default_etat_general = null;
     $default_observations = null;
     $etat_entree_id = null;
@@ -90,10 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['contrat_id'])) {
 
         $default_room_description = "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
 
-        $default_piece_principale = $contrat['default_etat_piece_principale'] ?? $default_room_description;
-        $default_coin_cuisine = $contrat['default_etat_cuisine'] ?? $default_room_description;
-        $default_salle_eau_wc = $contrat['default_etat_salle_eau'] ??
-            "• Revêtement de sol : carrelage très bon état d'usage\n• Faïence : très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
+        $default_etat_logement = $contrat['default_etat_logement'] ?? $default_room_description;
         $default_etat_general = "Le logement a fait l'objet d'une remise en état générale avant l'entrée dans les lieux.\nIl est propre, entretenu et ne présente aucune dégradation apparente au jour de l'état des lieux.\nAucune anomalie constatée.";
     } elseif ($type === 'sortie') {
         $stmt = $pdo->prepare("SELECT id FROM etats_lieux WHERE contrat_id = ? AND type = 'entree' ORDER BY date_etat DESC LIMIT 1");
@@ -112,11 +107,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['contrat_id'])) {
                 bailleur_nom, locataire_nom_complet, locataire_email,
                 compteur_electricite, compteur_eau_froide,
                 cles_appartement, cles_boite_lettres, cles_autre, cles_total, cles_observations,
-                piece_principale, coin_cuisine, salle_eau_wc,
+                etat_logement,
                 etat_general, observations,
                 statut, created_at, created_by
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon', NOW(), ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon', NOW(), ?)
         ");
 
         $stmt->execute([
@@ -135,9 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['contrat_id'])) {
             $default_cles_autre,
             $default_cles_total,
             $default_cles_observations,
-            $default_piece_principale,
-            $default_coin_cuisine,
-            $default_salle_eau_wc,
+            $default_etat_logement,
             $default_etat_general,
             $default_observations,
             $_SESSION['username'] ?? 'admin'
@@ -186,10 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Find the active contract for this logement
     $stmt = $pdo->prepare("
-        SELECT c.*, 
+        SELECT c.*,
                l.adresse, 
                l.default_cles_appartement, l.default_cles_boite_lettres,
-               l.default_etat_piece_principale, l.default_etat_cuisine, l.default_etat_salle_eau
+               l.default_etat_logement
         FROM contrats c
         LEFT JOIN logements l ON c.logement_id = l.id
         WHERE c.logement_id = ? AND c.statut = 'valide'
@@ -245,9 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $default_cles_observations = null;
     $default_compteur_electricite = null;
     $default_compteur_eau_froide = null;
-    $default_piece_principale = null;
-    $default_coin_cuisine = null;
-    $default_salle_eau_wc = null;
+    $default_etat_logement = null;
     $default_etat_general = null;
     $default_observations = null;
     $etat_entree_id = null;
@@ -259,15 +250,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $default_cles_autre = 0;
         $default_cles_total = $default_cles_appartement + $default_cles_boite_lettres;
         
-        // Default room description template - used for main room and kitchen
+        // Default room description template - used for main room
         $default_room_description = "• Revêtement de sol : parquet très bon état d'usage\n• Murs : peintures très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
         
-        $default_piece_principale = $contrat['default_etat_piece_principale'] ?? $default_room_description;
-        
-        $default_coin_cuisine = $contrat['default_etat_cuisine'] ?? $default_room_description;
-        
-        $default_salle_eau_wc = $contrat['default_etat_salle_eau'] ?? 
-            "• Revêtement de sol : carrelage très bon état d'usage\n• Faïence : très bon état\n• Plafond : peintures très bon état\n• Installations électriques et plomberie : fonctionnelles";
+        $default_etat_logement = $contrat['default_etat_logement'] ?? $default_room_description;
         
         $default_etat_general = "Le logement a fait l'objet d'une remise en état générale avant l'entrée dans les lieux.\nIl est propre, entretenu et ne présente aucune dégradation apparente au jour de l'état des lieux.\nAucune anomalie constatée.";
     }
@@ -304,13 +290,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 -- Keys (clés)
                 cles_appartement, cles_boite_lettres, cles_autre, cles_total, cles_observations,
                 -- Room descriptions
-                piece_principale, coin_cuisine, salle_eau_wc, 
+                etat_logement, 
                 -- General state and observations
                 etat_general, observations,
                 -- Metadata
                 statut, created_at, created_by
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon', NOW(), ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'brouillon', NOW(), ?)
         ");
         
         // Execute with parameters in same order as field list above
@@ -335,10 +321,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $default_cles_autre,
             $default_cles_total,
             $default_cles_observations,
-            // Room descriptions (3 params)
-            $default_piece_principale,
-            $default_coin_cuisine,
-            $default_salle_eau_wc,
+            // Room description (1 param)
+            $default_etat_logement,
             // General state (2 params)
             $default_etat_general,
             $default_observations,

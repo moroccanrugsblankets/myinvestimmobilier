@@ -70,23 +70,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         
         // Get contract and tenant details for emails
-        // Important: Select c.* first, then explicitly name logements columns to avoid column name collision
+        // Important: Select c.* first, then explicitly name columns to avoid collision
+        // Use contrat_logement for frozen data (prices, etc.) with fallback to logements
         $contrat = fetchOne("
             SELECT c.*, 
                    c.id as contrat_id, 
                    c.reference_unique as reference_contrat,
-                   l.reference,
-                   l.adresse,
+                   COALESCE(cl.reference, l.reference) as reference,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
                    
-                   l.type,
-                   l.surface,
-                   l.loyer,
-                   l.charges,
-                   l.depot_garantie,
-                   l.parking,
-                   COALESCE(l.dpe_file, '') as dpe_file
+                   COALESCE(cl.type, l.type) as type,
+                   COALESCE(cl.surface, l.surface) as surface,
+                   COALESCE(cl.loyer, l.loyer) as loyer,
+                   COALESCE(cl.charges, l.charges) as charges,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+                   COALESCE(cl.parking, l.parking) as parking,
+                   COALESCE(cl.dpe_file, l.dpe_file, '') as dpe_file
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ", [$contractId]);
         
@@ -186,22 +188,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stmt->execute($params);
         
         // Get contract and tenant details for emails
-        // Important: Select c.* first, then explicitly name logements columns to avoid column name collision
+        // Use contrat_logement for frozen data with fallback to logements
         $contrat = fetchOne("
             SELECT c.*, 
                    c.id as contrat_id, 
                    c.reference_unique as reference_contrat,
-                   l.reference,
-                   l.adresse,
+                   COALESCE(cl.reference, l.reference) as reference,
+                   COALESCE(cl.adresse, l.adresse) as adresse,
                    
-                   l.type,
-                   l.surface,
-                   l.loyer,
-                   l.charges,
-                   l.depot_garantie,
-                   l.parking
+                   COALESCE(cl.type, l.type) as type,
+                   COALESCE(cl.surface, l.surface) as surface,
+                   COALESCE(cl.loyer, l.loyer) as loyer,
+                   COALESCE(cl.charges, l.charges) as charges,
+                   COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+                   COALESCE(cl.parking, l.parking) as parking
             FROM contrats c
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE c.id = ?
         ", [$contractId]);
         
@@ -488,7 +491,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
             } else {
                 $locataire = fetchOne("SELECT * FROM locataires WHERE contrat_id = ? ORDER BY ordre ASC LIMIT 1", [$contractId]);
             }
-            $contratInfo   = fetchOne("SELECT l.adresse FROM contrats c INNER JOIN logements l ON c.logement_id = l.id WHERE c.id = ?", [$contractId]);
+            $contratInfo = fetchOne("
+                SELECT COALESCE(cl.adresse, l.adresse) as adresse
+                FROM contrats c
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+                LEFT JOIN logements l ON c.logement_id = l.id
+                WHERE c.id = ?
+            ", [$contractId]);
             sendTemplatedEmail('garant_invitation', $garant['email'], [
                 'prenom_garant'    => $garant['prenom'],
                 'nom_garant'       => $garant['nom'],
@@ -507,21 +516,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_garant_invite') {
     exit;
 }
 
-// Get contract details
+// Get contract details (using contrat_logement for frozen data)
 $contrat = fetchOne("
     SELECT c.*, 
-           l.reference as logement_ref, 
-           l.adresse as logement_adresse,
+           COALESCE(cl.reference, l.reference) as logement_ref, 
+           COALESCE(cl.adresse, l.adresse) as logement_adresse,
            
-           l.type,
-           l.surface,
-           l.loyer,
-           l.charges,
-           l.depot_garantie,
-           l.parking,
+           COALESCE(cl.type, l.type) as type,
+           COALESCE(cl.surface, l.surface) as surface,
+           COALESCE(cl.loyer, l.loyer) as loyer,
+           COALESCE(cl.charges, l.charges) as charges,
+           COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+           COALESCE(cl.parking, l.parking) as parking,
            (SELECT COUNT(*) FROM locataires WHERE contrat_id = c.id) as nb_locataires_total,
            (SELECT COUNT(*) FROM locataires WHERE contrat_id = c.id AND signature_data IS NOT NULL) as nb_locataires_signed
     FROM contrats c
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE c.id = ?
 ", [$contractId]);

@@ -26,19 +26,20 @@ function generateCautionSolidairePDF(int $garantId) {
     }
 
     try {
-        // Charger les données du garant
+        // Charger les données du garant (données figées depuis contrat_logement)
         $stmt = $pdo->prepare("
             SELECT g.*,
                    c.reference_unique AS reference_contrat,
                    c.date_prise_effet,
-                   l.adresse          AS adresse_logement,
-                   l.reference        AS reference_logement,
-                   l.loyer,
-                   l.charges,
-                   l.type             AS type_logement
+                   COALESCE(cl.adresse, l.adresse)    AS adresse_logement,
+                   COALESCE(cl.reference, l.reference) AS reference_logement,
+                   COALESCE(cl.loyer, l.loyer)         AS loyer,
+                   COALESCE(cl.charges, l.charges)     AS charges,
+                   COALESCE(cl.type, l.type)           AS type_logement
             FROM garants g
             INNER JOIN contrats c ON g.contrat_id = c.id
-            INNER JOIN logements l ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+            LEFT JOIN logements l ON c.logement_id = l.id
             WHERE g.id = ?
         ");
         $stmt->execute([$garantId]);

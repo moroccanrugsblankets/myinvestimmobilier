@@ -114,15 +114,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // Get contract and tenant information
+    // Get contract and tenant information (frozen data from contrat_logement)
     $contrat = fetchOne("
         SELECT c.*, 
-               l.reference,
-               l.adresse,
-               l.loyer,
-               l.charges
+               COALESCE(cl.reference, l.reference) as reference,
+               COALESCE(cl.adresse, l.adresse) as adresse,
+               COALESCE(cl.loyer, l.loyer) as loyer,
+               COALESCE(cl.charges, l.charges) as charges
         FROM contrats c
-        INNER JOIN logements l ON c.logement_id = l.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+        LEFT JOIN logements l ON c.logement_id = l.id
         WHERE c.id = ?
     ", [$contractId]);
     
@@ -239,12 +240,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Get contract details
+// Get contract details (frozen data from contrat_logement)
 $contrat = fetchOne("
     SELECT c.*, 
-           l.reference as logement_ref, 
-           l.adresse as logement_adresse
+           COALESCE(cl.reference, l.reference) as logement_ref, 
+           COALESCE(cl.adresse, l.adresse) as logement_adresse
     FROM contrats c
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE c.id = ?
 ", [$contractId]);

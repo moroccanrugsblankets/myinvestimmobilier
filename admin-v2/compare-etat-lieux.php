@@ -288,19 +288,9 @@ $adresse = $etat_entree['adresse'] ?? $etat_sortie['adresse'] ?? 'N/A';
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="field-name">Pièce principale</td>
-                        <td class="value-entry"><small><?php echo nl2br(htmlspecialchars($etat_entree['piece_principale'] ?? 'N/A')); ?></small></td>
-                        <td class="value-exit"><small><?php echo nl2br(htmlspecialchars($etat_sortie['piece_principale'] ?? 'N/A')); ?></small></td>
-                    </tr>
-                    <tr>
-                        <td class="field-name">Coin cuisine</td>
-                        <td class="value-entry"><small><?php echo nl2br(htmlspecialchars($etat_entree['coin_cuisine'] ?? 'N/A')); ?></small></td>
-                        <td class="value-exit"><small><?php echo nl2br(htmlspecialchars($etat_sortie['coin_cuisine'] ?? 'N/A')); ?></small></td>
-                    </tr>
-                    <tr>
-                        <td class="field-name">Salle d'eau et WC</td>
-                        <td class="value-entry"><small><?php echo nl2br(htmlspecialchars($etat_entree['salle_eau_wc'] ?? 'N/A')); ?></small></td>
-                        <td class="value-exit"><small><?php echo nl2br(htmlspecialchars($etat_sortie['salle_eau_wc'] ?? 'N/A')); ?></small></td>
+                        <td class="field-name">Description de l'état du logement</td>
+                        <td class="value-entry"><small><?php echo nl2br(htmlspecialchars($etat_entree['etat_logement'] ?? 'N/A')); ?></small></td>
+                        <td class="value-exit"><small><?php echo nl2br(htmlspecialchars($etat_sortie['etat_logement'] ?? 'N/A')); ?></small></td>
                     </tr>
                     <tr>
                         <td class="field-name">État général</td>

@@ -193,7 +193,6 @@ function getDefaultEtatLieuxTemplate() {
 
     <h2 class="no-border">6. Description de l'état du logement</h2>
     
-    <h3>Pièce principale</h3>
     <p class="observations description">{{etat_logement}}</p>
     
     <h3>État général</h3>
@@ -451,7 +450,6 @@ function getDefaultExitEtatLieuxTemplate() {
 
     <h2 class="no-border">6. Description de l'état du logement</h2>
     
-    <h3>Pièce principale</h3>
     <p class="observations description">{{etat_logement}}</p>
     
     <h3>État général</h3>

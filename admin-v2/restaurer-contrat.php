@@ -23,10 +23,11 @@ if (!$contrat_id) {
     exit;
 }
 
-// Get contract details (including soft-deleted ones)
+// Get contract details (including soft-deleted ones, using contrat_logement for frozen reference)
 $stmt = $pdo->prepare("
-    SELECT c.*, l.reference as logement_ref
+    SELECT c.*, COALESCE(cl.reference, l.reference) as logement_ref
     FROM contrats c
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     LEFT JOIN logements l ON c.logement_id = l.id
     WHERE c.id = ?
 ");

@@ -13,14 +13,20 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $contrat_id = (int)$_GET['id'];
 
-// Récupérer les informations du contrat
+// Récupérer les informations du contrat (données figées depuis contrat_logement)
 $stmt = $pdo->prepare("
-    SELECT c.*, l.reference, l.adresse, l.loyer, l.charges, l.depot_garantie,
-           l.type_contrat,
-           COALESCE(l.dpe_file, '') as dpe_file,
+    SELECT c.*,
+           COALESCE(cl.reference, l.reference) as reference,
+           COALESCE(cl.adresse, l.adresse) as adresse,
+           COALESCE(cl.loyer, l.loyer) as loyer,
+           COALESCE(cl.charges, l.charges) as charges,
+           COALESCE(cl.depot_garantie, l.depot_garantie) as depot_garantie,
+           COALESCE(cl.type_contrat, l.type_contrat) as type_contrat,
+           COALESCE(cl.dpe_file, l.dpe_file, '') as dpe_file,
            ca.nom, ca.prenom, ca.email
     FROM contrats c
-    JOIN logements l ON c.logement_id = l.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+    LEFT JOIN logements l ON c.logement_id = l.id
     LEFT JOIN candidatures ca ON c.candidature_id = ca.id
     WHERE c.id = ?
 ");
