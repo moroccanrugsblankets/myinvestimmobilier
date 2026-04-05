@@ -99,7 +99,7 @@ $migrationDir = __DIR__ . '/migrations';
 $sqlFiles = glob($migrationDir . '/*.sql') ?: [];
 // Only include PHP files that start with a number (e.g. 135_create_*.php), not utility scripts
 $allPhpFiles = glob($migrationDir . '/*.php') ?: [];
-$phpFiles = array_filter($allPhpFiles, fn($f) => preg_match('/\/[0-9]/', $f));
+$phpFiles = array_filter($allPhpFiles, fn($f) => preg_match('/^[0-9]/', basename($f)));
 $files = array_merge($sqlFiles, array_values($phpFiles));
 sort($files);
 
@@ -142,9 +142,10 @@ foreach ($files as $file) {
     echo "Applying migration: $filename\n";
     
     if ($ext === 'php') {
-        // PHP migrations manage their own transactions; just include and track them
+        // PHP migrations manage their own transactions; include and then track them.
+        // The migrations directory must be protected from unauthorized write access.
         try {
-            include $file;
+            require_once $file;
             
             // Record the migration as executed
             $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
