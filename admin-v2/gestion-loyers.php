@@ -38,16 +38,23 @@ $vueDetaillee = ($contratIdFilter !== null);
 // Si un contrat_id est spécifié, récupérer uniquement ce contrat
 // Sinon, récupérer tous les logements en location
 if ($vueDetaillee) {
+    // Use contrat_logement for frozen data (loyer, charges, reference, adresse) with fallback to logements
     $stmtLogements = $pdo->prepare("
-        SELECT DISTINCT l.*, c.id as contrat_id, c.date_prise_effet, c.reference_unique as contrat_reference,
+        SELECT DISTINCT l.id,
+               COALESCE(cl.reference, l.reference) as reference,
+               COALESCE(cl.adresse, l.adresse) as adresse,
+               COALESCE(cl.loyer, l.loyer) as loyer,
+               COALESCE(cl.charges, l.charges) as charges,
+               c.id as contrat_id, c.date_prise_effet, c.reference_unique as contrat_reference,
                (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
                 FROM locataires 
                 WHERE contrat_id = c.id) as locataires
         FROM logements l
         INNER JOIN contrats c ON c.logement_id = l.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
         WHERE c.id = ?
         AND " . CONTRAT_ACTIF_FILTER . "
-        ORDER BY l.reference
+        ORDER BY COALESCE(cl.reference, l.reference)
     ");
     $stmtLogements->execute([$contratIdFilter]);
     $logements = $stmtLogements->fetchAll(PDO::FETCH_ASSOC);
@@ -62,38 +69,46 @@ if ($vueDetaillee) {
     // Selon cahier des charges section 1: afficher le dernier contrat validé pour chaque logement
     // Note: On ne filtre PAS par statut du logement car un logement peut être marqué "disponible" 
     // alors qu'il a encore un contrat actif (par exemple si le locataire va partir bientôt)
+    // Use contrat_logement for frozen data (loyer, charges, reference, adresse) with fallback to logements
     $stmtLogements = $pdo->query("
-        SELECT l.*, 
-       c.id AS contrat_id, 
-       c.date_prise_effet, 
-       c.reference_unique AS contrat_reference,
-       (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
-        FROM locataires 
-        WHERE contrat_id = c.id) AS locataires
-FROM logements l
-INNER JOIN contrats c 
-        ON c.logement_id = l.id
-INNER JOIN (
-    -- Sous-requête pour obtenir le dernier contrat valide par id
-    SELECT logement_id, MAX(id) AS max_contrat_id
-    FROM contrats c WHERE " . CONTRAT_ACTIF_FILTER . "
-    GROUP BY logement_id
-) derniers_contrats 
-        ON c.id = derniers_contrats.max_contrat_id
-ORDER BY l.reference;
+        SELECT l.id,
+               COALESCE(cl.reference, l.reference) as reference,
+               COALESCE(cl.adresse, l.adresse) as adresse,
+               COALESCE(cl.loyer, l.loyer) as loyer,
+               COALESCE(cl.charges, l.charges) as charges,
+               c.id AS contrat_id,
+               c.date_prise_effet,
+               c.reference_unique AS contrat_reference,
+               (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
+                FROM locataires 
+                WHERE contrat_id = c.id) AS locataires
+        FROM logements l
+        INNER JOIN contrats c ON c.logement_id = l.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
+        INNER JOIN (
+            -- Sous-requête pour obtenir le dernier contrat valide par id
+            SELECT logement_id, MAX(id) AS max_contrat_id
+            FROM contrats c WHERE " . CONTRAT_ACTIF_FILTER . "
+            GROUP BY logement_id
+        ) derniers_contrats ON c.id = derniers_contrats.max_contrat_id
+        ORDER BY COALESCE(cl.reference, l.reference)
     ");
     $logements = $stmtLogements->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Récupérer la liste de tous les contrats actifs pour le sélecteur
 // Afficher uniquement le dernier contrat valide pour chaque logement
+// Use contrat_logement for frozen reference/adresse with fallback to logements
 $stmtTousContrats = $pdo->query("
-    SELECT c.id, c.reference_unique, l.reference as logement_ref, l.adresse,
+    SELECT c.id, c.reference_unique,
+           COALESCE(cl.reference, l.reference) as logement_ref,
+           COALESCE(cl.adresse, l.adresse) as adresse,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
             FROM locataires 
             WHERE contrat_id = c.id) as locataires
     FROM contrats c
     INNER JOIN logements l ON c.logement_id = l.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     INNER JOIN (
         -- Sous-requête pour obtenir le dernier contrat valide pour chaque logement
         SELECT logement_id, MAX(id) as max_contrat_id
@@ -101,7 +116,7 @@ $stmtTousContrats = $pdo->query("
         WHERE " . CONTRAT_ACTIF_FILTER . "
         GROUP BY logement_id
     ) derniers_contrats ON c.id = derniers_contrats.max_contrat_id
-    ORDER BY l.reference
+    ORDER BY COALESCE(cl.reference, l.reference)
 ");
 $tousContrats = $stmtTousContrats->fetchAll(PDO::FETCH_ASSOC);
 
@@ -413,14 +428,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update->execute([$nouveauStatut, $nouveauStatut, $logementId, $mois, $annee]);
             } else {
                 // Créer l'entrée
-                $logement = $pdo->prepare("SELECT loyer, charges FROM logements WHERE id = ?");
-                $logement->execute([$logementId]);
-                $logInfo = $logement->fetch(PDO::FETCH_ASSOC);
-                
                 // Récupérer le contrat actif pour ce logement (utilise les mêmes critères que la requête principale)
                 $contrat = $pdo->prepare("SELECT id FROM contrats c WHERE logement_id = ? AND " . CONTRAT_ACTIF_FILTER . " LIMIT 1");
                 $contrat->execute([$logementId]);
                 $contratInfo = $contrat->fetch(PDO::FETCH_ASSOC);
+
+                // Use contrat_logement for frozen loyer/charges with fallback to logements
+                $contratIdForLog = $contratInfo['id'] ?? null;
+                if ($contratIdForLog) {
+                    $logement = $pdo->prepare("
+                        SELECT COALESCE(cl.loyer, l.loyer) as loyer, COALESCE(cl.charges, l.charges) as charges
+                        FROM logements l
+                        LEFT JOIN contrat_logement cl ON cl.contrat_id = ?
+                        WHERE l.id = ?
+                    ");
+                    $logement->execute([$contratIdForLog, $logementId]);
+                } else {
+                    $logement = $pdo->prepare("SELECT loyer, charges FROM logements WHERE id = ?");
+                    $logement->execute([$logementId]);
+                }
+                $logInfo = $logement->fetch(PDO::FETCH_ASSOC);
                 
                 $montantTotal = $logInfo['loyer'] + $logInfo['charges'];
                 
@@ -431,7 +458,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $insert->execute([
                     $logementId,
-                    $contratInfo['id'] ?? null,
+                    $contratIdForLog,
                     $mois,
                     $annee,
                     $montantTotal,
@@ -545,13 +572,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $annee = (int)$_POST['annee'];
             
             // Récupérer les informations du logement et du locataire
+            // Use contrat_logement for frozen loyer/charges/adresse/reference with fallback to logements
             $stmt = $pdo->prepare("
                 SELECT l.*, c.id as contrat_id,
+                       COALESCE(cl.loyer, l.loyer) as loyer,
+                       COALESCE(cl.charges, l.charges) as charges,
+                       COALESCE(cl.adresse, l.adresse) as adresse,
+                       COALESCE(cl.reference, l.reference) as reference,
                        (SELECT email FROM locataires WHERE contrat_id = c.id LIMIT 1) as email_locataire,
                        (SELECT nom FROM locataires WHERE contrat_id = c.id LIMIT 1) as nom_locataire,
                        (SELECT prenom FROM locataires WHERE contrat_id = c.id LIMIT 1) as prenom_locataire
                 FROM logements l
                 INNER JOIN contrats c ON c.logement_id = l.id
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
                 WHERE l.id = ? AND c.id = ? AND " . CONTRAT_ACTIF_FILTER . "
             ");
             $stmt->execute([$logementId, $contratId]);

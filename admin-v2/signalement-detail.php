@@ -17,9 +17,13 @@ if ($id <= 0) {
 }
 
 // Charger le signalement
+// Use contrat_logement for frozen loyer/charges with fallback to logements
 $stmt = $pdo->prepare("
     SELECT sig.*,
-           l.adresse, l.reference as logement_ref, l.loyer, l.charges,
+           COALESCE(cl.adresse, l.adresse) as adresse,
+           COALESCE(cl.reference, l.reference) as logement_ref,
+           COALESCE(cl.loyer, l.loyer) as loyer,
+           COALESCE(cl.charges, l.charges) as charges,
            c.reference_unique as contrat_ref,
            CONCAT(loc.prenom, ' ', loc.nom) as locataire_nom,
            loc.prenom as locataire_prenom,
@@ -27,6 +31,7 @@ $stmt = $pdo->prepare("
            loc.token_signalement
     FROM signalements sig
     INNER JOIN logements l ON sig.logement_id = l.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = sig.contrat_id
     INNER JOIN contrats c ON sig.contrat_id = c.id
     LEFT JOIN locataires loc ON sig.locataire_id = loc.id
     WHERE sig.id = ?
@@ -501,14 +506,18 @@ $actionsStmt->execute([$id]);
 $actions = $actionsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Charger la liste des contrats actifs pour le changement de contrat
+// Use contrat_logement for frozen adresse/reference with fallback to logements
 $contratsListStmt = $pdo->query("
-    SELECT c.id, c.reference_unique, l.adresse, l.reference as _ref,
+    SELECT c.id, c.reference_unique,
+           COALESCE(cl.adresse, l.adresse) as adresse,
+           COALESCE(cl.reference, l.reference) as _ref,
            (SELECT GROUP_CONCAT(CONCAT(prenom, ' ', nom) SEPARATOR ', ')
             FROM locataires WHERE contrat_id = c.id) as locataires
     FROM contrats c
     INNER JOIN logements l ON c.logement_id = l.id
+    LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
     WHERE c.statut = 'valide'
-    ORDER BY l.adresse
+    ORDER BY COALESCE(cl.adresse, l.adresse)
 ");
 $contratsList = $contratsListStmt->fetchAll(PDO::FETCH_ASSOC);
 

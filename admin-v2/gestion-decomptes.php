@@ -21,21 +21,23 @@ if ($statutFilter && in_array($statutFilter, ['brouillon', 'valide', 'facture_en
     $params[] = $statutFilter;
 }
 if ($search) {
-    $where[] = '(d.reference LIKE ? OR sig.reference LIKE ? OR sig.titre LIKE ? OR l.adresse LIKE ?)';
+    $where[] = '(d.reference LIKE ? OR sig.reference LIKE ? OR sig.titre LIKE ? OR COALESCE(cl.adresse, l.adresse) LIKE ?)';
     $s = '%' . str_replace(['%', '_', '\\'], ['\\%', '\\_', '\\\\'], $search) . '%';
     $params[] = $s; $params[] = $s; $params[] = $s; $params[] = $s;
 }
 $whereClause = implode(' AND ', $where);
 
 try {
+    // Use contrat_logement for frozen adresse with fallback to logements
     $stmt = $pdo->prepare("
         SELECT d.id, d.reference, d.statut, d.montant_total, d.date_creation, d.date_validation,
                sig.id AS sig_id, sig.reference AS sig_reference, sig.titre AS sig_titre, sig.statut AS sig_statut,
-               l.adresse,
+               COALESCE(cl.adresse, l.adresse) AS adresse,
                CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom
         FROM signalements_decomptes d
         INNER JOIN signalements sig ON d.signalement_id = sig.id
         INNER JOIN logements l ON sig.logement_id = l.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = sig.contrat_id
         LEFT JOIN locataires loc ON sig.locataire_id = loc.id
         WHERE $whereClause
         ORDER BY d.date_creation DESC

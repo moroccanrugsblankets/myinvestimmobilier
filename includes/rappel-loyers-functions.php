@@ -25,12 +25,13 @@
 function genererMessageStatutLoyers($pdo, $mois, $annee) {
     try {
         // Récupérer tous les biens avec contrat actif et leur statut agrégé sur TOUS les mois
+        // Use contrat_logement for frozen reference/adresse/loyer/charges with fallback to logements
         $stmt = $pdo->query("
             SELECT
-                l.reference,
-                l.adresse,
-                l.loyer,
-                l.charges,
+                COALESCE(cl.reference, l.reference) as reference,
+                COALESCE(cl.adresse, l.adresse) as adresse,
+                COALESCE(cl.loyer, l.loyer) as loyer,
+                COALESCE(cl.charges, l.charges) as charges,
                 (SELECT GROUP_CONCAT(CONCAT(loc.prenom, ' ', loc.nom) SEPARATOR ', ')
                  FROM locataires loc
                  INNER JOIN contrats c2 ON loc.contrat_id = c2.id
@@ -54,6 +55,7 @@ function genererMessageStatutLoyers($pdo, $mois, $annee) {
                 END as statut_global
             FROM logements l
             INNER JOIN contrats c ON c.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = c.id
             INNER JOIN (
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats
@@ -62,8 +64,8 @@ function genererMessageStatutLoyers($pdo, $mois, $annee) {
                 GROUP BY logement_id
             ) dc ON c.id = dc.max_contrat_id
             LEFT JOIN loyers_tracking lt ON lt.logement_id = l.id AND lt.contrat_id = c.id AND lt.deleted_at IS NULL
-            GROUP BY l.id, l.reference, l.adresse, l.loyer, l.charges
-            ORDER BY l.reference
+            GROUP BY l.id, COALESCE(cl.reference, l.reference), COALESCE(cl.adresse, l.adresse), COALESCE(cl.loyer, l.loyer), COALESCE(cl.charges, l.charges)
+            ORDER BY COALESCE(cl.reference, l.reference)
         ");
         $biens = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

@@ -31,6 +31,7 @@ $adminName  = $_SESSION['admin_nom'] ?? 'Administrateur';
 if ($decompteId > 0) {
     // Charger un décompte existant
     try {
+        // Use contrat_logement for frozen adresse/reference with fallback to logements
         $stmt = $pdo->prepare("
             SELECT d.*,
                    sig.id           AS sig_id,
@@ -39,8 +40,8 @@ if ($decompteId > 0) {
                    sig.statut       AS sig_statut,
                    sig.nb_heures    AS sig_nb_heures,
                    sig.cout_materiaux AS sig_cout_materiaux,
-                   l.adresse,
-                   l.reference      AS logement_reference,
+                   COALESCE(cl.adresse, l.adresse) AS adresse,
+                   COALESCE(cl.reference, l.reference) AS logement_reference,
                    c.reference_unique AS contrat_ref,
                    CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                    loc.email AS locataire_email,
@@ -48,6 +49,7 @@ if ($decompteId > 0) {
             FROM signalements_decomptes d
             INNER JOIN signalements sig ON d.signalement_id = sig.id
             INNER JOIN logements l ON sig.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = sig.contrat_id
             INNER JOIN contrats c ON sig.contrat_id = c.id
             LEFT JOIN locataires loc ON sig.locataire_id = loc.id
             WHERE d.id = ?
@@ -103,16 +105,18 @@ if ($decompteId > 0) {
     } catch (Exception $e) {}
 
     // Charger le signalement
+    // Use contrat_logement for frozen adresse with fallback to logements
     try {
         $stmt = $pdo->prepare("
             SELECT sig.*,
-                   l.adresse,
+                   COALESCE(cl.adresse, l.adresse) AS adresse,
                    c.reference_unique AS contrat_ref,
                    CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                    loc.email AS locataire_email,
                    loc.prenom AS locataire_prenom
             FROM signalements sig
             INNER JOIN logements l ON sig.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = sig.contrat_id
             INNER JOIN contrats c ON sig.contrat_id = c.id
             LEFT JOIN locataires loc ON sig.locataire_id = loc.id
             WHERE sig.id = ?
@@ -568,6 +572,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 // Recharger après action
 if ($decompteId > 0) {
     try {
+        // Use contrat_logement for frozen adresse/reference with fallback to logements
         $reloadStmt = $pdo->prepare("
             SELECT d.*,
                    sig.id           AS sig_id,
@@ -576,8 +581,8 @@ if ($decompteId > 0) {
                    sig.statut       AS sig_statut,
                    sig.nb_heures    AS sig_nb_heures,
                    sig.cout_materiaux AS sig_cout_materiaux,
-                   l.adresse,
-                   l.reference      AS logement_reference,
+                   COALESCE(cl.adresse, l.adresse) AS adresse,
+                   COALESCE(cl.reference, l.reference) AS logement_reference,
                    c.reference_unique AS contrat_ref,
                    CONCAT(loc.prenom, ' ', loc.nom) AS locataire_nom,
                    loc.email AS locataire_email,
@@ -585,6 +590,7 @@ if ($decompteId > 0) {
             FROM signalements_decomptes d
             INNER JOIN signalements sig ON d.signalement_id = sig.id
             INNER JOIN logements l ON sig.logement_id = l.id
+            LEFT JOIN contrat_logement cl ON cl.contrat_id = sig.contrat_id
             INNER JOIN contrats c ON sig.contrat_id = c.id
             LEFT JOIN locataires loc ON sig.locataire_id = loc.id
             WHERE d.id = ?
