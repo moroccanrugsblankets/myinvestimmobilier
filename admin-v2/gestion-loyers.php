@@ -467,7 +467,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
             
-            // Si le paiement est marqué comme payé, envoyer les emails de confirmation et la quittance
+            // Si le paiement est marqué comme payé, envoyer uniquement l'email de confirmation
             if ($nouveauStatut === 'paye') {
                 // Récupérer les informations du contrat et du logement depuis loyers_tracking
                 $stmtPayment = $pdo->prepare("
@@ -497,7 +497,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $montantChargesFmt = number_format((float)$paymentInfo['charges'], 2, ',', ' ');
                     $montantTotalFmt = number_format((float)$paymentInfo['loyer'] + (float)$paymentInfo['charges'], 2, ',', ' ');
 
-                    // Email 1 : Confirmation de réception de paiement
+                    // Email de confirmation de réception de paiement uniquement
+                    // La quittance doit être envoyée manuellement via le bouton dédié
                     foreach ($locatairesPaiement as $loc) {
                         if (!empty($loc['email'])) {
                             sendTemplatedEmail(
@@ -520,47 +521,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             );
                         }
                     }
-
-                    // Email 2 : Quittance (génération PDF + envoi)
-                    $quittanceResult = generateQuittancePDF($contratIdPaiement, $mois, $annee);
-                    if ($quittanceResult === false) {
-                        error_log("Erreur génération PDF quittance pour contrat #$contratIdPaiement, période $periodeNom");
-                    } else {
-                        // Use physical URL for the quittance PDF download link
-                        $lienQuittance = documentPathToUrl($quittanceResult['filepath']);
-                        foreach ($locatairesPaiement as $loc) {
-                            if (!empty($loc['email'])) {
-                                $emailSent = sendTemplatedEmail(
-                                    'quittance_envoyee',
-                                    $loc['email'],
-                                    [
-                                        'locataire_nom'              => $loc['nom'],
-                                        'locataire_prenom'           => $loc['prenom'],
-                                        'adresse'                    => $paymentInfo['adresse'],
-                                        'periode'                    => $periodeNom,
-                                        'montant_loyer'              => $montantLoyerFmt,
-                                        'montant_charges'            => $montantChargesFmt,
-                                        'montant_total'              => $montantTotalFmt,
-                                        'signature'                  => getParameter('email_signature', ''),
-                                        'lien_telechargement_quittance' => $lienQuittance,
-                                    ],
-                                    null,  // no direct attachment
-                                    false,
-                                    true   // addAdminBcc
-                                );
-                                if (!$emailSent) {
-                                    error_log("Erreur envoi email quittance à " . $loc['email']);
-                                }
-                            }
-                        }
-                        // Marquer la quittance comme envoyée par email
-                        $stmtQuittance = $pdo->prepare("UPDATE quittances SET email_envoye = 1, date_envoi_email = NOW() WHERE id = ?");
-                        $stmtQuittance->execute([$quittanceResult['quittance_id']]);
-                    }
                 }
             }
 
             echo json_encode(['success' => true, 'message' => 'Statut mis à jour']);
+            exit;
+        }
+
+        // Envoi manuel de la quittance au locataire
+        if (isset($_POST['action']) && $_POST['action'] === 'envoyer_quittance') {
+            $logementId = (int)$_POST['logement_id'];
+            $contratId  = (int)$_POST['contrat_id'];
+            $mois       = (int)$_POST['mois'];
+            $annee      = (int)$_POST['annee'];
+
+            // Récupérer les informations du logement/contrat (données figées depuis contrat_logement)
+            $stmtInfo = $pdo->prepare("
+                SELECT COALESCE(cl.adresse, l.adresse) as adresse,
+                       COALESCE(cl.reference, l.reference) as logement_ref,
+                       COALESCE(cl.loyer, l.loyer) as loyer,
+                       COALESCE(cl.charges, l.charges) as charges
+                FROM logements l
+                LEFT JOIN contrat_logement cl ON cl.contrat_id = ?
+                WHERE l.id = ?
+            ");
+            $stmtInfo->execute([$contratId, $logementId]);
+            $infoQuittance = $stmtInfo->fetch(PDO::FETCH_ASSOC);
+
+            if (!$infoQuittance) {
+                throw new Exception('Logement introuvable');
+            }
+
+            // Récupérer les locataires du contrat
+            $stmtLoc = $pdo->prepare("SELECT email, nom, prenom FROM locataires WHERE contrat_id = ?");
+            $stmtLoc->execute([$contratId]);
+            $locatairesQuittance = $stmtLoc->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($locatairesQuittance)) {
+                throw new Exception('Aucun locataire trouvé pour ce contrat');
+            }
+
+            $periodeNom = $nomsMois[$mois] . ' ' . $annee;
+            $montantLoyerFmt   = number_format((float)$infoQuittance['loyer'], 2, ',', ' ');
+            $montantChargesFmt = number_format((float)$infoQuittance['charges'], 2, ',', ' ');
+            $montantTotalFmt   = number_format((float)$infoQuittance['loyer'] + (float)$infoQuittance['charges'], 2, ',', ' ');
+
+            // Générer la quittance PDF
+            $quittanceResult = generateQuittancePDF($contratId, $mois, $annee);
+            if ($quittanceResult === false) {
+                throw new Exception('Erreur lors de la génération du PDF de quittance');
+            }
+
+            $lienQuittance = documentPathToUrl($quittanceResult['filepath']);
+            $nbEnvoyes = 0;
+            foreach ($locatairesQuittance as $loc) {
+                if (!empty($loc['email'])) {
+                    $emailSent = sendTemplatedEmail(
+                        'quittance_envoyee',
+                        $loc['email'],
+                        [
+                            'locataire_nom'                 => $loc['nom'],
+                            'locataire_prenom'              => $loc['prenom'],
+                            'adresse'                       => $infoQuittance['adresse'],
+                            'periode'                       => $periodeNom,
+                            'montant_loyer'                 => $montantLoyerFmt,
+                            'montant_charges'               => $montantChargesFmt,
+                            'montant_total'                 => $montantTotalFmt,
+                            'signature'                     => getParameter('email_signature', ''),
+                            'lien_telechargement_quittance' => $lienQuittance,
+                        ],
+                        null,
+                        false,
+                        true  // addAdminBcc
+                    );
+                    if ($emailSent) {
+                        $nbEnvoyes++;
+                    } else {
+                        error_log("Erreur envoi quittance manuelle à " . $loc['email']);
+                    }
+                }
+            }
+
+            // Marquer la quittance comme envoyée par email
+            $stmtMaj = $pdo->prepare("UPDATE quittances SET email_envoye = 1, date_envoi_email = NOW() WHERE id = ?");
+            $stmtMaj->execute([$quittanceResult['quittance_id']]);
+
+            if ($nbEnvoyes > 0) {
+                echo json_encode(['success' => true, 'message' => "Quittance envoyée à $nbEnvoyes locataire(s)"]);
+            } else {
+                throw new Exception('Échec de l\'envoi de la quittance');
+            }
             exit;
         }
         
@@ -980,19 +1030,25 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
         
         .month-block {
             flex: 1 1 calc(20% - 15px);
-            min-width: 150px;
-            max-width: 200px;
+            min-width: 160px;
+            max-width: 220px;
             border: 2px solid #dee2e6;
             border-radius: 8px;
             padding: 15px;
             text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        .month-block:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        .month-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 10px;
+        }
+        
+        .month-actions .btn {
+            font-size: 11px;
+            padding: 4px 6px;
+            white-space: nowrap;
         }
         
         .month-block.paye {
@@ -1314,7 +1370,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                 <span><strong>En attente</strong> - Statut non défini</span>
             </div>
             <div class="ms-auto">
-                <small class="text-muted"><i class="bi bi-info-circle"></i> Cliquez sur une case pour changer le statut</small>
+                <small class="text-muted"><i class="bi bi-info-circle"></i> Utilisez les boutons de chaque bloc pour gérer les paiements</small>
             </div>
         </div>
         
@@ -1335,8 +1391,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                     $isCurrentMonth = ($m['num'] == $moisActuel && $m['annee'] == $anneeActuelle);
                     $datePaiement = $statut && $statut['date_paiement'] ? date('d/m/Y', strtotime($statut['date_paiement'])) : '';
                 ?>
-                    <div class="month-block <?= $statutClass ?> <?= $isCurrentMonth ? 'current-month-block' : '' ?>" 
-                         onclick="changerStatut(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>, '<?= $statutClass ?>')">
+                    <div class="month-block <?= $statutClass ?> <?= $isCurrentMonth ? 'current-month-block' : '' ?>">
                         <div class="month-name"><?= htmlspecialchars($nomsMois[$m['num']]) ?></div>
                         <div class="month-year"><?= $m['annee'] ?></div>
                         <div class="status-icon"><?= $icon ?></div>
@@ -1344,19 +1399,37 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                         <?php if ($datePaiement): ?>
                             <div class="payment-date">Payé le <?= $datePaiement ?></div>
                         <?php endif; ?>
-                        <?php if ($statutClass === 'impaye'): ?>
-                            <button class="btn btn-sm btn-outline-light mt-2" 
-                                    onclick="event.stopPropagation(); envoyerRappelLocataire(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
-                                <i class="bi bi-envelope"></i> Rappel
+                        <div class="month-actions">
+                        <?php if ($statutClass === 'paye'): ?>
+                            <button class="btn btn-sm btn-outline-light"
+                                    onclick="marquerNonPaye(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-x-circle"></i> Marquer non payé
+                            </button>
+                            <button class="btn btn-sm btn-outline-light"
+                                    onclick="envoyerQuittance(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
+                            </button>
+                        <?php else: ?>
+                            <button class="btn btn-sm btn-light"
+                                    onclick="confirmerPaiement(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-check-circle"></i> Confirmer le paiement
+                            </button>
+                            <button class="btn btn-sm btn-outline-dark"
+                                    onclick="envoyerRappelLocataire(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-envelope"></i> Envoyer un rappel
                             </button>
                             <?php if ($stripeActif): ?>
-                            <button class="btn btn-sm btn-outline-warning mt-1"
-                                    onclick="event.stopPropagation(); envoyerLienStripe(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)"
-                                    title="Envoyer un lien de paiement Stripe au locataire">
-                                <i class="bi bi-credit-card"></i> Lien paiement
+                            <button class="btn btn-sm btn-warning"
+                                    onclick="envoyerLienStripe(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-credit-card"></i> Lien de paiement
                             </button>
                             <?php endif; ?>
+                            <button class="btn btn-sm btn-outline-dark"
+                                    onclick="envoyerQuittance(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
+                            </button>
                         <?php endif; ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -1365,26 +1438,21 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function changerStatut(logementId, mois, annee, statutActuel) {
-            // Cycle entre les statuts
-            // attente → paye → attente (retour possible en cas d'erreur)
-            // impaye → paye (marquer comme payé)
-            const cycle = {
-                'attente': 'paye',
-                'paye': 'attente',
-                'impaye': 'paye'
-            };
-            
-            const nouveauStatut = cycle[statutActuel] || 'attente';
-
-            // Demander confirmation avant de passer au statut "payé" (des emails seront envoyés au client)
-            if (nouveauStatut === 'paye') {
-                if (!confirm('Confirmer le paiement ?\n\nUn email de confirmation et une quittance seront automatiquement envoyés au locataire.')) {
-                    return;
-                }
+        function confirmerPaiement(logementId, contratId, mois, annee) {
+            if (!confirm('Confirmer le paiement ?\n\nUn email de confirmation sera envoyé au locataire.\nLa quittance devra être envoyée séparément via le bouton dédié.')) {
+                return;
             }
-            
-            // Envoyer la requête AJAX
+            updateStatut(logementId, mois, annee, 'paye');
+        }
+
+        function marquerNonPaye(logementId, contratId, mois, annee) {
+            if (!confirm('Marquer ce loyer comme non payé ?\n\nAucun email ne sera envoyé.')) {
+                return;
+            }
+            updateStatut(logementId, mois, annee, 'impaye');
+        }
+
+        function updateStatut(logementId, mois, annee, statut) {
             fetch('', {
                 method: 'POST',
                 headers: {
@@ -1395,16 +1463,46 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                     logement_id: logementId,
                     mois: mois,
                     annee: annee,
-                    statut: nouveauStatut
+                    statut: statut
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Recharger la page pour afficher les changements
                     location.reload();
                 } else {
                     alert('Erreur: ' + (data.error || 'Échec de la mise à jour'));
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur de communication avec le serveur');
+            });
+        }
+
+        function envoyerQuittance(logementId, contratId, mois, annee) {
+            if (!confirm('Envoyer la quittance au locataire pour ce mois ?')) {
+                return;
+            }
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'envoyer_quittance',
+                    logement_id: logementId,
+                    contrat_id: contratId,
+                    mois: mois,
+                    annee: annee
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Échec de l\'envoi'));
                 }
             })
             .catch(error => {
