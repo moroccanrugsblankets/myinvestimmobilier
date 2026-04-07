@@ -1402,7 +1402,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                         <div class="month-actions">
                         <?php if ($statutClass === 'paye'): ?>
                             <button class="btn btn-sm btn-outline-light"
-                                    onclick="marquerNonPaye(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                    onclick="marquerNonPaye(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-x-circle"></i> Marquer non payé
                             </button>
                             <button class="btn btn-sm btn-outline-light"
@@ -1411,7 +1411,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                             </button>
                         <?php else: ?>
                             <button class="btn btn-sm btn-light"
-                                    onclick="confirmerPaiement(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
+                                    onclick="confirmerPaiement(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-check-circle"></i> Confirmer le paiement
                             </button>
                             <button class="btn btn-sm btn-outline-dark"
@@ -1438,14 +1438,14 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function confirmerPaiement(logementId, contratId, mois, annee) {
+        function confirmerPaiement(logementId, mois, annee) {
             if (!confirm('Confirmer le paiement ?\n\nUn email de confirmation sera envoyé au locataire.\nLa quittance devra être envoyée séparément via le bouton dédié.')) {
                 return;
             }
             updateStatut(logementId, mois, annee, 'paye');
         }
 
-        function marquerNonPaye(logementId, contratId, mois, annee) {
+        function marquerNonPaye(logementId, mois, annee) {
             if (!confirm('Marquer ce loyer comme non payé ?\n\nAucun email ne sera envoyé.')) {
                 return;
             }
@@ -1453,6 +1453,18 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
         }
 
         function updateStatut(logementId, mois, annee, statut) {
+            logementId = parseInt(logementId, 10);
+            mois = parseInt(mois, 10);
+            annee = parseInt(annee, 10);
+            if (!logementId || mois < 1 || mois > 12 || !annee) {
+                alert('Paramètres invalides');
+                return;
+            }
+            const statutsValides = ['paye', 'impaye', 'attente'];
+            if (!statutsValides.includes(statut)) {
+                alert('Statut invalide');
+                return;
+            }
             fetch('', {
                 method: 'POST',
                 headers: {
@@ -1481,6 +1493,14 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
         }
 
         function envoyerQuittance(logementId, contratId, mois, annee) {
+            logementId = parseInt(logementId, 10);
+            contratId = parseInt(contratId, 10);
+            mois = parseInt(mois, 10);
+            annee = parseInt(annee, 10);
+            if (!logementId || !contratId || mois < 1 || mois > 12 || !annee) {
+                alert('Paramètres invalides');
+                return;
+            }
             if (!confirm('Envoyer la quittance au locataire pour ce mois ?')) {
                 return;
             }
