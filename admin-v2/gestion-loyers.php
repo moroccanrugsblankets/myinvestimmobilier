@@ -1401,11 +1401,11 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                         <?php endif; ?>
                         <div class="month-actions">
                         <?php if ($statutClass === 'paye'): ?>
-                            <button class="btn btn-sm btn-outline-light"
+                            <button class="btn btn-sm btn-danger"
                                     onclick="marquerNonPaye(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-x-circle"></i> Marquer non payé
                             </button>
-                            <button class="btn btn-sm btn-outline-light"
+                            <button class="btn btn-sm btn-secondary"
                                     onclick="envoyerQuittance(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
                             </button>
@@ -1424,7 +1424,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                                 <i class="bi bi-credit-card"></i> Lien de paiement
                             </button>
                             <?php endif; ?>
-                            <button class="btn btn-sm btn-outline-light"
+                            <button class="btn btn-sm btn-secondary"
                                     onclick="envoyerQuittance(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
                             </button>
