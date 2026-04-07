@@ -1410,7 +1410,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                                 <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
                             </button>
                         <?php else: ?>
-                            <button class="btn btn-sm btn-light"
+                            <button class="btn btn-sm btn-success"
                                     onclick="confirmerPaiement(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-check-circle"></i> Confirmer le paiement
                             </button>
@@ -1424,7 +1424,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                                 <i class="bi bi-credit-card"></i> Lien de paiement
                             </button>
                             <?php endif; ?>
-                            <button class="btn btn-sm btn-outline-dark"
+                            <button class="btn btn-sm btn-outline-light"
                                     onclick="envoyerQuittance(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-file-earmark-text"></i> Envoyer la quittance
                             </button>
