@@ -1414,7 +1414,7 @@ $stripeActif = function_exists('getParameter') ? getParameter('stripe_actif', fa
                                     onclick="confirmerPaiement(<?= $logement['id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-check-circle"></i> Confirmer le paiement
                             </button>
-                            <button class="btn btn-sm btn-outline-dark"
+                            <button class="btn btn-sm btn-primary"
                                     onclick="envoyerRappelLocataire(<?= $logement['id'] ?>, <?= $logement['contrat_id'] ?>, <?= $m['num'] ?>, <?= $m['annee'] ?>)">
                                 <i class="bi bi-envelope"></i> Envoyer un rappel
                             </button>
