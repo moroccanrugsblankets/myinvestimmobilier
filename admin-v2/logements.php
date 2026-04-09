@@ -460,7 +460,7 @@ $stats = [
                                             title="Copier le lien de candidature">
                                         <i class="bi bi-person-plus"></i>
                                     </button>
-                                    <button class="btn btn-outline-secondary btn-sm"
+                                    <button class="btn btn-outline-secondary btn-sm defaults-btn"
                                             data-id="<?php echo $logement['id']; ?>"
                                             data-reference="<?php echo htmlspecialchars($logement['reference']); ?>"
                                             data-default-cles-appartement="<?php echo $logement['default_cles_appartement']; ?>"
