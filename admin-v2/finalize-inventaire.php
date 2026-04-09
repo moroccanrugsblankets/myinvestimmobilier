@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 
                 error_log("=== FINALIZE INVENTAIRE - SUCCESS ===");
-                header('Location: contrat-detail.php?id=' . $inventaire['contrat_id']);
+                header('Location: contrat-detail.php?id=' . urlencode((string)$inventaire['contrat_id']));
                 exit;
             }
         } catch (Exception $e) {
