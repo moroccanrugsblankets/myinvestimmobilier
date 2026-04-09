@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
         
         $pdo->commit();
-        header('Location: edit-bilan-logement.php?contrat_id=' . $contratId);
+        header('Location: contrat-detail.php?id=' . urlencode((string)$contratId));
         exit;
         
     } catch (Exception $e) {

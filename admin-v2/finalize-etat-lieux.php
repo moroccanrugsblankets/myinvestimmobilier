@@ -144,14 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 
                 error_log("=== FINALIZE ETAT LIEUX - SUCCESS ===");
-                $sanitizedEmails = array_map('htmlspecialchars', $emailsSent);
-                $successMsg = "État des lieux finalisé et envoyé avec succès à " . implode(', ', $sanitizedEmails);
-                if (!empty($emailsFailed)) {
-                    $sanitizedFailedEmails = array_map('htmlspecialchars', $emailsFailed);
-                    $successMsg .= " (Échec pour : " . implode(', ', $sanitizedFailedEmails) . ")";
-                }
-                $_SESSION['success'] = $successMsg;
-                header('Location: etats-lieux.php');
+                header('Location: contrat-detail.php?id=' . urlencode((string)$etat['contrat_id']));
                 exit;
             }
         } catch (Exception $e) {
@@ -384,15 +377,28 @@ try {
                 <?php echo htmlspecialchars($etat['adresse']); ?>
             </div>
             
-            <div class="info-item">
-                <span class="info-label">Locataire:</span>
-                <?php echo htmlspecialchars($etat['locataire_nom_complet']); ?>
-            </div>
-            
-            <div class="info-item">
-                <span class="info-label">Email du locataire:</span>
-                <?php echo htmlspecialchars($etat['locataire_email']); ?>
-            </div>
+            <?php if (!empty($tenants)): ?>
+                <?php if (count($tenants) === 1): ?>
+                    <div class="info-item">
+                        <span class="info-label">Locataire:</span>
+                        <?php echo htmlspecialchars(trim($tenants[0]['prenom'] . ' ' . $tenants[0]['nom'])); ?>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">Email du locataire:</span>
+                        <?php echo htmlspecialchars($tenants[0]['email']); ?>
+                    </div>
+                <?php else: ?>
+                    <div class="info-item">
+                        <span class="info-label">Locataires:</span>
+                        <ul class="mb-0 mt-1">
+                            <?php foreach ($tenants as $tenant): ?>
+                                <li><?php echo htmlspecialchars(trim($tenant['prenom'] . ' ' . $tenant['nom'])); ?> - <?php echo htmlspecialchars($tenant['email']); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
             
             <hr class="my-4">
             
