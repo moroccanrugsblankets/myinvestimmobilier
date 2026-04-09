@@ -615,7 +615,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
                     <a href="download-inventaire.php?id=<?php echo $inventaire_id; ?>" class="btn btn-info" target="_blank">
                         <i class="bi bi-file-pdf"></i> Voir le PDF
                     </a>
-                    <a href="inventaires.php" class="btn btn-secondary">
+                    <a href="contrat-detail.php?id=<?php echo $inventaire['contrat_id']; ?>" class="btn btn-secondary">
                         <i class="bi bi-arrow-left"></i> Retour
                     </a>
                 </div>
@@ -980,7 +980,7 @@ $isEntreeInventory = ($inventaire['type'] === 'entree');
             <?php endif; ?>
 
             <div class="d-flex justify-content-between">
-                <a href="inventaires.php" class="btn btn-secondary">
+                <a href="contrat-detail.php?id=<?php echo $inventaire['contrat_id']; ?>" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Annuler
                 </a>
                 <div>

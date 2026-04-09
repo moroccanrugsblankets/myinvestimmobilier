@@ -634,7 +634,7 @@ if ($isSortie && !empty($etat['contrat_id'])) {
                     </p>
                 </div>
                 <div>
-                    <a href="etats-lieux.php" class="btn btn-outline-secondary">
+                    <a href="contrat-detail.php?id=<?php echo $etat['contrat_id']; ?>" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Retour
                     </a>
                 </div>

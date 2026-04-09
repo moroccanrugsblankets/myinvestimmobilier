@@ -153,14 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 
                 error_log("=== FINALIZE INVENTAIRE - SUCCESS ===");
-                $sanitizedEmails = array_map('htmlspecialchars', $emailsSent);
-                $successMsg = "Inventaire finalisé et envoyé avec succès à " . implode(', ', $sanitizedEmails);
-                if (!empty($emailsFailed)) {
-                    $sanitizedFailedEmails = array_map('htmlspecialchars', $emailsFailed);
-                    $successMsg .= " (Échec pour : " . implode(', ', $sanitizedFailedEmails) . ")";
-                }
-                $_SESSION['success'] = $successMsg;
-                header('Location: inventaires.php');
+                header('Location: contrat-detail.php?id=' . $inventaire['contrat_id']);
                 exit;
             }
         } catch (Exception $e) {
