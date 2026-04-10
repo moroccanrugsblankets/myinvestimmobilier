@@ -12,7 +12,15 @@ window.gjsConfig = {
     storageManager: false,
     height: '500px',
     width: '100%',
-    avoidInlineStyle: false,
+    ForceClass: false, // Empêche la création automatique de classes comme .c1234
+  avoidInlineStyle: false, // Force l'utilisation des styles inline
+  storageManager: {
+    autosave: true,
+    storeComponents: true,
+    storeStyles: true,
+    storeHtml: true,
+    storeCss: true,
+  },
     plugins: ['gjs-blocks-basic'], // activer les blocs de base
     pluginsOpts: {},
 };
