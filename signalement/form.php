@@ -768,7 +768,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                     Présence lors de l'intervention <span class="text-danger">*</span>
                                 </label>
                                 <div class="d-flex flex-column gap-2">
-                                    <div class="form-check rounded p-3">
+                                    <div class="form-check rounded">
                                         <input class="form-check-input" type="radio" name="presence_intervention"
                                                id="presence_absence" value="absence" required
                                                <?php echo (($_POST['presence_intervention'] ?? '') === 'absence') ? 'checked' : ''; ?>>
@@ -776,7 +776,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                             <strong>J'accepte que vous interveniez en mon absence</strong>
                                         </label>
                                     </div>
-                                    <div class="form-check rounded p-3">
+                                    <div class="form-check rounded">
                                         <input class="form-check-input" type="radio" name="presence_intervention"
                                                id="presence_present" value="present"
                                                <?php echo (($_POST['presence_intervention'] ?? '') === 'present') ? 'checked' : ''; ?>>
@@ -791,7 +791,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                 <label class="form-label fw-semibold" for="disponibilites">
                                     Vos disponibilités <span class="text-danger">*</span>
                                 </label>
-                                <textarea class="form-control" id="disponibilites" name="disponibilites" rows="3"
+                                <textarea class="form-control" id="disponibilites" name="disponibilites" rows="4"
                                           required
                                           placeholder="Ex : demain 8h–16h / après-demain 14h–18h / dans 3 jours toute la journée..."><?php echo htmlspecialchars($_POST['disponibilites'] ?? ''); ?></textarea>
                                 <div class="form-text">Indiquez vos disponibilités sur les 3 prochains jours pour faciliter l'intervention.</div>
