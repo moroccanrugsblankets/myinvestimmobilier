@@ -875,6 +875,25 @@ if ($successParam) {
                 </div>
                 <?php endif; ?>
 
+                <!-- Responsabilité -->
+                <div class="section-card">
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité</h6>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="set_responsabilite">
+                        <div class="mb-2">
+                            <select class="form-select" name="responsabilite">
+                                <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
+                                <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
+                                <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-outline-success btn-sm w-100">
+                            <i class="bi bi-check me-1"></i>Confirmer la responsabilité
+                        </button>
+                    </form>
+                </div>
+
                 <!-- Décompte d'intervention -->
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1107,25 +1126,6 @@ if ($successParam) {
                         </div>
                         <button type="submit" class="btn btn-outline-primary btn-sm w-100">
                             <i class="bi bi-check me-1"></i>Mettre à jour le statut
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Responsabilité -->
-                <div class="section-card">
-                    <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité</h6>
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="set_responsabilite">
-                        <div class="mb-2">
-                            <select class="form-select" name="responsabilite">
-                                <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
-                                <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
-                                <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-outline-success btn-sm w-100">
-                            <i class="bi bi-check me-1"></i>Confirmer la responsabilité
                         </button>
                     </form>
                 </div>
