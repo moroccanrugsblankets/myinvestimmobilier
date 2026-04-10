@@ -916,25 +916,46 @@ unset($_SESSION['success'], $_SESSION['error']);
         { id: 'editor_conditions_visite',label: 'Conditions de visite' },
     ];
 
-   var toolbarOptions = [
+    var toolbarOptions = [
         ['bold', 'italic', 'underline'],
+        [{ 'color': [] }, { 'background': [] }],
         [{ 'align': ['', 'center', 'right', 'justify'] }],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
         ['link', 'image'],
         ['clean'],
     ];
 
-
     quillFields.forEach(function (field) {
         var textarea = document.getElementById(field.id);
         if (!textarea) return;
+
+        // Wrapper to hold the editor + HTML toggle button
+        var wrapper = document.createElement('div');
+        wrapper.className = 'quill-wrapper';
+        textarea.parentNode.insertBefore(wrapper, textarea);
 
         // Create a container for Quill
         var container = document.createElement('div');
         container.id  = 'quill-' + field.id;
         container.style.cssText = 'height: 200px;background:#fff;';
-        textarea.parentNode.insertBefore(container, textarea);
+        wrapper.appendChild(container);
+
+        // HTML source textarea (hidden by default)
+        var htmlArea = document.createElement('textarea');
+        htmlArea.id   = 'html-' + field.id;
+        htmlArea.style.cssText = 'display:none;width:100%;height:200px;font-family:monospace;font-size:12px;border:1px solid #ccc;padding:8px;box-sizing:border-box;resize:vertical;';
+        wrapper.appendChild(htmlArea);
+
+        // HTML toggle button
+        var toggleBtn = document.createElement('button');
+        toggleBtn.type      = 'button';
+        toggleBtn.className = 'btn btn-outline-secondary btn-sm mt-1';
+        toggleBtn.innerHTML = '<i class="bi bi-code-slash"></i> HTML';
+        toggleBtn.title     = 'Basculer en mode HTML';
+        wrapper.appendChild(toggleBtn);
+
         textarea.style.display = 'none';
+        wrapper.appendChild(textarea);
 
         var quill = new Quill('#quill-' + field.id, {
             modules: { toolbar: toolbarOptions },
@@ -949,11 +970,37 @@ unset($_SESSION['success'], $_SESSION['error']);
             quill.clipboard.dangerouslyPasteHTML(clean);
         }
 
+        // Toggle between rich-text and HTML source modes
+        var htmlMode = false;
+        toggleBtn.addEventListener('click', function () {
+            htmlMode = !htmlMode;
+            if (htmlMode) {
+                // Switch to HTML source mode
+                htmlArea.value = quill.root.innerHTML;
+                container.style.display = 'none';
+                htmlArea.style.display  = 'block';
+                toggleBtn.innerHTML = '<i class="bi bi-pencil-square"></i> Éditeur';
+                toggleBtn.title     = 'Revenir à l\'éditeur visuel';
+            } else {
+                // Switch back to rich-text mode
+                var clean = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(htmlArea.value) : htmlArea.value;
+                quill.root.innerHTML = clean;
+                htmlArea.style.display  = 'none';
+                container.style.display = 'block';
+                toggleBtn.innerHTML = '<i class="bi bi-code-slash"></i> HTML';
+                toggleBtn.title     = 'Basculer en mode HTML';
+            }
+        });
+
         // Sync on form submit
         var form = textarea.closest('form');
         if (form) {
             form.addEventListener('submit', function () {
-                textarea.value = quill.root.innerHTML;
+                if (htmlMode) {
+                    textarea.value = htmlArea.value;
+                } else {
+                    textarea.value = quill.root.innerHTML;
+                }
             }, true);
         }
     });
