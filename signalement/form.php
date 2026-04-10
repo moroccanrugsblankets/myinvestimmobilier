@@ -73,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $description   = trim($_POST['description']  ?? '');
             $priorite      = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
             $disponibilites = trim($_POST['disponibilites'] ?? '');
+            $presenceIntervention = trim($_POST['presence_intervention'] ?? '');
 
             $typesValides = ['Plomberie', 'Électricité', 'Serrurerie', 'Chauffage', 'Électroménager', 'Autre'];
             if (empty($typeProbleme) || !in_array($typeProbleme, $typesValides)) {
@@ -80,6 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (empty($description)) {
                 $errors[] = 'La description est obligatoire.';
+            }
+            if (empty($disponibilites)) {
+                $errors[] = 'Veuillez indiquer vos disponibilités.';
+            }
+            if (!in_array($presenceIntervention, ['absence', 'present'])) {
+                $errors[] = 'Veuillez indiquer votre choix de présence lors de l\'intervention.';
             }
 
             // Validation des photos/vidéos (obligatoires)
@@ -136,8 +143,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $insertStmt = $pdo->prepare("
                             INSERT INTO signalements
                                 (reference, contrat_id, logement_id, locataire_id, titre, description,
-                                 priorite, type_probleme, checklist_confirmee, statut, disponibilites)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'nouveau', ?)
+                                 priorite, type_probleme, checklist_confirmee, statut, disponibilites, presence_intervention)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'nouveau', ?, ?)
                         ");
                         $insertStmt->execute([
                             $reference,
@@ -149,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $priorite,
                             $typeProbleme,
                             $disponibilites ?: null,
+                            $presenceIntervention ?: null,
                         ]);
                     } catch (Exception $e) {
                         if (strpos($e->getMessage(), 'type_probleme') === false && strpos($e->getMessage(), 'Unknown column') === false) {
@@ -755,11 +763,36 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                 </div>
                             </div>
 
+            <div class="mb-4">
+                                <label class="form-label fw-semibold">
+                                    Présence lors de l'intervention <span class="text-danger">*</span>
+                                </label>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="form-check border rounded p-3">
+                                        <input class="form-check-input" type="radio" name="presence_intervention"
+                                               id="presence_absence" value="absence" required
+                                               <?php echo (($_POST['presence_intervention'] ?? '') === 'absence') ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="presence_absence">
+                                            <strong>J'accepte que vous interveniez en mon absence</strong>
+                                        </label>
+                                    </div>
+                                    <div class="form-check border rounded p-3">
+                                        <input class="form-check-input" type="radio" name="presence_intervention"
+                                               id="presence_present" value="present"
+                                               <?php echo (($_POST['presence_intervention'] ?? '') === 'present') ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="presence_present">
+                                            <strong>Je souhaite être présent(e) lors de l'intervention</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mb-4">
                                 <label class="form-label fw-semibold" for="disponibilites">
-                                    Vos disponibilités <small class="text-muted fw-normal">(optionnel)</small>
+                                    Vos disponibilités <span class="text-danger">*</span>
                                 </label>
                                 <textarea class="form-control" id="disponibilites" name="disponibilites" rows="3"
+                                          required
                                           placeholder="Ex : demain 8h–16h / après-demain 14h–18h / dans 3 jours toute la journée..."><?php echo htmlspecialchars($_POST['disponibilites'] ?? ''); ?></textarea>
                                 <div class="form-text">Indiquez vos disponibilités sur les 3 prochains jours pour faciliter l'intervention.</div>
                             </div>

@@ -281,41 +281,41 @@ $stats = [
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <a href="contrat-detail.php?id=<?php echo $contrat['id']; ?>" class="btn btn-outline-primary" title="Voir détails">
-                                        <i class="bi bi-eye"></i>
+                                        <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">Voir</span>
                                     </a>
                                     <?php if ($contrat['statut'] === 'signe' || $contrat['statut'] === 'valide'): ?>
                                         <a href="../pdf/download.php?contrat_id=<?php echo $contrat['id']; ?>" class="btn btn-outline-success" title="Télécharger PDF">
-                                            <i class="bi bi-download"></i>
+                                            <i class="bi bi-download"></i> <span class="d-none d-lg-inline">PDF</span>
                                         </a>
                                         <a href="edit-bilan-logement.php?contrat_id=<?php echo $contrat['id']; ?>" class="btn btn-outline-info" title="Bilan de logement">
-                                            <i class="bi bi-clipboard-check"></i>
+                                            <i class="bi bi-clipboard-check"></i> <span class="d-none d-lg-inline">Bilan</span>
                                         </a>
                                         <a href="quittances.php?contrat_id=<?php echo $contrat['id']; ?>" class="btn btn-outline-secondary" title="Quittances">
-                                            <i class="bi bi-receipt"></i>
+                                            <i class="bi bi-receipt"></i> <span class="d-none d-lg-inline">Quittances</span>
                                         </a>
                                         <a href="gestion-loyers.php?contrat_id=<?php echo $contrat['id']; ?>" class="btn btn-outline-warning" title="Gestion du loyer">
-                                            <i class="bi bi-cash-stack"></i>
+                                            <i class="bi bi-cash-stack"></i> <span class="d-none d-lg-inline">Loyers</span>
                                         </a>
                                     <?php endif; ?>
                                     <?php if ($contrat['statut'] === 'valide' && !empty($contrat['date_demande_depart'])): ?>
                                         <button type="button" class="btn btn-outline-info"
                                                 onclick="openAR24Modal(<?php echo $contrat['id']; ?>, '', '<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? '', ENT_QUOTES); ?>')"
                                                 title="Confirmer réception courrier AR24">
-                                            <i class="bi bi-envelope-check"></i>
+                                            <i class="bi bi-envelope-check"></i> <span class="d-none d-lg-inline">AR24</span>
                                         </button>
                                         <button type="button" class="btn btn-outline-dark"
                                                 onclick="openFinContratModal(<?php echo $contrat['id']; ?>, '<?php echo htmlspecialchars($contrat['reference_unique'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($contrat['date_fin_prevue'] ?? '', ENT_QUOTES); ?>')"
                                                 title="Fin de contrat (remise des clés)">
-                                            <i class="bi bi-door-closed"></i>
+                                            <i class="bi bi-door-closed"></i> <span class="d-none d-lg-inline">Fin</span>
                                         </button>
                                     <?php endif; ?>
                                     <?php if ($contrat['statut'] === 'en_attente'): ?>
                                         <button class="btn btn-outline-warning" title="Renvoyer le lien" onclick="resendLink(<?php echo $contrat['id']; ?>)">
-                                            <i class="bi bi-envelope"></i>
+                                            <i class="bi bi-envelope"></i> <span class="d-none d-lg-inline">Renvoyer</span>
                                         </button>
                                     <?php endif; ?>
                                     <button class="btn btn-outline-danger" title="Supprimer" onclick="deleteContract(<?php echo $contrat['id']; ?>, '<?php echo htmlspecialchars($contrat['reference_unique'], ENT_QUOTES); ?>')">
-                                        <i class="bi bi-trash"></i>
+                                        <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                     </button>
                                 </div>
                             </td>

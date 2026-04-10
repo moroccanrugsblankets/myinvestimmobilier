@@ -12,8 +12,8 @@ class MIIPdf extends TCPDF {
      * Pied de page : numéro de page + coordonnées société
      */
     public function Footer() {
-        // Position à 15 mm du bas de la page
-        $this->SetY(-15);
+        // Position à 10 mm du bas de la page (décalé de 5 mm vers le bas par rapport à la valeur initiale de 15 mm)
+        $this->SetY(-10);
 
         // Police : Helvetica Italic 8pt, couleur grise
         $this->SetFont('helvetica', 'I', 8);

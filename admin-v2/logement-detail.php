@@ -681,7 +681,6 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Description du logement</label>
-                                <div id="gjs-editor_description" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                                 <textarea name="description" id="editor_description" class="form-control wysiwyg-editor" rows="6"
                                           placeholder="Décrivez le logement : emplacement, luminosité, travaux récents, atouts…"><?php echo htmlspecialchars($logement['description'] ?? ''); ?></textarea>
                                 <div class="form-text">Visible sur la page publique du logement.</div>
@@ -689,7 +688,6 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Équipements inclus</label>
-                                <div id="gjs-editor_equipements" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                                 <textarea name="equipements" id="editor_equipements" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Cuisine équipée, parquet, double vitrage, digicode…"><?php echo htmlspecialchars($logement['equipements'] ?? ''); ?></textarea>
                                 <div class="form-text">Résumé libre des équipements. Pour la liste détaillée, utilisez <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement_id; ?>">l'inventaire</a>.</div>
@@ -697,7 +695,6 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Commodités à proximité</label>
-                                <div id="gjs-editor_commodites" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                                 <textarea name="commodites" id="editor_commodites" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Transports, commerces, écoles, parcs…"><?php echo htmlspecialchars($logement['commodites'] ?? ''); ?></textarea>
                                 <div class="form-text">Informations sur le quartier et les commodités proches.</div>
@@ -705,7 +702,6 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Conditions de visite et de candidature</label>
-                                <div id="gjs-editor_conditions_visite" style="border:1px solid #ddd;margin-bottom:.5rem;"></div>
                                 <textarea name="conditions_visite" id="editor_conditions_visite" class="form-control wysiwyg-editor" rows="4"
                                           placeholder="Comment organiser une visite, documents requis pour candidater…"><?php echo htmlspecialchars($logement['conditions_visite'] ?? ''); ?></textarea>
                                 <div class="form-text">Affiché sur la page publique avec le bouton de candidature.</div>
@@ -907,12 +903,58 @@ unset($_SESSION['success'], $_SESSION['error']);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- GrapesJS -->
-<?php require_once '../includes/grapesjs-config.php'; ?>
+<!-- Quill (éditeur léger) -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
-['editor_description', 'editor_equipements', 'editor_commodites', 'editor_conditions_visite'].forEach(function(id) {
-    initGrapesTemplateEditor('gjs-' + id, id, { height: '200px' });
-});
+(function () {
+    var quillFields = [
+        { id: 'editor_description',      label: 'Description du logement' },
+        { id: 'editor_equipements',      label: 'Équipements' },
+        { id: 'editor_commodites',       label: 'Commodités' },
+        { id: 'editor_conditions_visite',label: 'Conditions de visite' },
+    ];
+
+    var toolbarOptions = [
+        ['bold', 'italic', 'underline'],
+        [{ 'align': ['', 'center', 'right', 'justify'] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link', 'image'],
+        ['clean'],
+    ];
+
+    quillFields.forEach(function (field) {
+        var textarea = document.getElementById(field.id);
+        if (!textarea) return;
+
+        // Create a container for Quill
+        var container = document.createElement('div');
+        container.id  = 'quill-' + field.id;
+        container.style.cssText = 'min-height:150px;background:#fff;';
+        textarea.parentNode.insertBefore(container, textarea);
+        textarea.style.display = 'none';
+
+        var quill = new Quill('#quill-' + field.id, {
+            modules: { toolbar: toolbarOptions },
+            theme: 'snow',
+            placeholder: textarea.getAttribute('placeholder') || '',
+        });
+
+        // Load initial content
+        var initial = textarea.value;
+        if (initial) {
+            quill.clipboard.dangerouslyPasteHTML(initial);
+        }
+
+        // Sync on form submit
+        var form = textarea.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                textarea.value = quill.root.innerHTML;
+            }, true);
+        }
+    });
+}());
 </script>
 <script>
 function copyLink(inputId, btn) {
