@@ -906,6 +906,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 <!-- Quill (éditeur léger) -->
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <script>
 (function () {
     var quillFields = [
@@ -940,10 +941,11 @@ unset($_SESSION['success'], $_SESSION['error']);
             placeholder: textarea.getAttribute('placeholder') || '',
         });
 
-        // Load initial content
+        // Load initial content (sanitized via DOMPurify before insertion)
         var initial = textarea.value;
         if (initial) {
-            quill.clipboard.dangerouslyPasteHTML(initial);
+            var clean = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(initial) : initial;
+            quill.clipboard.dangerouslyPasteHTML(clean);
         }
 
         // Sync on form submit

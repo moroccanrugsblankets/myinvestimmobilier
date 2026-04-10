@@ -950,10 +950,10 @@ if ($successParam) {
                             ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="collab_ids[]"
-                                       id="collab-left-<?php echo (int)$cl['id']; ?>"
+                                       id="collab-transfer-<?php echo (int)$cl['id']; ?>"
                                        value="<?php echo (int)$cl['id']; ?>"
                                        <?php echo $isAssigned ? 'checked' : ''; ?>>
-                                <label class="form-check-label small" for="collab-left-<?php echo (int)$cl['id']; ?>">
+                                <label class="form-check-label small" for="collab-transfer-<?php echo (int)$cl['id']; ?>">
                                     <?php echo htmlspecialchars($cl['nom']); ?>
                                     <?php if ($cl['metier']): ?>
                                         <?php if (strtolower(trim($cl['metier'])) === $serviceTechniqueMetier): ?>
