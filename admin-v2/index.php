@@ -393,7 +393,7 @@ $nb_actions = count($contrats_en_attente_validation) + count($contrats_sans_etat
         <!-- Recent Applications -->
         <div class="card">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Candidatures récentes</h5>
+                <h5 class="mb-0">Candidatures en cours</h5>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
