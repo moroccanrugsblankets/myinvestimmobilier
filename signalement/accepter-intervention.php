@@ -179,7 +179,7 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                 <div class="alert alert-success text-center py-4">
                     <i class="bi bi-check-circle-fill" style="font-size:2.5rem;display:block;margin-bottom:10px;"></i>
                     <strong>Merci !</strong><br>
-                    Votre accord a bien été enregistré. Nous allons prendre contact avec vous pour planifier l'intervention.
+                    Votre accord a bien été enregistré. Nous allons prendre contact avec vous pour vous informer du jour de l'intervention.
                 </div>
             <?php else: ?>
                 <p>Suite à l'analyse de votre signalement, la responsabilité de ce problème a été déterminée comme étant <strong>à votre charge</strong>.</p>
