@@ -228,7 +228,8 @@ try {
     echo "\nMigration 135 terminée avec succès.\n";
 
 } catch (\Exception $e) {
-    $pdo->rollBack();
-    echo "ERREUR : " . $e->getMessage() . "\n";
-    exit(1);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    throw $e;
 }
