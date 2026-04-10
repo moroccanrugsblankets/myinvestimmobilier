@@ -12,6 +12,7 @@ window.gjsConfig = {
     storageManager: false,
     height: '500px',
     width: '100%',
+    avoidInlineStyle: false,
     plugins: ['gjs-blocks-basic'], // activer les blocs de base
     pluginsOpts: {},
 };
