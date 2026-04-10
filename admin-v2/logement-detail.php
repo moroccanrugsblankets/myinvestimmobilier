@@ -916,38 +916,14 @@ unset($_SESSION['success'], $_SESSION['error']);
         { id: 'editor_conditions_visite',label: 'Conditions de visite' },
     ];
 
-    /*var toolbarOptions = [
+   var toolbarOptions = [
         ['bold', 'italic', 'underline'],
         [{ 'align': ['', 'center', 'right', 'justify'] }],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
         ['link', 'image'],
         ['clean'],
-    ];*/
+    ];
 
-    var toolbarOptions = [
-  ['bold', 'italic', 'underline'],
-  [{ 'align': ['', 'center', 'right', 'justify'] }],
-  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-  ['link', 'image'],
-  [{ 'color': [] }, { 'background': [] }], // ajout couleur et fond
-  ['clean'],
-  ['showHtml'] // bouton custom
-];
-
-var quill = new Quill('#editor', {
-  modules: {
-    toolbar: {
-      container: toolbarOptions,
-      handlers: {
-        'showHtml': function() {
-          let html = quill.root.innerHTML;
-          alert(html); // ou ouvrir une modal / textarea
-        }
-      }
-    }
-  },
-  theme: 'snow'
-});
 
     quillFields.forEach(function (field) {
         var textarea = document.getElementById(field.id);
