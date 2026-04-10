@@ -153,7 +153,7 @@ foreach ($files as $file) {
             
             echo "  ✓ Success\n";
             $executed++;
-        } catch (PDOException $e) {
+        } catch (\Exception $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
