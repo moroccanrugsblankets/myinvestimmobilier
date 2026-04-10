@@ -545,7 +545,7 @@ $statutLabels = [
     'en_attente'      => ['label' => 'En attente',      'class' => 'bg-info text-dark'],
     'reporte'         => ['label' => 'Reporté',         'class' => 'bg-danger'],
     'resolu'          => ['label' => 'Résolu',          'class' => 'bg-success'],
-    'clos'            => ['label' => 'Clos',            'class' => 'bg-secondary'],
+    'clos'            => ['label' => 'Terminé',         'class' => 'bg-secondary'],
 ];
 
 $actionIcons = [
@@ -714,6 +714,17 @@ if ($successParam) {
                         </dd>
                         <?php endif; ?>
 
+                        <?php if (!empty($sig['presence_intervention'])): ?>
+                        <dt class="col-sm-4">Présence lors de l'intervention</dt>
+                        <dd class="col-sm-8">
+                            <?php if ($sig['presence_intervention'] === 'absence'): ?>
+                                <span class="badge bg-secondary">Intervention en son absence acceptée</span>
+                            <?php else: ?>
+                                <span class="badge bg-info text-dark">Souhaite être présent(e)</span>
+                            <?php endif; ?>
+                        </dd>
+                        <?php endif; ?>
+
                         <?php if (!empty($sig['nb_heures']) || !empty($sig['cout_materiaux']) || !empty($sig['notes_intervention'])): ?>
                         <dt class="col-sm-4">Intervention</dt>
                         <dd class="col-sm-8">
@@ -875,26 +886,128 @@ if ($successParam) {
                 </div>
                 <?php endif; ?>
 
-                <!-- Responsabilité -->
+                <!-- Responsabilité + Changer le statut (côte à côte 50/50) -->
                 <div class="section-card">
-                    <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité</h6>
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="set_responsabilite">
-                        <div class="mb-2">
-                            <select class="form-select" name="responsabilite">
-                                <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
-                                <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
-                                <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
-                            </select>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité</h6>
+                            <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                                <input type="hidden" name="action" value="set_responsabilite">
+                                <div class="mb-2">
+                                    <select class="form-select" name="responsabilite">
+                                        <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
+                                        <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
+                                        <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-outline-success btn-sm w-100">
+                                    <i class="bi bi-check me-1"></i>Confirmer la responsabilité
+                                </button>
+                            </form>
                         </div>
-                        <button type="submit" class="btn btn-outline-success btn-sm w-100">
-                            <i class="bi bi-check me-1"></i>Confirmer la responsabilité
+                        <?php if (!$isClos): ?>
+                        <div class="col-12 col-md-6">
+                            <h6 class="fw-semibold mb-3"><i class="bi bi-arrow-repeat me-2"></i>Changer le statut</h6>
+                            <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                                <input type="hidden" name="action" value="change_statut">
+                                <div class="mb-2">
+                                    <select class="form-select" name="statut">
+                                        <?php foreach ($statutLabels as $v => $l): ?>
+                                            <option value="<?php echo $v; ?>" <?php echo $sig['statut'] === $v ? 'selected' : ''; ?>>
+                                                <?php echo $l['label']; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-check me-1"></i>Mettre à jour le statut
+                                </button>
+                            </form>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Transférer à un collaborateur (avant l'étape finale du décompte) -->
+                <?php if (!$isClos): ?>
+                <div class="section-card">
+                    <h6 class="fw-semibold mb-3">
+                        <i class="bi bi-people me-2"></i>Transférer à des collaborateurs
+                    </h6>
+                    <form method="POST" id="attribuer-form">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="attribuer">
+
+                        <?php if (!empty($collabList)): ?>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Sélectionner un ou plusieurs collaborateurs</label>
+                            <?php
+                            $assignedCollabIds = array_column($assignedCollabs, 'collaborateur_id');
+                            foreach ($collabList as $cl):
+                                $isAssigned = in_array((int)$cl['id'], array_map('intval', $assignedCollabIds));
+                            ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="collab_ids[]"
+                                       id="collab-transfer-<?php echo (int)$cl['id']; ?>"
+                                       value="<?php echo (int)$cl['id']; ?>"
+                                       <?php echo $isAssigned ? 'checked' : ''; ?>>
+                                <label class="form-check-label small" for="collab-transfer-<?php echo (int)$cl['id']; ?>">
+                                    <?php echo htmlspecialchars($cl['nom']); ?>
+                                    <?php if ($cl['metier']): ?>
+                                        <?php if (strtolower(trim($cl['metier'])) === $serviceTechniqueMetier): ?>
+                                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-tools me-1"></i>Service Technique</span>
+                                        <?php else: ?>
+                                            <span class="text-muted">(<?php echo htmlspecialchars($cl['metier']); ?>)</span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($cl['email'])): ?>— <span class="text-muted"><?php echo htmlspecialchars($cl['email']); ?></span><?php endif; ?>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="mb-1">
+                            <a href="collaborateurs.php" class="small text-muted">
+                                <i class="bi bi-gear me-1"></i>Gérer les collaborateurs
+                            </a>
+                        </div>
+                        <?php else: ?>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" name="collaborateur_nom"
+                                   placeholder="Nom du collaborateur *"
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_nom'] ?? ''); ?>" required>
+                        </div>
+                        <div class="mb-2">
+                            <input type="email" class="form-control form-control-sm" name="collaborateur_email"
+                                   placeholder="Email"
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_email'] ?? ''); ?>">
+                        </div>
+                        <div class="mb-2">
+                            <input type="tel" class="form-control form-control-sm" name="collaborateur_telephone"
+                                   placeholder="Téléphone / WhatsApp"
+                                   value="<?php echo htmlspecialchars($sig['collaborateur_telephone'] ?? ''); ?>">
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Mode d'envoi</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="mode_notification" id="mode_email_left"
+                                           value="email" checked>
+                                    <label class="form-check-label" for="mode_email_left">Email</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-info btn-sm w-100 text-white">
+                            <i class="bi bi-send me-1"></i>Transférer
                         </button>
                     </form>
                 </div>
+                <?php endif; ?>
 
-                <!-- Décompte d'intervention -->
+                <!-- Décompte d'intervention (étape finale) -->
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Décompte d'intervention</h5>
@@ -1109,27 +1222,6 @@ if ($successParam) {
 
                 <?php if (!$isClos): ?>
 
-                <!-- Changer le statut -->
-                <div class="section-card">
-                    <h6 class="fw-semibold mb-3"><i class="bi bi-arrow-repeat me-2"></i>Changer le statut</h6>
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="change_statut">
-                        <div class="mb-2">
-                            <select class="form-select" name="statut">
-                                <?php foreach ($statutLabels as $v => $l): ?>
-                                    <option value="<?php echo $v; ?>" <?php echo $sig['statut'] === $v ? 'selected' : ''; ?>>
-                                        <?php echo $l['label']; ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                            <i class="bi bi-check me-1"></i>Mettre à jour le statut
-                        </button>
-                    </form>
-                </div>
-
                 <!-- Modifier le contrat attribué -->
                 <div class="section-card">
                     <h6 class="fw-semibold mb-3"><i class="bi bi-file-earmark-text me-2"></i>Modifier le contrat attribué</h6>
@@ -1150,81 +1242,6 @@ if ($successParam) {
                         </div>
                         <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
                             <i class="bi bi-arrow-repeat me-1"></i>Mettre à jour le contrat
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Transférer à un collaborateur -->
-                <div class="section-card">
-                    <h6 class="fw-semibold mb-3">
-                        <i class="bi bi-people me-2"></i>Transférer à des collaborateurs
-                    </h6>
-                    <form method="POST" id="attribuer-form">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <input type="hidden" name="action" value="attribuer">
-
-                        <?php if (!empty($collabList)): ?>
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold">Sélectionner un ou plusieurs collaborateurs</label>
-                            <?php
-                            $assignedCollabIds = array_column($assignedCollabs, 'collaborateur_id');
-                            foreach ($collabList as $cl):
-                                $isAssigned = in_array((int)$cl['id'], array_map('intval', $assignedCollabIds));
-                            ?>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="collab_ids[]"
-                                       id="collab-<?php echo (int)$cl['id']; ?>"
-                                       value="<?php echo (int)$cl['id']; ?>"
-                                       <?php echo $isAssigned ? 'checked' : ''; ?>>
-                                <label class="form-check-label small" for="collab-<?php echo (int)$cl['id']; ?>">
-                                    <?php echo htmlspecialchars($cl['nom']); ?>
-                                    <?php if ($cl['metier']): ?>
-                                        <?php if (strtolower(trim($cl['metier'])) === $serviceTechniqueMetier): ?>
-                                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-tools me-1"></i>Service Technique</span>
-                                        <?php else: ?>
-                                            <span class="text-muted">(<?php echo htmlspecialchars($cl['metier']); ?>)</span>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                    <?php if (!empty($cl['email'])): ?>— <span class="text-muted"><?php echo htmlspecialchars($cl['email']); ?></span><?php endif; ?>
-                                </label>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <div class="mb-1">
-                            <a href="collaborateurs.php" class="small text-muted">
-                                <i class="bi bi-gear me-1"></i>Gérer les collaborateurs
-                            </a>
-                        </div>
-                        <?php else: ?>
-                        <div class="mb-2">
-                            <input type="text" class="form-control form-control-sm" name="collaborateur_nom" id="collab-nom"
-                                   placeholder="Nom du collaborateur *"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_nom'] ?? ''); ?>" required>
-                        </div>
-                        <div class="mb-2">
-                            <input type="email" class="form-control form-control-sm" name="collaborateur_email" id="collab-email"
-                                   placeholder="Email"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_email'] ?? ''); ?>">
-                        </div>
-                        <div class="mb-2">
-                            <input type="tel" class="form-control form-control-sm" name="collaborateur_telephone" id="collab-tel"
-                                   placeholder="Téléphone / WhatsApp"
-                                   value="<?php echo htmlspecialchars($sig['collaborateur_telephone'] ?? ''); ?>">
-                        </div>
-                        <?php endif; ?>
-
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold">Mode d'envoi</label>
-                            <div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="mode_notification" id="mode_email"
-                                           value="email" checked>
-                                    <label class="form-check-label" for="mode_email">Email</label>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-info btn-sm w-100 text-white">
-                            <i class="bi bi-send me-1"></i>Transférer
                         </button>
                     </form>
                 </div>

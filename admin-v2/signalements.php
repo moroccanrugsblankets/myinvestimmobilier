@@ -67,7 +67,7 @@ $statutLabels = [
     'en_attente'      => ['label' => 'En attente',      'class' => 'bg-info text-dark'],
     'reporte'         => ['label' => 'Reporté',         'class' => 'bg-danger'],
     'resolu'          => ['label' => 'Résolu',          'class' => 'bg-success'],
-    'clos'            => ['label' => 'Clos',            'class' => 'bg-secondary'],
+    'clos'            => ['label' => 'Terminé',         'class' => 'bg-secondary'],
 ];
 ?>
 <!DOCTYPE html>
