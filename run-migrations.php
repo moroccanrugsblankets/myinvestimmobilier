@@ -20,21 +20,19 @@ function splitSqlStatements($sql) {
     $stringChar = null;
     $escaped = false;
     $length = strlen($sql);
-    
+
     for ($i = 0; $i < $length; $i++) {
         $char = $sql[$i];
         $nextChar = ($i + 1 < $length) ? $sql[$i + 1] : null;
-        
+
         // Handle line comments
         if (!$inString && $char === '-' && $nextChar === '-') {
-            // Add newline to preserve token boundaries, then skip until end of line
-            $currentStatement .= "\n";
             while ($i < $length && $sql[$i] !== "\n") {
                 $i++;
             }
             continue;
         }
-        
+
         // Handle string literals
         if (!$escaped && ($char === '"' || $char === "'")) {
             if (!$inString) {
@@ -45,17 +43,16 @@ function splitSqlStatements($sql) {
                 $stringChar = null;
             }
         }
-        
+
         // Handle escape sequences in strings
         if ($inString && $char === '\\') {
             $escaped = !$escaped;
         } else {
             $escaped = false;
         }
-        
-        // Add character to current statement
+
         $currentStatement .= $char;
-        
+
         // Check for statement delimiter (semicolon outside of strings)
         if (!$inString && $char === ';') {
             $trimmed = trim($currentStatement);
@@ -65,20 +62,18 @@ function splitSqlStatements($sql) {
             $currentStatement = '';
         }
     }
-    
-    // Add any remaining statement
+
     $trimmed = trim($currentStatement);
     if (!empty($trimmed)) {
         $statements[] = $currentStatement;
     }
-    
+
     return $statements;
 }
 
 echo "=== Migration Runner ===\n\n";
 
 try {
-    // First, ensure the migrations tracking table exists
     $trackingTableSql = "
         CREATE TABLE IF NOT EXISTS migrations (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -94,10 +89,8 @@ try {
     exit(1);
 }
 
-// Get all migration files (.sql and numbered .php)
 $migrationDir = __DIR__ . '/migrations';
 $sqlFiles = glob($migrationDir . '/*.sql') ?: [];
-// Only include PHP files that start with a number (e.g. 135_create_*.php), not utility scripts
 $allPhpFiles = glob($migrationDir . '/*.php') ?: [];
 $phpFiles = array_filter($allPhpFiles, fn($f) => preg_match('/^[0-9]/', basename($f)));
 $files = array_merge($sqlFiles, array_values($phpFiles));
@@ -116,19 +109,17 @@ $skipped = 0;
 foreach ($files as $file) {
     $filename = basename($file);
     $ext = pathinfo($filename, PATHINFO_EXTENSION);
-    
-    // Skip the tracking table creation file since we handle it above
+
     if ($filename === '000_create_migrations_table.sql') {
         continue;
     }
-    
-    // Check if migration has already been executed
+
     try {
         $stmt = $pdo->prepare("SELECT id FROM migrations WHERE migration_file = ?");
         $stmt->execute([$filename]);
         $result = $stmt->fetch();
-        $stmt->closeCursor(); // Close cursor to free resources
-        
+        $stmt->closeCursor();
+
         if ($result) {
             echo "⊘ Skipping (already executed): $filename\n";
             $skipped++;
@@ -138,80 +129,54 @@ foreach ($files as $file) {
         echo "✗ Error checking migration status: " . $e->getMessage() . "\n";
         continue;
     }
-    
+
     echo "Applying migration: $filename\n";
-    
+
     if ($ext === 'php') {
-        // PHP migrations manage their own transactions; include and then track them.
-        // The migrations directory must be protected from unauthorized write access.
         try {
             require_once $file;
-            
-            // Record the migration as executed
             $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
             $stmt->execute([$filename]);
-            
             echo "  ✓ Success\n";
             $executed++;
         } catch (\Exception $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
             echo "  ✗ Error: " . $e->getMessage() . "\n";
-            echo "  Migration failed - changes rolled back\n";
-            echo "  Please fix the error and run migrations again.\n";
             exit(1);
         }
     } else {
         try {
             $sql = file_get_contents($file);
-            
-            // Start transaction for this migration
-            $pdo->beginTransaction();
-            
-            // Split SQL into statements, respecting string literals
             $statements = splitSqlStatements($sql);
-            
+
             foreach ($statements as $statement) {
                 $trimmed = trim($statement);
-                // Skip empty statements
-                if (empty($trimmed)) {
-                    continue;
-                }
-                
-                // Execute the statement and consume any result set
-                // query() always returns PDOStatement (or false on error)
-                $result = $pdo->query($statement);
-                if ($result instanceof PDOStatement) {
-                    // Fetch all results to consume the result set
-                    // This prevents "Cannot execute queries while other unbuffered queries are active" errors
-                    $result->fetchAll();
-                    $result->closeCursor();
+                if (empty($trimmed)) continue;
+
+                echo "Executing: $trimmed\n";
+
+                // DDL statements executed directly
+                if (preg_match('/^(ALTER|CREATE|DROP)\s/i', $trimmed)) {
+                    $pdo->exec($trimmed);
+                } else {
+                    $result = $pdo->query($trimmed);
+                    if ($result instanceof PDOStatement) {
+                        $result->fetchAll();
+                        $result->closeCursor();
+                    }
                 }
             }
-            
-            // Record the migration as executed
+
             $stmt = $pdo->prepare("INSERT INTO migrations (migration_file) VALUES (?)");
             $stmt->execute([$filename]);
-            
-            // Commit transaction
-            $pdo->commit();
-            
+
             echo "  ✓ Success\n";
             $executed++;
         } catch (PDOException $e) {
-            // Rollback on error
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            
             echo "  ✗ Error: " . $e->getMessage() . "\n";
-            echo "  Migration failed - changes rolled back\n";
-            echo "  Please fix the error and run migrations again.\n";
             exit(1);
         }
     }
-    
+
     echo "\n";
 }
 
