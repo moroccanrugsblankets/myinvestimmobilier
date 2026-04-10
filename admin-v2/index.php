@@ -28,6 +28,7 @@ $stats['contrats_signes'] = $stmt->fetch()['total'];
 $stmt = $pdo->query("SELECT c.*, l.reference as logement_ref, l.adresse 
                       FROM candidatures c 
                       LEFT JOIN logements l ON c.logement_id = l.id 
+                      WHERE c.statut = 'en_cours'
                       ORDER BY c.date_soumission DESC LIMIT 10");
 $recent_candidatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
