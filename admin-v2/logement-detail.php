@@ -931,7 +931,7 @@ unset($_SESSION['success'], $_SESSION['error']);
         // Create a container for Quill
         var container = document.createElement('div');
         container.id  = 'quill-' + field.id;
-        container.style.cssText = 'min-height:150px;background:#fff;';
+        container.style.cssText = 'height: 200px;background:#fff;';
         textarea.parentNode.insertBefore(container, textarea);
         textarea.style.display = 'none';
 
