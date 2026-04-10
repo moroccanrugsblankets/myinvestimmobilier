@@ -12,8 +12,8 @@ window.gjsConfig = {
     storageManager: false,
     height: '500px',
     width: '100%',
-    ForceClass: false, // Empêche la création automatique de classes comme .c1234
-  avoidInlineStyle: false, // Force l'utilisation des styles inline
+    forceClass: false,       // Empêche la création automatique de classes comme .c1234
+    avoidInlineStyle: false, // Force l'utilisation des styles inline
 
     plugins: ['gjs-blocks-basic'], // activer les blocs de base
     pluginsOpts: {},
@@ -38,6 +38,81 @@ window.gjsBuildCombined = function (html, css) {
 // Supprime le wrapper <body>…</body> que GrapesJS ajoute autour du contenu.
 window.gjsStripBody = function (html) {
     return html.replace(/<body[^>]*>/i, '').replace(/<\/body>/i, '').trim();
+};
+
+// Fusionne les règles CSS simples (sélecteurs #id et .classe) en styles inline
+// sur les éléments HTML correspondants. Les règles non appariées (media queries,
+// sélecteurs complexes, @rules, etc.) sont retournées dans la propriété css.
+// ⚠ Utilise DOMParser/innerHTML en interne : l'ordre des attributs et les
+//   guillemets peuvent être normalisés par le moteur HTML du navigateur.
+// ⚠ En cas de conflit de propriété, le style inline existant est prioritaire.
+// Retourne { html, css }.
+window.gjsInlinifyCss = function (html, css) {
+    if (!css || !css.trim()) return { html: html, css: '' };
+    try {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString('<html><head></head><body>' + html + '</body></html>', 'text/html');
+
+        // Travaille sur une copie sans commentaires CSS pour simplifier le parsing
+        // (GrapesJS ne génère pas de commentaires dans son CSS interne).
+        var remaining = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+        // Collecte les positions des règles traitées pour les supprimer ensuite.
+        var removed = []; // [{start, end}]
+
+        // Correspond uniquement aux règles à sélecteur #id ou .classe simples.
+        // Les @ rules (media, keyframes…) ne commencent pas par # ni . et ne
+        // sont donc pas capturées.
+        var ruleRe = /(#[\w-]+|\.[\w-]+)\s*\{([^}]*)\}/g;
+        var m;
+        while ((m = ruleRe.exec(remaining)) !== null) {
+            var selector = m[1].trim();
+            var newStyles = m[2].trim();
+            if (!newStyles) continue;
+
+            var targets = [];
+            if (selector.charAt(0) === '#') {
+                var byId = doc.getElementById(selector.slice(1));
+                if (byId) targets.push(byId);
+            } else {
+                var byClass = doc.getElementsByClassName(selector.slice(1));
+                for (var j = 0; j < byClass.length; j++) targets.push(byClass[j]);
+            }
+
+            if (targets.length) {
+                for (var k = 0; k < targets.length; k++) {
+                    var el       = targets[k];
+                    var existing = (el.getAttribute('style') || '').replace(/;\s*$/, '');
+                    // Les propriétés déjà définies inline ont la priorité :
+                    // on n'ajoute depuis la règle CSS que celles qui manquent.
+                    var existingProps = {};
+                    existing.split(';').forEach(function (p) {
+                        var idx = p.indexOf(':');
+                        if (idx > -1) existingProps[p.slice(0, idx).trim().toLowerCase()] = true;
+                    });
+                    var toAdd = newStyles.split(';').filter(function (p) {
+                        var idx = p.indexOf(':');
+                        return idx > -1 && !existingProps[p.slice(0, idx).trim().toLowerCase()];
+                    }).join('; ');
+                    if (toAdd) {
+                        el.setAttribute('style', existing ? existing + '; ' + toAdd : toAdd);
+                    }
+                }
+                removed.push({ start: m.index, end: m.index + m[0].length });
+            }
+        }
+
+        // Supprime les règles fusionnées de la CSS restante (du dernier au premier
+        // pour préserver les indices).
+        removed.sort(function (a, b) { return b.start - a.start; });
+        for (var i = 0; i < removed.length; i++) {
+            remaining = remaining.slice(0, removed[i].start) + remaining.slice(removed[i].end);
+        }
+
+        return { html: doc.body.innerHTML, css: remaining.trim() };
+    } catch (e) {
+        return { html: html, css: css };
+    }
 };
 
 window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
@@ -105,10 +180,18 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
 
     // Fonctions de bascule
     function switchToVisual() {
-        var raw = rawTextarea.value;
+        var raw    = rawTextarea.value;
         var parsed = window.gjsExtractStyles(raw);
-        editor.setStyle(parsed.css || '');
+
+        // Réinitialise l'état interne de GrapesJS avant de recharger pour éviter
+        // que d'anciennes règles CSS (ID auto-générés) ne masquent les styles inline.
+        editor.DomComponents.clear();
+        editor.CssComposer.clear();
+
+        // Charge d'abord les composants (avec leurs styles inline), puis le CSS externe.
         editor.setComponents(parsed.html || '');
+        if (parsed.css) editor.setStyle(parsed.css);
+
         container.style.display = '';
         rawWrapper.style.display = 'none';
         btnVisual.classList.add('active');
@@ -116,8 +199,14 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
     }
 
     function switchToRaw() {
-        var html = window.gjsStripBody(editor.getHtml() || '');
-        rawTextarea.value = window.gjsBuildCombined(html, editor.getCss() || '');
+        var html    = window.gjsStripBody(editor.getHtml() || '');
+        var css     = editor.getCss() || '';
+
+        // Fusionne les règles CSS auto-générées par GrapesJS (#id) en styles inline
+        // pour que la vue HTML brute reflète fidèlement les styles.
+        var inlined = window.gjsInlinifyCss(html, css);
+
+        rawTextarea.value = window.gjsBuildCombined(inlined.html, inlined.css);
         container.style.display = 'none';
         rawWrapper.style.display = 'block';
         btnVisual.classList.remove('active');
@@ -136,7 +225,10 @@ window.initGrapesTemplateEditor = function (containerId, textareaId, options) {
             if (isRaw) {
                 textarea.value = rawTextarea.value;
             } else {
-                textarea.value = window.gjsBuildCombined(window.gjsStripBody(editor.getHtml() || ''), editor.getCss() || '');
+                var submitHtml = window.gjsStripBody(editor.getHtml() || '');
+                var submitCss  = editor.getCss() || '';
+                var submitInlined = window.gjsInlinifyCss(submitHtml, submitCss);
+                textarea.value = window.gjsBuildCombined(submitInlined.html, submitInlined.css);
             }
         }, true);
     }
