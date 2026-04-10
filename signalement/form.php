@@ -768,7 +768,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                     Présence lors de l'intervention <span class="text-danger">*</span>
                                 </label>
                                 <div class="d-flex flex-column gap-2">
-                                    <div class="form-check border rounded p-3">
+                                    <div class="form-check rounded p-3">
                                         <input class="form-check-input" type="radio" name="presence_intervention"
                                                id="presence_absence" value="absence" required
                                                <?php echo (($_POST['presence_intervention'] ?? '') === 'absence') ? 'checked' : ''; ?>>
@@ -776,7 +776,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                             <strong>J'accepte que vous interveniez en mon absence</strong>
                                         </label>
                                     </div>
-                                    <div class="form-check border rounded p-3">
+                                    <div class="form-check rounded p-3">
                                         <input class="form-check-input" type="radio" name="presence_intervention"
                                                id="presence_present" value="present"
                                                <?php echo (($_POST['presence_intervention'] ?? '') === 'present') ? 'checked' : ''; ?>>
