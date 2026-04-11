@@ -212,7 +212,7 @@ $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                 <p class="text-muted small">En cliquant sur le bouton ci-dessous, vous acceptez que cette intervention soit réalisée par notre équipe et facturée selon le barème ci-dessus.</p>
                 <form method="POST" class="d-grid">
                     <button type="submit" class="btn btn-warning btn-lg fw-bold">
-                        <i class="bi bi-check-circle me-2"></i>J'accepte — Planifier l'intervention
+                        <i class="bi bi-check-circle me-2"></i>J'accepte l'intervention
                     </button>
                 </form>
             <?php endif; ?>
