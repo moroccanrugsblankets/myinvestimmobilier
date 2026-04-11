@@ -509,31 +509,32 @@ footer {
     font-size: 1rem;
     opacity: 0.85;
 }
-/* Liste à puces (bullet) */
+
+/* Forcer le style des listes à puces */
 ol[data-list="bullet"] {
-  list-style-type: disc;   /* rond plein comme un <ul> */
+  list-style-type: disc;      /* rond plein comme <ul> */
   margin-left: 1.5em;
   padding-left: 0.5em;
 }
 
-/* Marqueur spécifique pour bullet */
+/* Marqueur bullet */
 ol[data-list="bullet"] li::marker,
 .DataListBulletMarker {
-  content: "• ";           /* tu peux personnaliser le symbole */
-  color: #333;             /* couleur du marqueur */
+  content: "• ";              /* symbole personnalisé */
+  color: #444;
 }
 
-/* Liste ordonnée (numérotée) */
+/* Forcer le style des listes ordonnées */
 ol[data-list="ordered"] {
-  list-style-type: decimal; /* numérotation classique */
+  list-style-type: decimal;   /* numérotation classique */
   margin-left: 1.5em;
   padding-left: 0.5em;
 }
 
-/* Marqueur spécifique pour ordered */
+/* Marqueur ordered */
 ol[data-list="ordered"] li::marker,
 .DataListOrderedMarker {
-  color: #333;
+  color: #444;
   font-weight: bold;
 }
 
