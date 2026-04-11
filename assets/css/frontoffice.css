@@ -510,35 +510,30 @@ footer {
     opacity: 0.85;
 }
 
-/* 1. On neutralise le comportement natif de l'OL quand il doit être une liste à puces */
+/* On cible précisément les listes Quill qui ont l'attribut bullet */
 ol[data-list="bullet"] {
-  list-style-type: none; /* On retire les chiffres */
-  counter-reset: none;
-  margin-left: 1.5em;
-  padding-left: 0.5em;
+    list-style-type: none !important;
+    counter-reset: none !important;
+    padding-left: 20px !important;
 }
 
-/* 2. On force l'affichage du disque (bullet) sur le marqueur */
 ol[data-list="bullet"] > li {
-  display: list-item;
-  list-style-type: disc !important; /* Force le point rond */
+    list-style-type: none !important;
+    position: relative;
 }
 
-/* 3. Alternative : Si le li::marker ne coopère pas, on utilise le before */
-/* ol[data-list="bullet"] > li::before {
-  content: "•";
-  color: #444;
-  display: inline-block; 
-  width: 1em;
-  margin-left: -1em;
-} 
-*/
+/* On cache le numéro généré par Quill ou le navigateur */
+ol[data-list="bullet"] > li::before {
+    content: "•"; /* Le point de la puce */
+    position: absolute;
+    left: -1.2em; /* Ajustement de la position */
+    color: #444; /* Couleur de la puce */
+    font-size: 1.2em;
+}
 
-/* 4. On s'assure que la liste ordonnée reste bien numérotée */
-ol[data-list="ordered"] {
-  list-style-type: decimal;
-  margin-left: 1.5em;
-  padding-left: 0.5em;
+/* On cache l'élément d'interface interne de Quill qui pourrait afficher le numéro */
+ol[data-list="bullet"] li > span.ql-ui {
+    display: none !important;
 }
 
 /* ── Photo gallery ────────────────────────────────────────────────────────── */
