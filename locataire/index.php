@@ -152,7 +152,7 @@ renderFrontOfficeHeader($siteUrl, $companyName);
 ?>
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-lg-6 col-md-8 col-12">
+        <div class="col-12">
 
             <div class="portal-card">
 
