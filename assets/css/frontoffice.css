@@ -510,32 +510,35 @@ footer {
     opacity: 0.85;
 }
 
-/* Forcer le style des listes à puces */
+/* 1. On neutralise le comportement natif de l'OL quand il doit être une liste à puces */
 ol[data-list="bullet"] {
-  list-style-type: disc;      /* rond plein comme <ul> */
+  list-style-type: none; /* On retire les chiffres */
+  counter-reset: none;
   margin-left: 1.5em;
   padding-left: 0.5em;
 }
 
-/* Marqueur bullet */
-ol[data-list="bullet"] li::marker,
-.DataListBulletMarker {
-  content: "• ";              /* symbole personnalisé */
-  color: #444;
+/* 2. On force l'affichage du disque (bullet) sur le marqueur */
+ol[data-list="bullet"] > li {
+  display: list-item;
+  list-style-type: disc !important; /* Force le point rond */
 }
 
-/* Forcer le style des listes ordonnées */
+/* 3. Alternative : Si le li::marker ne coopère pas, on utilise le before */
+/* ol[data-list="bullet"] > li::before {
+  content: "•";
+  color: #444;
+  display: inline-block; 
+  width: 1em;
+  margin-left: -1em;
+} 
+*/
+
+/* 4. On s'assure que la liste ordonnée reste bien numérotée */
 ol[data-list="ordered"] {
-  list-style-type: decimal;   /* numérotation classique */
+  list-style-type: decimal;
   margin-left: 1.5em;
   padding-left: 0.5em;
-}
-
-/* Marqueur ordered */
-ol[data-list="ordered"] li::marker,
-.DataListOrderedMarker {
-  color: #444;
-  font-weight: bold;
 }
 
 /* ── Photo gallery ────────────────────────────────────────────────────────── */
