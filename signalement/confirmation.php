@@ -93,8 +93,8 @@ if (!$sig) {
                         Conservez cette référence <strong><?php echo htmlspecialchars($sig['reference']); ?></strong>
                         pour tout suivi auprès de votre gestionnaire.
                     </p>
-                    <a href="form.php" class="btn btn-outline-secondary mt-2">
-                        <i class="bi bi-plus-circle me-1"></i>Nouveau signalement
+                    <a href="/locataire" class="btn btn-primary mt-2">
+                        <i class="bi bi-arrow-left-circle me-1"></i>Retour à Espace locataire
                     </a>
                 </div>
             </div>
