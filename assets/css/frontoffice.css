@@ -509,6 +509,33 @@ footer {
     font-size: 1rem;
     opacity: 0.85;
 }
+/* Liste à puces (bullet) */
+ol[data-list="bullet"] {
+  list-style-type: disc;   /* rond plein comme un <ul> */
+  margin-left: 1.5em;
+  padding-left: 0.5em;
+}
+
+/* Marqueur spécifique pour bullet */
+ol[data-list="bullet"] li::marker,
+.DataListBulletMarker {
+  content: "• ";           /* tu peux personnaliser le symbole */
+  color: #333;             /* couleur du marqueur */
+}
+
+/* Liste ordonnée (numérotée) */
+ol[data-list="ordered"] {
+  list-style-type: decimal; /* numérotation classique */
+  margin-left: 1.5em;
+  padding-left: 0.5em;
+}
+
+/* Marqueur spécifique pour ordered */
+ol[data-list="ordered"] li::marker,
+.DataListOrderedMarker {
+  color: #333;
+  font-weight: bold;
+}
 
 /* ── Photo gallery ────────────────────────────────────────────────────────── */
 .photo-gallery {
