@@ -224,6 +224,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $disponibilitesHtml = '<p style="margin: 5px 0;"><strong>Disponibilités du locataire :</strong> ' . nl2br(htmlspecialchars($disponibilites)) . '</p>';
                     }
 
+                    // Présence lors de l'intervention (label lisible)
+                    $presenceInterventionLabel = '';
+                    if ($presenceIntervention === 'absence') {
+                        $presenceInterventionLabel = 'Intervention en mon absence';
+                    } elseif ($presenceIntervention === 'present') {
+                        $presenceInterventionLabel = 'Je souhaite être présent(e)';
+                    }
+
                     // Build array of attachments for email (uploaded files)
                     $attachments = [];
                     foreach ($savedFilePaths as $fp) {
@@ -247,6 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'description'        => $description,
                             'disponibilites_html' => $disponibilitesHtml,
                             'photos_html'        => $photosHtml,
+                            'presenceIntervention' => $presenceInterventionLabel,
                         ], $attachmentsArg, false, false, ['contexte' => "signalement_confirmation;sig_id=$newSignalementId"]);
                     }
 
@@ -264,6 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'lien_admin'          => $siteUrl . '/admin-v2/signalement-detail.php?id=' . $newSignalementId,
                         'disponibilites_html' => $disponibilitesHtml,
                         'photos_html'         => $photosHtml,
+                        'presenceIntervention' => $presenceInterventionLabel,
                     ];
 
                     // Collect all admin emails (DB + config)
@@ -305,6 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'disponibilites_html' => $disponibilitesHtml,
                             'photos_html'         => $photosHtml,
                             'action_buttons_html' => $stActionButtonsHtml,
+                            'presenceIntervention' => $presenceInterventionLabel,
                         ], $attachmentsArg, false, false, ['contexte' => "signalement_st_notification;sig_id=$newSignalementId"]);
                     }
 
