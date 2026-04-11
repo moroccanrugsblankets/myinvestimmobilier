@@ -510,30 +510,16 @@ footer {
     opacity: 0.85;
 }
 
-/* On cible précisément les listes Quill qui ont l'attribut bullet */
-ol[data-list="bullet"] {
-    list-style-type: none !important;
-    counter-reset: none !important;
-    padding-left: 20px !important;
+/* Neutraliser le span injecté par Quill */
+li[data-list="bullet"] > .ql-ui {
+  display: none !important;
 }
 
-ol[data-list="bullet"] > li {
-    list-style-type: none !important;
-    position: relative;
-}
-
-/* On cache le numéro généré par Quill ou le navigateur */
-ol[data-list="bullet"] > li::before {
-    content: "•"; /* Le point de la puce */
-    position: absolute;
-    left: -1.2em; /* Ajustement de la position */
-    color: #444; /* Couleur de la puce */
-    font-size: 1.2em;
-}
-
-/* On cache l'élément d'interface interne de Quill qui pourrait afficher le numéro */
-ol[data-list="bullet"] li > span.ql-ui {
-    display: none !important;
+/* Forcer l’affichage des puces classiques */
+li[data-list="bullet"] {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  margin-left: 1.5em; /* indentation */
 }
 
 /* ── Photo gallery ────────────────────────────────────────────────────────── */
