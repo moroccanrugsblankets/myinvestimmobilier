@@ -43,6 +43,7 @@ function ensureRcParams(PDO $pdo): void {
         ['recaptcha_type',       'v2',  'recaptcha', 'Type de reCAPTCHA : v2 (case à cocher) ou v3 (score invisible)', 'text'],
         ['recaptcha_site_key',   '',    'recaptcha', 'Clé site reCAPTCHA fournie par Google (publique, affichée côté client)', 'text'],
         ['recaptcha_secret_key', '',    'recaptcha', 'Clé secrète reCAPTCHA fournie par Google (confidentielle, utilisée côté serveur uniquement)', 'password'],
+        ['recaptcha_min_score',  '0.5', 'recaptcha', 'Score minimal reCAPTCHA V3 (entre 0.0 et 1.0 — plus le score est élevé, plus la sécurité est stricte)', 'text'],
     ];
     foreach ($defaults as [$cle, $valeur, $groupe, $description, $type]) {
         $stmt = $pdo->prepare("SELECT id FROM parametres WHERE cle = ? LIMIT 1");
@@ -73,6 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             : 'v2';
             $siteKey   = trim($_POST['recaptcha_site_key']   ?? '');
             $secretKey = trim($_POST['recaptcha_secret_key'] ?? '');
+            $minScore  = (float)($_POST['recaptcha_min_score'] ?? 0.5);
+            if ($minScore < 0.0) { $minScore = 0.0; }
+            if ($minScore > 1.0) { $minScore = 1.0; }
 
             // Validate: if enabled, keys must be set (or already present in DB)
             if ($enabled === '1') {
@@ -89,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (empty($errors)) {
                 setRcParam($pdo, 'recaptcha_enabled', $enabled);
                 setRcParam($pdo, 'recaptcha_type',    $type);
+                setRcParam($pdo, 'recaptcha_min_score', number_format($minScore, 1, '.', ''));
                 if ($siteKey !== '') {
                     setRcParam($pdo, 'recaptcha_site_key', $siteKey);
                 }
@@ -108,6 +113,7 @@ $rcEnabled   = getRcParam($pdo, 'recaptcha_enabled',    false);
 $rcType      = getRcParam($pdo, 'recaptcha_type',       'v2');
 $rcSiteKey   = getRcParam($pdo, 'recaptcha_site_key',   '');
 $rcSecretKey = getRcParam($pdo, 'recaptcha_secret_key', '');
+$rcMinScore  = getRcParam($pdo, 'recaptcha_min_score',  '0.5');
 
 $csrfToken = generateCsrfToken();
 ?>
@@ -254,6 +260,30 @@ $csrfToken = generateCsrfToken();
                             google.com/recaptcha/admin <i class="bi bi-box-arrow-up-right"></i></a>.
                     </div>
                 </div>
+
+                <!-- Score minimal V3 -->
+                <div class="mb-2" id="v3ScoreBlock" style="<?php echo ($rcType !== 'v3') ? 'display:none' : ''; ?>">
+                    <label for="rcMinScore" class="form-label fw-semibold">
+                        <i class="bi bi-speedometer2 me-1"></i>Score de sécurité minimal <span class="text-muted fw-normal">(reCAPTCHA V3 uniquement)</span>
+                    </label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="range" class="form-range flex-grow-1" id="rcMinScoreRange"
+                               min="0" max="1" step="0.1"
+                               value="<?php echo htmlspecialchars($rcMinScore); ?>"
+                               oninput="document.getElementById('rcMinScore').value=parseFloat(this.value).toFixed(1);document.getElementById('rcMinScoreDisplay').textContent=parseFloat(this.value).toFixed(1);">
+                        <input type="number" name="recaptcha_min_score" id="rcMinScore"
+                               class="form-control" style="width:90px"
+                               min="0" max="1" step="0.1"
+                               value="<?php echo htmlspecialchars($rcMinScore); ?>"
+                               oninput="document.getElementById('rcMinScoreRange').value=this.value;document.getElementById('rcMinScoreDisplay').textContent=parseFloat(this.value).toFixed(1);">
+                        <span class="badge bg-primary fs-6" id="rcMinScoreDisplay"><?php echo htmlspecialchars($rcMinScore); ?></span>
+                    </div>
+                    <div class="form-text mt-1">
+                        Score entre <strong>0.0</strong> (très probablement un bot) et <strong>1.0</strong> (très probablement humain).
+                        Une valeur de <strong>0.5</strong> est recommandée. Augmentez à <strong>0.7</strong> pour plus de sécurité
+                        (au risque de bloquer certains utilisateurs légitimes).
+                    </div>
+                </div>
             </div>
 
             <!-- Clés API -->
@@ -352,6 +382,8 @@ function highlightType() {
             card.classList.remove('border-primary', 'border-2');
         }
     });
+    var isV3 = document.getElementById('rcV3').checked;
+    document.getElementById('v3ScoreBlock').style.display = isV3 ? '' : 'none';
 }
 document.querySelectorAll('[name="recaptcha_type"]').forEach(function(r) {
     r.addEventListener('change', highlightType);

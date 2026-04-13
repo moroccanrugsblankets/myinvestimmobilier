@@ -15,13 +15,34 @@ require_once __DIR__ . '/includes/db.php';
 
 $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
 
+// Detect AJAX request (fetch/XMLHttpRequest sets this header)
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+/**
+ * Send a JSON response and exit (for AJAX calls).
+ */
+function cfJsonResponse(array $data, int $statusCode = 200): never
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => 'Méthode non autorisée.'], 405);
+    }
     header('Location: ' . $siteUrl . '/');
     exit;
 }
 
 $formId = isset($_POST['form_id']) ? (int)$_POST['form_id'] : 0;
 if ($formId <= 0) {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => 'Formulaire invalide.'], 400);
+    }
     http_response_code(400);
     exit('Formulaire invalide.');
 }
@@ -34,11 +55,15 @@ $csrfKey      = 'csrf_contact_form_' . $formId;
 $csrfReceived = $_POST['csrf_token'] ?? '';
 $csrfExpected = $_SESSION[$csrfKey] ?? '';
 if (!$csrfExpected || !hash_equals($csrfExpected, $csrfReceived)) {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => 'Jeton de sécurité invalide. Veuillez recharger la page et réessayer.', 'reload' => true], 403);
+    }
     http_response_code(403);
     exit('Jeton CSRF invalide. Veuillez recharger la page et réessayer.');
 }
 // Regenerate token after successful validation to prevent reuse
 $_SESSION[$csrfKey] = bin2hex(random_bytes(16));
+$newCsrfToken = $_SESSION[$csrfKey];
 
 // Fetch form configuration
 try {
@@ -46,11 +71,17 @@ try {
     $stmt->execute([$formId]);
     $form = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => 'Erreur serveur.'], 500);
+    }
     http_response_code(500);
     exit('Erreur serveur.');
 }
 
 if (!$form) {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => 'Formulaire introuvable.'], 404);
+    }
     http_response_code(404);
     exit('Formulaire introuvable.');
 }
@@ -93,6 +124,9 @@ if ($hasRcField) {
                 case 'recaptcha_secret_key':
                     $rcSecretKey = $row['valeur'];
                     break;
+                case 'recaptcha_min_score':
+                    $rcMinScore = (float)$row['valeur'];
+                    break;
             }
         }
     } catch (Exception $e) { /* ignore */ }
@@ -104,6 +138,9 @@ if ($hasRcField) {
             $rcResponse = trim($_POST['g-recaptcha-response'] ?? '');
         }
         if ($rcResponse === '') {
+            if ($isAjax) {
+                cfJsonResponse(['success' => false, 'error' => 'Vérification anti-robot requise.', 'csrf_token' => $newCsrfToken]);
+            }
             $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
             $sep = strpos($ref, '?') !== false ? '&' : '?';
             header('Location: ' . $ref . $sep . 'cf_error=' . urlencode('Vérification anti-robot requise.') . '&cf_form=' . $formId);
@@ -131,6 +168,9 @@ if ($hasRcField) {
         if ($verifyResult === false) {
             error_log('contact-form-submit.php reCAPTCHA API unreachable for form ' . $formId);
             // Treat API failure as verification failure to remain secure
+            if ($isAjax) {
+                cfJsonResponse(['success' => false, 'error' => 'Vérification anti-robot temporairement indisponible. Veuillez réessayer.', 'csrf_token' => $newCsrfToken]);
+            }
             $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
             $sep = strpos($ref, '?') !== false ? '&' : '?';
             header('Location: ' . $ref . $sep . 'cf_error=' . urlencode('Vérification anti-robot temporairement indisponible. Veuillez réessayer.') . '&cf_form=' . $formId);
@@ -145,6 +185,9 @@ if ($hasRcField) {
 
         if (!$rcOk) {
             error_log('contact-form-submit.php reCAPTCHA failed for form ' . $formId);
+            if ($isAjax) {
+                cfJsonResponse(['success' => false, 'error' => 'Vérification anti-robot échouée. Veuillez réessayer.', 'csrf_token' => $newCsrfToken]);
+            }
             $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
             $sep = strpos($ref, '?') !== false ? '&' : '?';
             header('Location: ' . $ref . $sep . 'cf_error=' . urlencode('Vérification anti-robot échouée. Veuillez réessayer.') . '&cf_form=' . $formId);
@@ -185,6 +228,9 @@ foreach ($donnees as $nom => $valeur) {
 
 // Vérification des erreurs
 if (!empty($errors)) {
+    if ($isAjax) {
+        cfJsonResponse(['success' => false, 'error' => implode(' ', $errors), 'csrf_token' => $newCsrfToken]);
+    }
     $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
     $sep = strpos($ref, '?') !== false ? '&' : '?';
     header('Location: ' . $ref . $sep . 'cf_error=' . urlencode(implode(' ', $errors)) . '&cf_form=' . $formId);
@@ -258,6 +304,10 @@ if (!empty($form['email_dest'])) {
 $confirmationMsg = trim($form['message_confirmation'] ?? '');
 if ($confirmationMsg === '') {
     $confirmationMsg = 'Votre message a bien été envoyé. Nous vous répondrons dans les plus brefs délais.';
+}
+
+if ($isAjax) {
+    cfJsonResponse(['success' => true, 'message' => $confirmationMsg, 'csrf_token' => $newCsrfToken]);
 }
 
 $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
