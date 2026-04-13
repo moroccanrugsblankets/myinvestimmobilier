@@ -157,13 +157,11 @@ if ($hasRcField) {
 $donnees = [];
 $errors  = [];
 foreach ($fields as $field) {
-    // Skip recaptcha field — it's handled separately above
     if ($field['type_champ'] === 'recaptcha') {
         continue;
     }
     $nom   = $field['nom_champ'];
     $value = isset($_POST[$nom]) ? $_POST[$nom] : '';
-    // Strip tags for safety (content is later displayed in admin only)
     if (is_array($value)) {
         $value = array_map('strip_tags', $value);
     } else {
@@ -175,8 +173,18 @@ foreach ($fields as $field) {
     $donnees[$nom] = $value;
 }
 
+// Vérification anti-liens dans les champs
+foreach ($donnees as $nom => $valeur) {
+    if (is_array($valeur)) {
+        $valeur = implode(' ', $valeur);
+    }
+    if (preg_match('/https?:\/\/|www\./i', $valeur)) {
+        $errors[] = 'Le champ "' . htmlspecialchars($nom) . '" contient un lien, ce qui est interdit.';
+    }
+}
+
+// Vérification des erreurs
 if (!empty($errors)) {
-    // Redirect back with error (simple approach; no JS dependency)
     $ref = $_SERVER['HTTP_REFERER'] ?? ($siteUrl . '/');
     $sep = strpos($ref, '?') !== false ? '&' : '?';
     header('Location: ' . $ref . $sep . 'cf_error=' . urlencode(implode(' ', $errors)) . '&cf_form=' . $formId);
