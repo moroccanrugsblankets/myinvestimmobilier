@@ -72,7 +72,7 @@ if (isset($_POST['login'])) {
             if ($rememberMe) {
                 $token = bin2hex(random_bytes(32));
                 $cookieValue = $token . ':' . $admin['id'];
-                $expiry = time() + (30 * 24 * 3600); // 30 days
+                $expiry = time() + (365 * 24 * 3600); // 1 year
                 try {
                     $tokenHash = hash('sha256', $token);
                     $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?")->execute([$tokenHash, $admin['id']]);

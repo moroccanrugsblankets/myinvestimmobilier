@@ -178,16 +178,16 @@ try {
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         <a href="candidature-detail.php?id=<?php echo $cand['id']; ?>" class="btn btn-outline-primary" title="Voir détails">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">Voir</span>
                                         </a>
                                         <a href="generer-contrat.php?candidature_id=<?php echo (int)$cand['id']; ?>" class="btn btn-outline-success" title="Générer le contrat">
-                                            <i class="bi bi-file-earmark-plus"></i>
+                                            <i class="bi bi-file-earmark-plus"></i> <span class="d-none d-lg-inline">Contrat</span>
                                         </a>
                                         <a href="candidature-actions.php?id=<?php echo $cand['id']; ?>" class="btn btn-outline-secondary" title="Actions">
-                                            <i class="bi bi-gear"></i>
+                                            <i class="bi bi-gear"></i> <span class="d-none d-lg-inline">Actions</span>
                                         </a>
                                         <button type="button" class="btn btn-outline-danger" title="Supprimer" onclick="confirmDelete(<?php echo $cand['id']; ?>, '<?php echo htmlspecialchars($cand['reference_unique'] ?? 'N/A', ENT_QUOTES); ?>')">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                         </button>
                                     </div>
                                 </td>

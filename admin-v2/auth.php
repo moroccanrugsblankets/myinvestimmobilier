@@ -77,19 +77,16 @@ if (!isset($_SESSION['admin_id'])) {
     }
 }
 
-// Session timeout: 2 hours for normal sessions, 30 days for "Rester connecté"
-$sessionTimeout = !empty($_SESSION['remember_me']) ? SESSION_TIMEOUT_REMEMBER : SESSION_TIMEOUT_NORMAL;
-if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
-    // Clear remember cookie if set
-    if (isset($_COOKIE['admin_remember'])) {
-        setcookie('admin_remember', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict']);
+// Session timeout: 2 hours for normal sessions; remember-me sessions never expire (rely on cookie validity)
+if (empty($_SESSION['remember_me'])) {
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > SESSION_TIMEOUT_NORMAL)) {
+        session_destroy();
+        if ($isAjax || $expectsJson) {
+            sendAjaxAuthError('Session expirée (timeout). Veuillez vous reconnecter.', 'login.php?timeout=1');
+        }
+        header('Location: login.php?timeout=1');
+        exit;
     }
-    session_destroy();
-    if ($isAjax || $expectsJson) {
-        sendAjaxAuthError('Session expirée (timeout). Veuillez vous reconnecter.', 'login.php?timeout=1');
-    }
-    header('Location: login.php?timeout=1');
-    exit;
 }
 
 $_SESSION['last_activity'] = time();
