@@ -224,9 +224,11 @@ $stats = [
                             <th>Référence</th>
                             <th>Logement</th>
                             <th>Locataires</th>
+                            <?php /*
                             <th>Date Création</th>
                             <th>Date Expiration</th>
                             <th>Date Signature</th>
+                            */ ?>
                             <th>Statut</th>
                             <th>Actions</th>
                         </tr>
@@ -249,6 +251,7 @@ $stats = [
                                 <?php endif; ?>
                                 <br><small class="text-muted"><?php echo $contrat['nb_locataires_signed']; ?> signé(s)</small>
                             </td>
+                            <?php /*
                             <td><small><?php echo date('d/m/Y', strtotime($contrat['date_creation'])); ?></small></td>
                             <td>
                                 <?php if ($contrat['date_expiration']): ?>
@@ -264,6 +267,7 @@ $stats = [
                                     <small class="text-muted">Non signé</small>
                                 <?php endif; ?>
                             </td>
+                            */ ?>
                             <td>
                                 <span class="status-badge status-<?php echo $contrat['statut']; ?>">
                                     <?php
