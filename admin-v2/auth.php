@@ -5,6 +5,22 @@
  */
 // Ensure session is started
 if (session_status() === PHP_SESSION_NONE) {
+    // When the admin has a persistent "remember me" cookie, use a long-lived session
+    // so the session data outlives the default gc_maxlifetime and the session cookie
+    // persists across browser restarts.
+    if (isset($_COOKIE['admin_remember']) && preg_match('/^[a-f0-9]{64}:\d+$/', $_COOKIE['admin_remember'])) {
+        $_authRememberLifetime = 30 * 24 * 3600; // 30 days
+        ini_set('session.gc_maxlifetime', $_authRememberLifetime);
+        $_authRememberSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        session_set_cookie_params([
+            'lifetime' => $_authRememberLifetime,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Strict',
+            'secure'   => $_authRememberSecure,
+        ]);
+        unset($_authRememberLifetime, $_authRememberSecure);
+    }
     session_start();
 }
 

@@ -215,45 +215,41 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl, arra
     $csrfToken = $_SESSION[$csrfKey];
 
     $formId = (int)$form['id'];
-    $html  = '<form method="POST" action="' . htmlspecialchars($siteUrl . '/contact-form-submit.php') . '" ';
-    $html .= 'class="contact-form-shortcode" data-form-id="' . $formId . '">';
+    $actionUrl = htmlspecialchars($siteUrl . '/contact-form-submit.php');
+    $html  = '<form method="POST" action="' . $actionUrl . '" ';
+    $html .= 'id="cf_form_' . $formId . '" class="contact-form-shortcode" data-form-id="' . $formId . '">';
     $html .= '<input type="hidden" name="form_id" value="' . $formId . '">';
     $html .= '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
+
+    // Determine reCAPTCHA settings
+    $rcEnabled = !empty($rcConfig['enabled']);
+    $rcSiteKey = $rcConfig['site_key'] ?? '';
+    $rcType    = $rcConfig['type'] ?? 'v2';
+    $hasRcField = false;
     foreach ($fields as $field) {
-        // reCAPTCHA field is rendered differently — no wrapper label/div from the standard path
+        if ($field['type_champ'] === 'recaptcha') { $hasRcField = true; break; }
+    }
+    $showRecaptcha = $hasRcField && $rcEnabled && $rcSiteKey !== '';
+
+    // Hidden field for v3 token
+    if ($showRecaptcha && $rcType === 'v3') {
+        $html .= '<input type="hidden" name="recaptcha_response" id="rcResp_' . $formId . '" value="">';
+    }
+
+    foreach ($fields as $field) {
         if ($field['type_champ'] === 'recaptcha') {
-            $rcEnabled = !empty($rcConfig['enabled']);
-            $rcSiteKey = $rcConfig['site_key'] ?? '';
-            $rcType    = $rcConfig['type'] ?? 'v2';
-            if ($rcEnabled && $rcSiteKey !== '') {
-                if ($rcType === 'v3') {
-                    // V3: invisible — inject a hidden input populated via JS before submit
-                    $html .= '<input type="hidden" name="recaptcha_response" id="rcResp_' . $formId . '" value="">';
-                    $html .= '<script src="https://www.google.com/recaptcha/api.js?render='
-                           . htmlspecialchars($rcSiteKey) . '"></script>';
-                    $html .= '<script>(function(){'
-                           . 'var f=document.querySelector(\'.contact-form-shortcode[data-form-id="' . $formId . '"]\');'
-                           . 'if(!f)return;'
-                           . 'var tokenReady=false;'
-                           . 'f.addEventListener("submit",function(e){'
-                           . 'if(tokenReady)return;'
-                           . 'e.preventDefault();var s=this;'
-                           . 'grecaptcha.ready(function(){'
-                           . 'grecaptcha.execute(' . json_encode($rcSiteKey) . ',{action:"contact_form_' . $formId . '"}).then(function(t){'
-                           . 'document.getElementById("rcResp_' . $formId . '").value=t;'
-                           . 'tokenReady=true;'
-                           . 's.requestSubmit?s.requestSubmit():s.submit();'
-                           . '});});});'
-                           . '}());</script>';
-                } else {
-                    // V2: visible "I'm not a robot" checkbox widget
+            if ($showRecaptcha) {
+                if ($rcType === 'v2') {
                     $html .= '<div class="mb-3">'
                            . '<div class="g-recaptcha" data-sitekey="' . htmlspecialchars($rcSiteKey) . '"></div>'
                            . '</div>';
                     $html .= '<script src="https://www.google.com/recaptcha/api.js" async defer></script>';
+                } else {
+                    // v3: API script loaded, token fetched via JS before submit
+                    $html .= '<script src="https://www.google.com/recaptcha/api.js?render='
+                           . htmlspecialchars($rcSiteKey) . '"></script>';
                 }
             }
-            // If reCAPTCHA is not yet configured/enabled, skip the field silently
             continue;
         }
 
@@ -287,8 +283,71 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl, arra
         }
         $html .= '</div>';
     }
-    $html .= '<button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>Envoyer</button>';
+
+    $html .= '<div id="cf-msg-' . $formId . '" style="display:none" class="mt-3" role="alert"></div>';
+    $html .= '<button type="submit" class="btn btn-primary" id="cf-btn-' . $formId . '"><i class="bi bi-send me-1"></i>Envoyer</button>';
     $html .= '</form>';
+
+    // ── AJAX submission handler ───────────────────────────────────────────────
+    $rcTypeJs  = json_encode($showRecaptcha ? $rcType : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $rcKeyJs   = json_encode($showRecaptcha && $rcType === 'v3' ? $rcSiteKey : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $html .= '<script>(function(){';
+    $html .= 'var fid=' . $formId . ';';
+    $html .= 'var rcType=' . $rcTypeJs . ';';
+    $html .= 'var rcKey=' . $rcKeyJs . ';';
+    $html .= 'var form=document.getElementById("cf_form_"+fid);';
+    $html .= 'var btn=document.getElementById("cf-btn-"+fid);';
+    $html .= 'var msg=document.getElementById("cf-msg-"+fid);';
+    $html .= 'if(!form)return;';
+    $html .= 'function showMsg(cls,txt){';
+    $html .= 'var icon=cls==="success"?"bi-check-circle":"bi-exclamation-triangle";';
+    $html .= 'msg.className="alert alert-"+cls+" mt-3";';
+    $html .= 'msg.innerHTML=\'<i class="bi \'+icon+\' me-2"></i>\'+txt;';
+    $html .= 'msg.style.display="block";';
+    $html .= 'msg.scrollIntoView({behavior:"smooth",block:"nearest"});';
+    $html .= '}';
+    $html .= 'function setLoading(on){';
+    $html .= 'btn.disabled=on;';
+    $html .= 'if(on){btn._orig=btn.innerHTML;btn.innerHTML=\'<span class="spinner-border spinner-border-sm me-1" role="status"></span>Envoi...\';}';
+    $html .= 'else if(btn._orig){btn.innerHTML=btn._orig;}';
+    $html .= '}';
+    $html .= 'function doAjax(){';
+    $html .= 'var fd=new FormData(form);';
+    $html .= 'fetch(form.action,{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"},body:fd})';
+    $html .= '.then(function(r){return r.json();})';
+    $html .= '.then(function(d){';
+    $html .= 'setLoading(false);';
+    $html .= 'var csrfEl=form.querySelector("[name=\'csrf_token\']");';
+    $html .= 'if(d.csrf_token&&csrfEl)csrfEl.value=d.csrf_token;';
+    $html .= 'if(d.success){';
+    $html .= 'showMsg("success",d.message||"Votre message a bien \u00e9t\u00e9 envoy\u00e9.");';
+    $html .= 'form.reset();';
+    $html .= 'if(typeof grecaptcha!=="undefined"){try{grecaptcha.reset();}catch(e){}}';
+    $html .= 'var rcf=document.getElementById("rcResp_"+fid);if(rcf)rcf.value="";';
+    $html .= '}else{';
+    $html .= 'var txt=d.error||"Une erreur est survenue.";';
+    $html .= 'if(d.reload)txt+=\' <a href="">Recharger la page</a>.\';';
+    $html .= 'showMsg("danger",txt);';
+    $html .= '}})';
+    $html .= '.catch(function(){setLoading(false);showMsg("danger","Erreur r\u00e9seau. Veuillez r\u00e9essayer.");});';
+    $html .= '}';
+    $html .= 'if(rcType==="v3"){';
+    $html .= 'btn.type="button";';
+    $html .= 'btn.addEventListener("click",function(){';
+    $html .= 'msg.style.display="none";setLoading(true);';
+    $html .= 'grecaptcha.ready(function(){';
+    $html .= 'grecaptcha.execute(rcKey,{action:"contact_form_"+fid}).then(function(t){';
+    $html .= 'var rcf=document.getElementById("rcResp_"+fid);if(rcf)rcf.value=t;';
+    $html .= 'doAjax();';
+    $html .= '}).catch(function(){setLoading(false);showMsg("danger","Erreur reCAPTCHA. Veuillez r\u00e9essayer.");});';
+    $html .= '});});';
+    $html .= '}else{';
+    $html .= 'form.addEventListener("submit",function(e){';
+    $html .= 'e.preventDefault();msg.style.display="none";setLoading(true);doAjax();';
+    $html .= '});';
+    $html .= '}';
+    $html .= '}());</script>';
+
     return $html;
 }
 
