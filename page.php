@@ -289,8 +289,8 @@ function renderContactFormHtml(array $form, array $fields, string $siteUrl, arra
     $html .= '</form>';
 
     // ── AJAX submission handler ───────────────────────────────────────────────
-    $rcTypeJs  = $showRecaptcha ? json_encode($rcType, JSON_HEX_TAG) : json_encode('');
-    $rcKeyJs   = $showRecaptcha && $rcType === 'v3' ? json_encode($rcSiteKey, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : '""';
+    $rcTypeJs  = json_encode($showRecaptcha ? $rcType : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $rcKeyJs   = json_encode($showRecaptcha && $rcType === 'v3' ? $rcSiteKey : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     $html .= '<script>(function(){';
     $html .= 'var fid=' . $formId . ';';
     $html .= 'var rcType=' . $rcTypeJs . ';';
