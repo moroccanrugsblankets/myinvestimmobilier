@@ -470,7 +470,7 @@ $stats = [
                                             data-bs-toggle="modal"
                                             data-bs-target="#setDefaultsModal"
                                             title="Définir les valeurs par défaut">
-                                        <i class="bi bi-gear"></i> <span class="d-none d-lg-inline">Défauts</span>
+                                        <i class="bi bi-gear"></i> <span class="d-none d-lg-inline">Par défaut</span>
                                     </button>
                                     <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement['id']; ?>" 
                                        class="btn btn-outline-success btn-sm"
