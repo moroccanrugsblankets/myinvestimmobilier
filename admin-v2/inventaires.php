@@ -206,27 +206,27 @@ $comparable_contracts = array_filter($contracts_with_both, function($status) {
                                     </td>
                                     <td>
                                         <a href="edit-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Modifier</span>
                                         </a>
                                         <a href="download-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir PDF" target="_blank">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">PDF</span>
                                         </a>
                                         <?php if (isset($comparable_contracts[$inv['contrat_id']])): ?>
                                         <a href="compare-inventaire.php?contrat_id=<?php echo $inv['contrat_id']; ?>" class="btn btn-sm btn-outline-warning" title="Comparer entrée/sortie">
-                                            <i class="bi bi-arrows-angle-contract"></i>
+                                            <i class="bi bi-arrows-angle-contract"></i> <span class="d-none d-lg-inline">Comparer</span>
                                         </a>
                                         <?php endif; ?>
                                         <a href="download-inventaire.php?id=<?php echo $inv['id']; ?>&download=1" class="btn btn-sm btn-outline-secondary" title="Télécharger">
-                                            <i class="bi bi-download"></i>
+                                            <i class="bi bi-download"></i> <span class="d-none d-lg-inline">Télécharger</span>
                                         </a>
                                         <?php if ($inv['statut'] === 'brouillon'): ?>
                                         <a href="finalize-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-success" title="Finaliser et envoyer">
-                                            <i class="bi bi-send"></i>
+                                            <i class="bi bi-send"></i> <span class="d-none d-lg-inline">Finaliser</span>
                                         </a>
                                         <?php endif; ?>
                                         <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer" 
                                                 onclick="confirmDelete(<?php echo $inv['id']; ?>)">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                         </button>
                                     </td>
                                 </tr>
@@ -313,27 +313,27 @@ $comparable_contracts = array_filter($contracts_with_both, function($status) {
                                     </td>
                                     <td>
                                         <a href="edit-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Modifier</span>
                                         </a>
                                         <a href="download-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir PDF" target="_blank">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">PDF</span>
                                         </a>
                                         <?php if (isset($comparable_contracts[$inv['contrat_id']])): ?>
                                         <a href="compare-inventaire.php?contrat_id=<?php echo $inv['contrat_id']; ?>" class="btn btn-sm btn-outline-warning" title="Comparer entrée/sortie">
-                                            <i class="bi bi-arrows-angle-contract"></i>
+                                            <i class="bi bi-arrows-angle-contract"></i> <span class="d-none d-lg-inline">Comparer</span>
                                         </a>
                                         <?php endif; ?>
                                         <a href="download-inventaire.php?id=<?php echo $inv['id']; ?>&download=1" class="btn btn-sm btn-outline-secondary" title="Télécharger">
-                                            <i class="bi bi-download"></i>
+                                            <i class="bi bi-download"></i> <span class="d-none d-lg-inline">Télécharger</span>
                                         </a>
                                         <?php if ($inv['statut'] === 'brouillon'): ?>
                                         <a href="finalize-inventaire.php?id=<?php echo $inv['id']; ?>" class="btn btn-sm btn-success" title="Finaliser et envoyer">
-                                            <i class="bi bi-send"></i>
+                                            <i class="bi bi-send"></i> <span class="d-none d-lg-inline">Finaliser</span>
                                         </a>
                                         <?php endif; ?>
                                         <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer" 
                                                 onclick="confirmDelete(<?php echo $inv['id']; ?>)">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                         </button>
                                     </td>
                                 </tr>

@@ -206,22 +206,22 @@ $comparable_contracts = array_filter($contracts_with_both, function($status) {
                                     </td>
                                     <td>
                                         <a href="edit-etat-lieux.php?id=<?php echo $etat['id']; ?>" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Modifier</span>
                                         </a>
                                         <a href="download-etat-lieux.php?id=<?php echo $etat['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir PDF" target="_blank">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">PDF</span>
                                         </a>
                                         <?php if (isset($comparable_contracts[$etat['contrat_id']])): ?>
                                         <a href="compare-etat-lieux.php?contrat_id=<?php echo $etat['contrat_id']; ?>" class="btn btn-sm btn-outline-warning" title="Comparer entrée/sortie">
-                                            <i class="bi bi-arrows-angle-contract"></i>
+                                            <i class="bi bi-arrows-angle-contract"></i> <span class="d-none d-lg-inline">Comparer</span>
                                         </a>
                                         <?php endif; ?>
                                         <a href="download-etat-lieux.php?id=<?php echo $etat['id']; ?>&download=1" class="btn btn-sm btn-outline-secondary" title="Télécharger">
-                                            <i class="bi bi-download"></i>
+                                            <i class="bi bi-download"></i> <span class="d-none d-lg-inline">Télécharger</span>
                                         </a>
                                         <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer" 
                                                 onclick="confirmDelete(<?php echo $etat['id']; ?>)">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                         </button>
                                     </td>
                                 </tr>
@@ -308,25 +308,25 @@ $comparable_contracts = array_filter($contracts_with_both, function($status) {
                                     </td>
                                     <td>
                                         <a href="edit-etat-lieux.php?id=<?php echo $etat['id']; ?>" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Modifier</span>
                                         </a>
                                         <a href="download-etat-lieux.php?id=<?php echo $etat['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir PDF" target="_blank">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">PDF</span>
                                         </a>
                                         <a href="edit-bilan-logement.php?contrat_id=<?php echo (int)$etat['contrat_id']; ?>" class="btn btn-sm btn-outline-success" title="Bilan du logement">
-                                            <i class="bi bi-clipboard-check"></i>
+                                            <i class="bi bi-clipboard-check"></i> <span class="d-none d-lg-inline">Bilan</span>
                                         </a>
                                         <?php if (isset($comparable_contracts[$etat['contrat_id']])): ?>
                                         <a href="compare-etat-lieux.php?contrat_id=<?php echo $etat['contrat_id']; ?>" class="btn btn-sm btn-outline-warning" title="Comparer entrée/sortie">
-                                            <i class="bi bi-arrows-angle-contract"></i>
+                                            <i class="bi bi-arrows-angle-contract"></i> <span class="d-none d-lg-inline">Comparer</span>
                                         </a>
                                         <?php endif; ?>
                                         <a href="download-etat-lieux.php?id=<?php echo $etat['id']; ?>&download=1" class="btn btn-sm btn-outline-secondary" title="Télécharger">
-                                            <i class="bi bi-download"></i>
+                                            <i class="bi bi-download"></i> <span class="d-none d-lg-inline">Télécharger</span>
                                         </a>
                                         <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer" 
                                                 onclick="confirmDelete(<?php echo $etat['id']; ?>)">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                         </button>
                                     </td>
                                 </tr>

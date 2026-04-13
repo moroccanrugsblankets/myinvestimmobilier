@@ -440,25 +440,26 @@ $stats = [
                                             data-lien-externe="<?php echo htmlspecialchars($logement['lien_externe'] ?? ''); ?>"
                                             data-type-contrat="<?php echo htmlspecialchars($logement['type_contrat'] ?? 'meuble'); ?>"
                                             data-bs-toggle="modal" 
-                                            data-bs-target="#editLogementModal">
-                                        <i class="bi bi-pencil"></i>
+                                            data-bs-target="#editLogementModal"
+                                            title="Modifier">
+                                        <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Modifier</span>
                                     </button>
                                     <a href="logement-detail.php?id=<?php echo $logement['id']; ?>"
                                        class="btn btn-outline-primary btn-sm"
                                        title="Fiche complète du logement">
-                                        <i class="bi bi-building"></i>
+                                        <i class="bi bi-building"></i> <span class="d-none d-lg-inline">Fiche</span>
                                     </a>
                                     <a href="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/logement.php?ref=' . md5($logement['reference'])); ?>"
                                        class="btn btn-outline-info btn-sm"
                                        target="_blank"
                                        rel="noopener noreferrer"
                                        title="Voir la page publique">
-                                        <i class="bi bi-eye"></i>
+                                        <i class="bi bi-eye"></i> <span class="d-none d-lg-inline">Voir</span>
                                     </a>
                                     <button class="btn btn-outline-secondary btn-sm copy-candidature-btn"
                                             data-url="<?php echo htmlspecialchars(rtrim($config['SITE_URL'], '/') . '/candidature/?ref=' . md5($logement['reference'])); ?>"
                                             title="Copier le lien de candidature">
-                                        <i class="bi bi-person-plus"></i>
+                                        <i class="bi bi-person-plus"></i> <span class="d-none d-lg-inline">Copier</span>
                                     </button>
                                     <button class="btn btn-outline-secondary btn-sm defaults-btn"
                                             data-id="<?php echo $logement['id']; ?>"
@@ -469,26 +470,27 @@ $stats = [
                                             data-bs-toggle="modal"
                                             data-bs-target="#setDefaultsModal"
                                             title="Définir les valeurs par défaut">
-                                        <i class="bi bi-gear"></i>
+                                        <i class="bi bi-gear"></i> <span class="d-none d-lg-inline">Défauts</span>
                                     </button>
                                     <a href="manage-inventory-equipements.php?logement_id=<?php echo $logement['id']; ?>" 
                                        class="btn btn-outline-success btn-sm"
                                        title="Définir l'inventaire">
-                                        <i class="bi bi-box-seam"></i>
+                                        <i class="bi bi-box-seam"></i> <span class="d-none d-lg-inline">Inventaire</span>
                                     </a>
                                     <?php if ($logement['dernier_contrat_id']): ?>
                                         <a href="gestion-loyers.php?contrat_id=<?php echo $logement['dernier_contrat_id']; ?>" 
                                            class="btn btn-outline-warning btn-sm"
                                            title="Gestion du loyer">
-                                            <i class="bi bi-cash-stack"></i>
+                                            <i class="bi bi-cash-stack"></i> <span class="d-none d-lg-inline">Loyer</span>
                                         </a>
                                     <?php endif; ?>
                                     <button class="btn btn-outline-danger delete-btn"
                                             data-id="<?php echo $logement['id']; ?>"
                                             data-reference="<?php echo htmlspecialchars($logement['reference']); ?>"
                                             data-bs-toggle="modal"
-                                            data-bs-target="#deleteLogementModal">
-                                        <i class="bi bi-trash"></i>
+                                            data-bs-target="#deleteLogementModal"
+                                            title="Supprimer">
+                                        <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                     </button>
                                 </div>
                             </td>
