@@ -63,6 +63,9 @@ if (!isset($_SESSION['admin_id'])) {
                     $_SESSION['last_activity'] = time();
                     $_SESSION['remember_me'] = true;
                     $pdo->prepare("UPDATE administrateurs SET derniere_connexion = NOW() WHERE id = ?")->execute([$admin['id']]);
+                    // Regenerate session ID to send a refreshed persistent PHPSESSID cookie
+                    // (long-lifetime params were already set above before session_start()).
+                    session_regenerate_id(true);
                 }
             } catch (Exception $e) {
                 error_log("Auth remember cookie error: " . $e->getMessage());
