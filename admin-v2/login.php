@@ -3,8 +3,24 @@
  * Admin Login Page
  */
 
+/** Lifetime of the "remember me" persistent session: 30 days in seconds. */
+define('ADMIN_REMEMBER_LIFETIME', 30 * 24 * 3600);
+
 // Start session before any session variable access
 if (session_status() === PHP_SESSION_NONE) {
+    // When the admin already has a persistent "remember me" cookie, configure a
+    // long-lived session so the PHPSESSID cookie is persistent from the very first
+    // response (including the login page itself), not just after the first redirect.
+    if (isset($_COOKIE['admin_remember']) && preg_match('/^[a-f0-9]{64}:\d+$/', $_COOKIE['admin_remember'])) {
+        ini_set('session.gc_maxlifetime', ADMIN_REMEMBER_LIFETIME);
+        session_set_cookie_params([
+            'lifetime' => ADMIN_REMEMBER_LIFETIME,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Strict',
+            'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        ]);
+    }
     session_start();
 }
 
@@ -85,6 +101,17 @@ if (isset($_POST['login'])) {
                         'secure' => $isSecure,
                     ]);
                     $_SESSION['remember_me'] = true;
+                    // Upgrade the PHP session cookie to a 30-day persistent cookie so it
+                    // survives browser restarts from this very response, not just the next page.
+                    ini_set('session.gc_maxlifetime', ADMIN_REMEMBER_LIFETIME);
+                    session_set_cookie_params([
+                        'lifetime' => ADMIN_REMEMBER_LIFETIME,
+                        'path'     => '/',
+                        'httponly' => true,
+                        'samesite' => 'Strict',
+                        'secure'   => $isSecure,
+                    ]);
+                    session_regenerate_id(true); // true = delete old session file
                 } catch (Exception $e) {
                     error_log("Remember token save error: " . $e->getMessage());
                 }
