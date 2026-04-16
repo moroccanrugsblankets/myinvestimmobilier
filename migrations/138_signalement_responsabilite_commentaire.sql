@@ -7,7 +7,7 @@
 
 -- 1. Colonne commentaire sur la table signalements
 ALTER TABLE signalements
-    ADD COLUMN IF NOT EXISTS commentaire_responsabilite TEXT NULL
+    ADD COLUMN  commentaire_responsabilite TEXT NULL
         COMMENT 'Commentaire/remarque saisi par l''admin lors de la confirmation de responsabilité';
 
 -- 2. Paramètres : textes par défaut pour le commentaire de responsabilité
