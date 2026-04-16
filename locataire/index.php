@@ -241,6 +241,16 @@ renderFrontOfficeHeader($siteUrl, $companyName);
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
                                 <form method="POST">
+                                    <input type="hidden" name="action" value="choose_demande">
+                                    <button type="submit" class="choice-box border-0">
+                                        <div class="choice-icon">📄</div>
+                                        <div class="choice-title">Demandes &amp; Documents</div>
+                                        <div class="choice-desc">Faites une demande ou réclamez un document</div>
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form method="POST">
                                     <input type="hidden" name="action" value="choose_anomalie">
                                     <button type="submit" class="choice-box border-0">
                                         <div class="choice-icon">🛠️</div>
@@ -256,16 +266,6 @@ renderFrontOfficeHeader($siteUrl, $companyName);
                                         <div class="choice-icon">🏠</div>
                                         <div class="choice-title">Procédure de Départ</div>
                                         <div class="choice-desc">Initiez votre départ du logement</div>
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-md-4">
-                                <form method="POST">
-                                    <input type="hidden" name="action" value="choose_demande">
-                                    <button type="submit" class="choice-box border-0">
-                                        <div class="choice-icon">📄</div>
-                                        <div class="choice-title">Demandes &amp; Documents</div>
-                                        <div class="choice-desc">Faites une demande ou réclamez un document</div>
                                     </button>
                                 </form>
                             </div>
