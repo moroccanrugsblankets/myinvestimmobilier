@@ -759,7 +759,7 @@ function replaceTemplateVariables($template, $data) {
         // - 'bouton_interface' is HTML generated server-side with a trusted URL
         // - 'photos_html' / 'disponibilites_html' are HTML generated server-side with htmlspecialchars() on user data
         // - 'bouton_paiement' is HTML generated server-side with a trusted URL (Stripe payment button)
-        $htmlExemptKeys = ['signature', 'commentaire', 'status_paiements', 'bouton_interface', 'photos_html', 'disponibilites_html', 'action_buttons_html', 'nb_heures_html', 'cout_materiaux_html', 'notes_intervention_html', 'motif_html', 'lignes_html', 'bouton_paiement'];
+        $htmlExemptKeys = ['signature', 'commentaire', 'status_paiements', 'bouton_interface', 'photos_html', 'disponibilites_html', 'action_buttons_html', 'nb_heures_html', 'cout_materiaux_html', 'notes_intervention_html', 'motif_html', 'lignes_html', 'bouton_paiement', 'message_html'];
         if (in_array($key, $htmlExemptKeys, true)) {
             $template = str_replace($placeholder, $value, $template);
         } else {

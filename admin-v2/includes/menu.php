@@ -64,6 +64,7 @@ $page_to_menu_map = [
     'guide-reparations.php'   => 'signalements.php',
     'gestion-decomptes.php'   => 'signalements.php',
     'decompte-detail.php'     => 'signalements.php',
+    'demandes-documents.php'  => 'demandes-documents.php',
     'pages-frontoffice.php'         => 'pages-frontoffice.php',
     'menu-frontoffice.php'          => 'pages-frontoffice.php',
     'formulaires-contact.php'       => 'pages-frontoffice.php',
@@ -243,6 +244,11 @@ $active_menu = $page_to_menu_map[$current_page] ?? $current_page;
                     </a>
                 </li>
             </ul>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo $active_menu === 'demandes-documents.php' ? 'active' : ''; ?>" href="demandes-documents.php">
+                <i class="bi bi-file-earmark-text"></i> Demandes &amp; Documents
+            </a>
         </li>
         <li class="nav-item">
             <a class="nav-link <?php echo $active_menu === 'email-templates.php' ? 'active' : ''; ?>" href="email-templates.php">

@@ -27,6 +27,13 @@ if ($locataire !== null && (empty($locataire['id']) || empty($locataire['contrat
     unset($_SESSION['portal_state'], $_SESSION['portal_locataire'], $_SESSION['portal_email']);
 }
 
+// Correction de session : si le locataire est authentifié mais l'état est 'auth', passer à 'choice'
+// (cela arrive après une soumission de signalement qui efface portal_state)
+if ($locataire !== null && $state === 'auth') {
+    $state = 'choice';
+    $_SESSION['portal_state'] = 'choice';
+}
+
 // Rediriger vers le formulaire si l'état est dans le wizard anomalie
 if (in_array($state, ['anomalie1', 'anomalie2', 'anomalie3'])) {
     header('Location: /signalement/form.php');
@@ -86,6 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'choose_depart' && $locataire) {
         $token = $locataire['contrat_ref'] ?? '';
         header('Location: /signature/procedure-depart.php?token=' . urlencode($token));
+        exit;
+
+    // ── Choix : demandes & documents ───────────────────────────────────────
+    } elseif ($action === 'choose_demande' && $locataire) {
+        $_SESSION['portal_state'] = 'choice';
+        header('Location: /locataire/demande-document.php');
         exit;
 
     // ── Déconnexion ────────────────────────────────────────────────────────
@@ -226,7 +239,7 @@ renderFrontOfficeHeader($siteUrl, $companyName);
                         <p class="text-muted mb-4">Que souhaitez-vous faire ?</p>
 
                         <div class="row g-3 mb-4">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <form method="POST">
                                     <input type="hidden" name="action" value="choose_anomalie">
                                     <button type="submit" class="choice-box border-0">
@@ -236,13 +249,23 @@ renderFrontOfficeHeader($siteUrl, $companyName);
                                     </button>
                                 </form>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <form method="POST">
                                     <input type="hidden" name="action" value="choose_depart">
                                     <button type="submit" class="choice-box border-0">
                                         <div class="choice-icon">🏠</div>
                                         <div class="choice-title">Procédure de Départ</div>
                                         <div class="choice-desc">Initiez votre départ du logement</div>
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form method="POST">
+                                    <input type="hidden" name="action" value="choose_demande">
+                                    <button type="submit" class="choice-box border-0">
+                                        <div class="choice-icon">📄</div>
+                                        <div class="choice-title">Demandes &amp; Documents</div>
+                                        <div class="choice-desc">Faites une demande ou réclamez un document</div>
                                     </button>
                                 </form>
                             </div>
