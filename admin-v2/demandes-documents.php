@@ -386,8 +386,9 @@ try {
                     <div class="alert alert-info small py-2 mb-3">
                         <i class="bi bi-info-circle me-1"></i>
                         L'email sera envoyé depuis <strong><?php echo htmlspecialchars($config['MAIL_FROM'] ?? 'contact@domaine.com'); ?></strong>
-                        avec un <strong>Reply-To</strong> configuré automatiquement sur l'adresse de l'expéditeur (<?php echo htmlspecialchars($config['MAIL_FROM'] ?? ''); ?>).
-                        Toute réponse du locataire arrivera directement dans votre boîte de réception.
+                        vers l'adresse du locataire. Si le locataire répond à cet email, sa réponse parviendra
+                        à l'adresse générique configurée.
+                        <br><small class="text-muted">Note : les notifications automatiques envoyées aux admins lors d'une nouvelle demande ont automatiquement un Reply-To défini sur l'adresse du locataire.</small>
                     </div>
 
                     <div class="mb-3">
