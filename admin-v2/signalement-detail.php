@@ -59,6 +59,22 @@ $errors = [];
 $successMsg = '';
 $isClos = ($sig['statut'] === 'clos');
 
+// Charger les textes par défaut pour le commentaire de responsabilité
+$texteDefautLocataire    = '';
+$texteDefautProprietaire = '';
+try {
+    $paramStmt = $pdo->query("SELECT cle, valeur FROM parametres WHERE cle IN ('texte_defaut_responsabilite_locataire','texte_defaut_responsabilite_proprietaire')");
+    foreach ($paramStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if ($row['cle'] === 'texte_defaut_responsabilite_locataire') {
+            $texteDefautLocataire = $row['valeur'];
+        } elseif ($row['cle'] === 'texte_defaut_responsabilite_proprietaire') {
+            $texteDefautProprietaire = $row['valeur'];
+        }
+    }
+} catch (Exception $e) {
+    // Colonne ou table absente si migration non appliquée
+}
+
 // Charger la liste des collaborateurs actifs (nécessaire avant le traitement du formulaire)
 $serviceTechniqueMetier = 'service technique';
 try {
@@ -160,20 +176,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         if ($action === 'set_responsabilite' && !$isClos) {
             $responsabilite = $_POST['responsabilite'] ?? '';
+            $commentaireResp = trim($_POST['commentaire_responsabilite'] ?? '');
             if (!in_array($responsabilite, ['locataire', 'proprietaire', 'non_determine'])) {
                 $errors[] = 'Responsabilité invalide.';
+            } elseif ($responsabilite !== 'non_determine' && $commentaireResp === '') {
+                $errors[] = 'Le commentaire est obligatoire pour confirmer la responsabilité.';
             } else {
                 $old = $sig['responsabilite'];
 
                 // When locataire is responsible, do NOT auto-close: tenant must accept first
-                $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, updated_at = NOW() WHERE id = ?")
-                    ->execute([$responsabilite, $id]);
+                // Persist the comment alongside the responsibility
+                try {
+                    $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, commentaire_responsabilite = ?, updated_at = NOW() WHERE id = ?")
+                        ->execute([$responsabilite, $commentaireResp ?: null, $id]);
+                } catch (Exception $e) {
+                    // Fallback if column not yet added by migration
+                    $pdo->prepare("UPDATE signalements SET responsabilite = ?, responsabilite_confirmee_admin = 1, updated_at = NOW() WHERE id = ?")
+                        ->execute([$responsabilite, $id]);
+                }
 
+                $actionDesc = "Responsabilité définie : $old → $responsabilite";
+                if ($commentaireResp !== '') {
+                    $actionDesc .= "\nCommentaire : $commentaireResp";
+                }
                 $pdo->prepare("
                     INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ancienne_valeur, nouvelle_valeur, ip_address)
                     VALUES (?, 'responsabilite', ?, ?, ?, ?, ?)
                 ")->execute([$id,
-                    "Responsabilité définie : $old → $responsabilite",
+                    $actionDesc,
                     $adminName, $old, $responsabilite,
                     $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                 ]);
@@ -183,14 +213,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $companyName = $config['COMPANY_NAME'] ?? 'My Invest Immobilier';
                     $siteUrl = rtrim($config['SITE_URL'] ?? '', '/');
                     $emailVars = [
-                        'prenom'             => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
-                        'nom'                => $sig['locataire_nom'],
-                        'reference'          => $sig['reference'],
-                        'titre'              => $sig['titre'],
-                        'adresse'            => $sig['adresse'],
-                        'logement_reference' => $sig['logement_ref'] ?? '',
-                        'company'            => $companyName,
-                        'responsabilite'     => ['locataire' => 'Locataire', 'proprietaire' => 'Propriétaire', 'non_determine' => 'Non déterminée'][$responsabilite] ?? $responsabilite,
+                        'prenom'                    => $sig['locataire_prenom'] ?? $sig['locataire_nom'],
+                        'nom'                       => $sig['locataire_nom'],
+                        'reference'                 => $sig['reference'],
+                        'titre'                     => $sig['titre'],
+                        'adresse'                   => $sig['adresse'],
+                        'logement_reference'        => $sig['logement_ref'] ?? '',
+                        'company'                   => $companyName,
+                        'responsabilite'            => ['locataire' => 'Locataire', 'proprietaire' => 'Propriétaire', 'non_determine' => 'Non déterminée'][$responsabilite] ?? $responsabilite,
+                        'commentaire_responsabilite'=> $commentaireResp,
                     ];
                     $templateId = ($responsabilite === 'proprietaire')
                         ? 'confirmation_responsabilite_proprietaire'
@@ -891,20 +922,18 @@ if ($successParam) {
                     <div class="row g-3">
                         <div class="col-12 col-md-6">
                             <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité</h6>
-                            <form method="POST">
-                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                                <input type="hidden" name="action" value="set_responsabilite">
-                                <div class="mb-2">
-                                    <select class="form-select" name="responsabilite">
-                                        <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
-                                        <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
-                                        <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-outline-success btn-sm w-100">
-                                    <i class="bi bi-check me-1"></i>Confirmer la responsabilité
-                                </button>
-                            </form>
+                            <div class="mb-2">
+                                <select class="form-select" id="resp-preview-select">
+                                    <option value="non_determine" <?php echo $sig['responsabilite'] === 'non_determine' ? 'selected' : ''; ?>>Non déterminée</option>
+                                    <option value="locataire" <?php echo $sig['responsabilite'] === 'locataire' ? 'selected' : ''; ?>>Locataire</option>
+                                    <option value="proprietaire" <?php echo $sig['responsabilite'] === 'proprietaire' ? 'selected' : ''; ?>>Propriétaire</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-outline-success btn-sm w-100"
+                                    id="open-resp-modal-btn"
+                                    data-bs-toggle="modal" data-bs-target="#modalResponsabilite">
+                                <i class="bi bi-check me-1"></i>Confirmer la responsabilité
+                            </button>
                         </div>
                         <?php if (!$isClos): ?>
                         <div class="col-12 col-md-6">
@@ -1255,17 +1284,121 @@ if ($successParam) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Modal : Confirmer la responsabilité avec commentaire -->
+    <div class="modal fade" id="modalResponsabilite" tabindex="-1" aria-labelledby="modalResponsabiliteLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalResponsabiliteLabel">
+                        <i class="bi bi-shield-check me-2"></i>Confirmer la responsabilité
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" id="form-responsabilite-modal">
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                        <input type="hidden" name="action" value="set_responsabilite">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Responsabilité</label>
+                            <select class="form-select" name="responsabilite" id="modal-resp-select">
+                                <option value="non_determine">Non déterminée</option>
+                                <option value="locataire">Locataire</option>
+                                <option value="proprietaire">Propriétaire</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="commentaire-resp-wrapper">
+                            <label class="form-label fw-semibold" for="modal-commentaire">
+                                Commentaire / Remarque <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="modal-commentaire" name="commentaire_responsabilite"
+                                      rows="5" required
+                                      placeholder="Saisissez un commentaire obligatoire..."></textarea>
+                            <div class="form-text">Ce commentaire sera inclus dans l'email envoyé au locataire.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check me-1"></i>Valider
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
-    // Stop video playback when modal is closed
-    document.querySelectorAll('.modal').forEach(function(modal) {
-        modal.addEventListener('hidden.bs.modal', function() {
-            var video = this.querySelector('video');
-            if (video) {
-                video.pause();
-                video.currentTime = 0;
+    (function () {
+        var texteDefaut = {
+            locataire:    <?php echo json_encode($texteDefautLocataire); ?>,
+            proprietaire: <?php echo json_encode($texteDefautProprietaire); ?>,
+            non_determine: ''
+        };
+
+        var previewSelect  = document.getElementById('resp-preview-select');
+        var modalSelect    = document.getElementById('modal-resp-select');
+        var commentaire    = document.getElementById('modal-commentaire');
+        var wrapper        = document.getElementById('commentaire-resp-wrapper');
+        var modal          = document.getElementById('modalResponsabilite');
+
+        function syncSelectToModal() {
+            if (!previewSelect || !modalSelect) return;
+            var val = previewSelect.value;
+            modalSelect.value = val;
+            updateComment(val);
+            toggleCommentaire(val);
+        }
+
+        function updateComment(val) {
+            if (!commentaire) return;
+            commentaire.value = texteDefaut[val] || '';
+        }
+
+        function toggleCommentaire(val) {
+            if (!wrapper) return;
+            if (val === 'non_determine') {
+                wrapper.style.display = 'none';
+                commentaire.removeAttribute('required');
+            } else {
+                wrapper.style.display = '';
+                commentaire.setAttribute('required', 'required');
             }
+        }
+
+        // Sync preview select → modal select + pre-fill comment when modal opens
+        if (modal) {
+            modal.addEventListener('show.bs.modal', syncSelectToModal);
+        }
+
+        // When modal select changes, update the comment and visibility
+        if (modalSelect) {
+            modalSelect.addEventListener('change', function () {
+                updateComment(this.value);
+                toggleCommentaire(this.value);
+            });
+        }
+
+        // Also mirror modal select back to preview select on change
+        if (modalSelect && previewSelect) {
+            modalSelect.addEventListener('change', function () {
+                previewSelect.value = this.value;
+            });
+        }
+
+        // Stop video playback when any modal is closed
+        document.querySelectorAll('.modal').forEach(function (m) {
+            m.addEventListener('hidden.bs.modal', function () {
+                var video = this.querySelector('video');
+                if (video) {
+                    video.pause();
+                    video.currentTime = 0;
+                }
+            });
         });
-    });
+    })();
     </script>
 </body>
 </html>
