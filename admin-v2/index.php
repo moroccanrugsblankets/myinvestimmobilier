@@ -111,7 +111,28 @@ $stmt = $pdo->query("
 ");
 $departs_en_attente = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 5. Signalements non terminés (statut != 'clos')
+// 5. Demandes & Documents non traitées
+$demandes_non_traitees = [];
+try {
+    $stmtDD = $pdo->query("
+        SELECT d.id, d.reference, d.objet, d.created_at,
+               CONCAT(loc.prenom, ' ', loc.nom) as locataire_nom,
+               COALESCE(cl.adresse, l.adresse) as adresse
+        FROM demandes_documents d
+        LEFT JOIN locataires loc ON d.locataire_id = loc.id
+        LEFT JOIN logements l   ON d.logement_id = l.id
+        LEFT JOIN contrats c    ON d.contrat_id = c.id
+        LEFT JOIN contrat_logement cl ON cl.contrat_id = d.contrat_id
+        WHERE d.statut = 'nouveau'
+        ORDER BY d.created_at DESC
+        LIMIT 20
+    ");
+    $demandes_non_traitees = $stmtDD->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Table absente si migration non appliquée — ne pas bloquer le tableau de bord
+}
+
+// 6. Signalements non terminés (statut != 'clos')
 $stmt = $pdo->query("
     SELECT sig.id, sig.reference, sig.titre, sig.priorite, sig.statut,
            sig.date_signalement,
@@ -131,7 +152,8 @@ $stmt = $pdo->query("
 $signalements_actifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $nb_actions = count($contrats_en_attente_validation) + count($contrats_sans_etat_lieux)
-            + count($loyers_impayes) + count($departs_en_attente) + count($signalements_actifs);
+            + count($loyers_impayes) + count($departs_en_attente) + count($signalements_actifs)
+            + count($demandes_non_traitees);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -380,6 +402,33 @@ $nb_actions = count($contrats_en_attente_validation) + count($contrats_sans_etat
                         </span>
                         <a href="signalement-detail.php?id=<?php echo (int)$sig['id']; ?>" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-eye me-1"></i>Gérer
+                        </a>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
+
+                <?php if (!empty($demandes_non_traitees)): ?>
+                <h6 class="fw-semibold text-dark mb-2 <?php echo !empty($signalements_actifs) ? 'mt-3' : ''; ?>">
+                    <i class="bi bi-file-earmark-text me-1 text-primary"></i>
+                    Demandes &amp; Documents non traitées
+                    <span class="badge bg-primary ms-1"><?php echo count($demandes_non_traitees); ?></span>
+                </h6>
+                <ul class="list-group list-group-flush mb-0">
+                    <?php foreach ($demandes_non_traitees as $dd): ?>
+                    <li class="list-group-item px-0 py-1 d-flex justify-content-between align-items-center">
+                        <span class="small">
+                            <code><?php echo htmlspecialchars($dd['reference']); ?></code>
+                            — <?php echo htmlspecialchars($dd['objet']); ?>
+                            <?php if ($dd['locataire_nom']): ?>
+                                <span class="text-muted">(<?php echo htmlspecialchars($dd['locataire_nom']); ?>)</span>
+                            <?php endif; ?>
+                            <?php if ($dd['adresse']): ?>
+                                — <span class="text-muted"><?php echo htmlspecialchars($dd['adresse']); ?></span>
+                            <?php endif; ?>
+                        </span>
+                        <a href="demandes-documents.php?id=<?php echo (int)$dd['id']; ?>" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-reply me-1"></i>Traiter
                         </a>
                     </li>
                     <?php endforeach; ?>

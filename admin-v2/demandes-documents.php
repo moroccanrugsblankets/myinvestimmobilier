@@ -98,6 +98,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'repon
     }
 }
 
+// ── Traitement : marquer comme traité sans répondre ─────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'marquer_traite') {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $errorMsg = 'Token CSRF invalide. Veuillez recharger la page.';
+    } else {
+        $demandeId = (int)($_POST['demande_id'] ?? 0);
+        if ($demandeId > 0) {
+            try {
+                $pdo->prepare("UPDATE demandes_documents SET statut = 'traite', updated_at = NOW() WHERE id = ?")
+                    ->execute([$demandeId]);
+                $successMsg = 'Demande marquée comme traitée.';
+            } catch (Exception $e) {
+                $errorMsg = 'Erreur lors de la mise à jour de la demande.';
+            }
+        } else {
+            $errorMsg = 'Identifiant de demande invalide.';
+        }
+    }
+}
+
 // ── Détail d'une demande spécifique ──────────────────────────────────────────
 $detailDemande = null;
 if (isset($_GET['id'])) {
@@ -142,7 +162,7 @@ $whereClause = implode(' AND ', $where);
 try {
     $stmt = $pdo->prepare("
         SELECT d.id, d.reference, d.objet, d.statut, d.created_at,
-               d.email_locataire, d.fichier_path, d.fichier_nom,
+               d.email_locataire, d.fichier_path, d.fichier_nom, d.message,
                CONCAT(loc.prenom, ' ', loc.nom) as locataire_nom,
                l.adresse, l.reference as logement_ref
         FROM demandes_documents d
@@ -331,6 +351,17 @@ try {
                                             data-fichier-nom="<?php echo htmlspecialchars($d['fichier_nom'] ?? ''); ?>">
                                         <i class="bi bi-reply me-1"></i>Répondre
                                     </button>
+                                    <?php if ($d['statut'] === 'nouveau'): ?>
+                                    <form method="POST" class="d-inline ms-1"
+                                          onsubmit="return confirm('Marquer cette demande comme traitée ?');">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
+                                        <input type="hidden" name="action" value="marquer_traite">
+                                        <input type="hidden" name="demande_id" value="<?php echo $d['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-check2-circle me-1"></i>Traité
+                                        </button>
+                                    </form>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
