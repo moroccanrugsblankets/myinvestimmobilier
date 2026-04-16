@@ -9,6 +9,52 @@ require_once 'auth.php';
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
+// ── Traitement de la configuration ───────────────────────────────────────────
+$configSuccess = false;
+$configError   = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_signalement_config') {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $configError = 'Token CSRF invalide. Veuillez recharger la page.';
+    } else {
+        $keys = [
+            'texte_defaut_responsabilite_locataire',
+            'texte_defaut_responsabilite_proprietaire',
+        ];
+        foreach ($keys as $cle) {
+            $valeur = trim($_POST[$cle] ?? '');
+            $stmt = $pdo->prepare("UPDATE parametres SET valeur = ?, updated_at = NOW() WHERE cle = ?");
+            $stmt->execute([$valeur, $cle]);
+            if ($stmt->rowCount() === 0) {
+                // Insert if not existing yet
+                $pdo->prepare("INSERT INTO parametres (cle, valeur, type, description, groupe) VALUES (?, ?, 'string', ?, 'signalement') ON DUPLICATE KEY UPDATE valeur = VALUES(valeur), updated_at = NOW()")
+                    ->execute([
+                        $cle,
+                        $valeur,
+                        $cle === 'texte_defaut_responsabilite_locataire'
+                            ? 'Texte par défaut du commentaire de responsabilité — Locataire'
+                            : 'Texte par défaut du commentaire de responsabilité — Propriétaire',
+                    ]);
+            }
+        }
+        $configSuccess = true;
+        header('Location: signalements.php?tab=config&saved=1');
+        exit;
+    }
+}
+
+// Charger les textes par défaut depuis la base
+$configParams = [];
+try {
+    $paramStmt = $pdo->query("SELECT cle, valeur FROM parametres WHERE cle IN ('texte_defaut_responsabilite_locataire','texte_defaut_responsabilite_proprietaire')");
+    foreach ($paramStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $configParams[$row['cle']] = $row['valeur'];
+    }
+} catch (Exception $e) {
+    // Table absente si migration non appliquée
+}
+$activeTab = $_GET['tab'] ?? 'list';
+$savedConfig = isset($_GET['saved']);
+
 // Filtres
 $statutFilter   = $_GET['statut']   ?? '';
 $prioriteFilter = $_GET['priorite'] ?? '';
@@ -104,6 +150,85 @@ $statutLabels = [
                 <i class="bi bi-arrow-left me-1"></i>Contrats
             </a>
         </div>
+
+        <?php if ($savedConfig): ?>
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle-fill me-2"></i>Configuration enregistrée avec succès.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        <?php if ($configError): ?>
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-circle me-2"></i><?php echo htmlspecialchars($configError); ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Onglets -->
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link <?php echo $activeTab !== 'config' ? 'active' : ''; ?>" href="signalements.php">
+                    <i class="bi bi-list-ul me-1"></i>Liste des signalements
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?php echo $activeTab === 'config' ? 'active' : ''; ?>" href="signalements.php?tab=config">
+                    <i class="bi bi-gear me-1"></i>Configuration
+                </a>
+            </li>
+        </ul>
+
+        <?php if ($activeTab === 'config'): ?>
+        <!-- ═══════════════════════════════════════════════════════════════════
+             Onglet Configuration
+        ═══════════════════════════════════════════════════════════════════ -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear me-2"></i>Configuration du signalement — Textes par défaut de la responsabilité
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-4">
+                    Ces textes seront pré-remplis dans la fenêtre de confirmation de responsabilité
+                    (signalement-detail.php) et inclus dans les emails envoyés au locataire via
+                    la variable <code>{{commentaire_responsabilite}}</code>.
+                    L'administrateur peut modifier le texte avant de valider.
+                </p>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
+                    <input type="hidden" name="action" value="save_signalement_config">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-person me-1 text-warning"></i>
+                            Texte par défaut — Responsabilité locataire
+                        </label>
+                        <textarea class="form-control" name="texte_defaut_responsabilite_locataire" rows="5"><?php
+                            echo htmlspecialchars($configParams['texte_defaut_responsabilite_locataire'] ?? '');
+                        ?></textarea>
+                        <div class="form-text">Affiché quand la responsabilité est définie sur <strong>Locataire</strong>.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-house me-1 text-success"></i>
+                            Texte par défaut — Responsabilité propriétaire
+                        </label>
+                        <textarea class="form-control" name="texte_defaut_responsabilite_proprietaire" rows="5"><?php
+                            echo htmlspecialchars($configParams['texte_defaut_responsabilite_proprietaire'] ?? '');
+                        ?></textarea>
+                        <div class="form-text">Affiché quand la responsabilité est définie sur <strong>Propriétaire</strong>.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>Enregistrer la configuration
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <?php else: ?>
+        <!-- ═══════════════════════════════════════════════════════════════════
+             Onglet Liste (défaut)
+        ═══════════════════════════════════════════════════════════════════ -->
 
         <!-- Statistiques -->
         <div class="row g-3 mb-4">
@@ -272,6 +397,8 @@ $statutLabels = [
                 </div>
             </div>
         </div>
+
+        <?php endif; // end tab: list vs config ?>
 
         </div>
     </div>
