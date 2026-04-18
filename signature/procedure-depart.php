@@ -145,7 +145,7 @@ $csrfToken = generateCsrfToken();
                             <div class="alert alert-info">
                                 <strong><?= htmlspecialchars($contrat['logement_ref'] . ' - ' . $contrat['logement_adresse']) ?></strong>
                             </div>
-                            <p>En confirmant, vous lancerez la procédure de départ.</p>
+                            <p>En confirmant, vous recevrez la procédure de départ.</p>
 
                             <form method="POST">
                                 <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
