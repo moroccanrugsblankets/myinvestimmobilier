@@ -100,7 +100,7 @@ try {
             ];
             
             // Send email using template BEFORE updating status
-            if (sendTemplatedEmail('candidature_acceptee', $email, $variables)) {
+            if (sendTemplatedEmail('candidature_acceptee', $email, $variables, null, false, true)) {
                 // Only update status if email was sent successfully
                 $updateStmt = $pdo->prepare("UPDATE candidatures SET statut = 'accepte', reponse_automatique = 'accepte', date_reponse_auto = NOW(), date_reponse_envoyee = NOW() WHERE id = ?");
                 $updateStmt->execute([$id]);
