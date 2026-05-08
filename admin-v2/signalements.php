@@ -193,6 +193,7 @@ $statutLabels = [
         .badge-urgent { background: #dc3545; }
         .badge-normal { background: #6c757d; }
         tr.priorite-urgent td:first-child { border-left: 4px solid #dc3545; }
+        .statut-inline-select { min-width: 145px; }
     </style>
 </head>
 <body>
@@ -427,7 +428,7 @@ $statutLabels = [
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
                                         <input type="hidden" name="action" value="change_signalement_statut">
                                         <input type="hidden" name="signalement_id" value="<?php echo (int)$sig['id']; ?>">
-                                        <select name="statut" class="form-select form-select-sm" style="min-width: 145px;">
+                                        <select name="statut" class="form-select form-select-sm statut-inline-select">
                                             <?php foreach ($statutLabels as $statusValue => $statusMeta): ?>
                                                 <option value="<?php echo $statusValue; ?>" <?php echo $sig['statut'] === $statusValue ? 'selected' : ''; ?>>
                                                     <?php echo $statusMeta['label']; ?>

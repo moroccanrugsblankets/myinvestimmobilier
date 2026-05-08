@@ -405,7 +405,7 @@ $stats = [
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>Cette action effectue une suppression logique (corbeille) :
                     </p>
                     <ul class="text-danger">
-                        <li>Le contrat est masqué des contrats actifs (champ <code>deleted_at</code>)</li>
+                        <li>Le contrat est masqué des contrats actifs</li>
                         <li>Les données restent conservées (contrat, PDF, documents)</li>
                         <li>Le contrat pourra être restauré depuis « Contrats supprimés »</li>
                     </ul>
