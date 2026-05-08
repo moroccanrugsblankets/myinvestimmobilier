@@ -407,7 +407,14 @@ if (empty($bilanRows)) {
     // Add static lines and one empty row by default
     $bilanRows = [];
     foreach ($staticLines as $staticLine) {
-        $bilanRows[] = ['poste' => $staticLine, 'commentaires' => '', 'valeur' => '', 'solde_debiteur' => '', 'solde_crediteur' => '', 'position' => count($bilanRows) + 1];
+        $bilanRows[] = [
+            'poste' => $staticLine,
+            'commentaires' => '',
+            'valeur' => '',
+            'solde_debiteur' => '',
+            'solde_crediteur' => '',
+            'position' => count($bilanRows) + 1
+        ];
     }
 }
 
@@ -1004,7 +1011,7 @@ if ($etat) {
             newRow.innerHTML = `
                 <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
                     <i class="bi bi-grip-vertical"></i>
-                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${bilanRowCounter + 1}">
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="0">
                 </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
@@ -1090,7 +1097,7 @@ if ($etat) {
             newRow.innerHTML = `
                 <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
                     <i class="bi bi-grip-vertical"></i>
-                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${bilanRowCounter + 1}">
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="0">
                 </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
