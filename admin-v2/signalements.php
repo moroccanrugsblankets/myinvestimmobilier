@@ -9,13 +9,77 @@ require_once 'auth.php';
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
+$validStatutsSignalement = ['nouveau', 'en_cours', 'pris_en_charge', 'sur_place', 'en_attente', 'reporte', 'resolu', 'clos'];
+
 // ── Traitement de la configuration ───────────────────────────────────────────
 $configSuccess = false;
 $configError   = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_signalement_config') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
+    $postAction = $_POST['action'] ?? '';
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        if ($postAction === 'change_signalement_statut') {
+            header('Location: signalements.php?error=csrf');
+            exit;
+        }
         $configError = 'Token CSRF invalide. Veuillez recharger la page.';
-    } else {
+    } elseif ($postAction === 'change_signalement_statut') {
+        $signalementId = (int)($_POST['signalement_id'] ?? 0);
+        $newStatut = $_POST['statut'] ?? '';
+
+        if ($signalementId <= 0 || !in_array($newStatut, $validStatutsSignalement, true)) {
+            header('Location: signalements.php?error=statut');
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT statut FROM signalements WHERE id = ? LIMIT 1");
+        $stmt->execute([$signalementId]);
+        $oldStatut = $stmt->fetchColumn();
+
+        if ($oldStatut === false) {
+            header('Location: signalements.php?error=notfound');
+            exit;
+        }
+
+        if ($oldStatut !== $newStatut) {
+            $pdo->prepare("
+                UPDATE signalements
+                SET statut = ?,
+                    date_cloture = CASE WHEN ? = 'clos' THEN NOW() ELSE date_cloture END,
+                    date_resolution = CASE WHEN ? = 'resolu' THEN NOW() ELSE date_resolution END,
+                    date_intervention = CASE WHEN ? = 'en_cours' AND date_intervention IS NULL THEN NOW() ELSE date_intervention END,
+                    updated_at = NOW()
+                WHERE id = ?
+            ")->execute([$newStatut, $newStatut, $newStatut, $newStatut, $signalementId]);
+
+            $adminName = $_SESSION['admin_nom'] ?? 'Administrateur';
+            $pdo->prepare("
+                INSERT INTO signalements_actions (signalement_id, type_action, description, acteur, ancienne_valeur, nouvelle_valeur, ip_address)
+                VALUES (?, 'statut_change', ?, ?, ?, ?, ?)
+            ")->execute([
+                $signalementId,
+                "Statut mis à jour : $oldStatut → $newStatut",
+                $adminName,
+                $oldStatut,
+                $newStatut,
+                $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            ]);
+        }
+
+        $redirectParams = [];
+        if (isset($_GET['statut']) && in_array($_GET['statut'], $validStatutsSignalement, true)) {
+            $redirectParams['statut'] = $_GET['statut'];
+        }
+        if (isset($_GET['priorite']) && in_array($_GET['priorite'], ['urgent', 'normal'], true)) {
+            $redirectParams['priorite'] = $_GET['priorite'];
+        }
+        if (isset($_GET['search']) && $_GET['search'] !== '') {
+            $cleanSearch = preg_replace('/[\r\n]+/', ' ', (string)$_GET['search']);
+            $redirectParams['search'] = mb_substr(trim($cleanSearch), 0, 120);
+        }
+        $redirectParams['updated'] = 1;
+        header('Location: signalements.php' . (empty($redirectParams) ? '' : '?' . http_build_query($redirectParams)));
+        exit;
+    } elseif ($postAction === 'save_signalement_config') {
         $keys = [
             'texte_defaut_responsabilite_locataire',
             'texte_defaut_responsabilite_proprietaire',
@@ -54,6 +118,8 @@ try {
 }
 $activeTab = $_GET['tab'] ?? 'list';
 $savedConfig = isset($_GET['saved']);
+$statusUpdated = isset($_GET['updated']);
+$statusError = $_GET['error'] ?? '';
 
 // Filtres
 $statutFilter   = $_GET['statut']   ?? '';
@@ -63,7 +129,7 @@ $search         = trim($_GET['search'] ?? '');
 $where = ['1=1'];
 $params = [];
 
-if ($statutFilter && in_array($statutFilter, ['nouveau', 'en_cours', 'pris_en_charge', 'sur_place', 'en_attente', 'reporte', 'resolu', 'clos'])) {
+if ($statutFilter && in_array($statutFilter, $validStatutsSignalement, true)) {
     $where[] = 'sig.statut = ?';
     $params[] = $statutFilter;
 }
@@ -132,6 +198,7 @@ $statutLabels = [
         .badge-urgent { background: #dc3545; }
         .badge-normal { background: #6c757d; }
         tr.priorite-urgent td:first-child { border-left: 4px solid #dc3545; }
+        .statut-inline-select { min-width: 145px; }
     </style>
 </head>
 <body>
@@ -160,6 +227,26 @@ $statutLabels = [
         <?php if ($configError): ?>
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-circle me-2"></i><?php echo htmlspecialchars($configError); ?>
+        </div>
+        <?php endif; ?>
+        <?php if ($statusUpdated): ?>
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle-fill me-2"></i>Statut du signalement mis à jour.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        <?php if ($statusError): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>
+            <?php
+                $statusErrorMessages = [
+                    'csrf' => 'Token CSRF invalide. Veuillez réessayer.',
+                    'statut' => 'Statut invalide.',
+                    'notfound' => 'Signalement introuvable.',
+                ];
+                echo htmlspecialchars($statusErrorMessages[$statusError] ?? 'Erreur lors de la mise à jour du statut.');
+            ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php endif; ?>
 
@@ -342,9 +429,21 @@ $statutLabels = [
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge <?php echo $statutLabels[$sig['statut']]['class']; ?>">
-                                        <?php echo $statutLabels[$sig['statut']]['label']; ?>
-                                    </span>
+                                    <form method="POST" class="d-flex gap-1 align-items-center">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
+                                        <input type="hidden" name="action" value="change_signalement_statut">
+                                        <input type="hidden" name="signalement_id" value="<?php echo (int)$sig['id']; ?>">
+                                        <select name="statut" class="form-select form-select-sm statut-inline-select">
+                                            <?php foreach ($statutLabels as $statusValue => $statusMeta): ?>
+                                                <option value="<?php echo $statusValue; ?>" <?php echo $sig['statut'] === $statusValue ? 'selected' : ''; ?>>
+                                                    <?php echo $statusMeta['label']; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Mettre à jour le statut">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
                                 </td>
                                 <td class="small text-muted">
                                     <?php echo date('d/m/Y', strtotime($sig['date_signalement'])); ?>

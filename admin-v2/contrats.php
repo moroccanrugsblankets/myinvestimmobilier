@@ -402,14 +402,14 @@ $stats = [
                 <div class="modal-body">
                     <p>Êtes-vous sûr de vouloir supprimer le contrat <strong id="contractRef"></strong> ?</p>
                     <p class="text-danger mb-0">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Cette action est irréversible et supprimera :
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Cette action effectue une suppression logique (corbeille) :
                     </p>
                     <ul class="text-danger">
-                        <li>Le contrat de la base de données</li>
-                        <li>Les fichiers PDF associés</li>
-                        <li>Les documents des locataires</li>
+                        <li>Le contrat est masqué des contrats actifs</li>
+                        <li>Les données restent conservées (contrat, PDF, documents)</li>
+                        <li>Le contrat pourra être restauré depuis « Contrats supprimés »</li>
                     </ul>
-                    <p class="text-muted">Le logement sera remis en disponibilité.</p>
+                    <p class="text-muted">Le logement sera remis en disponibilité tant que le contrat reste supprimé.</p>
                 </div>
                 <div class="modal-footer">
                     <form method="POST" action="supprimer-contrat.php" id="deleteForm">
