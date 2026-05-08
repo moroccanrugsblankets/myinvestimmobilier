@@ -66,10 +66,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         }
 
         $redirectParams = [];
-        foreach (['statut', 'priorite', 'search'] as $filterKey) {
-            if (isset($_GET[$filterKey]) && $_GET[$filterKey] !== '') {
-                $redirectParams[$filterKey] = $_GET[$filterKey];
-            }
+        if (isset($_GET['statut']) && in_array($_GET['statut'], $validStatutsSignalement, true)) {
+            $redirectParams['statut'] = $_GET['statut'];
+        }
+        if (isset($_GET['priorite']) && in_array($_GET['priorite'], ['urgent', 'normal'], true)) {
+            $redirectParams['priorite'] = $_GET['priorite'];
+        }
+        if (isset($_GET['search']) && $_GET['search'] !== '') {
+            $cleanSearch = preg_replace('/[\r\n]+/', ' ', (string)$_GET['search']);
+            $redirectParams['search'] = mb_substr(trim($cleanSearch), 0, 120);
         }
         $redirectParams['updated'] = 1;
         header('Location: signalements.php' . (empty($redirectParams) ? '' : '?' . http_build_query($redirectParams)));
