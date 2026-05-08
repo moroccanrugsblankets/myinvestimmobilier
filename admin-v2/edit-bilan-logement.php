@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
 
             usort($normalizedBilanRows, function($a, $b) {
-                return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+                return (int)($a['position'] ?? 0) <=> (int)($b['position'] ?? 0);
             });
 
             foreach ($normalizedBilanRows as $index => &$row) {
@@ -324,7 +324,7 @@ if ($etat && !empty($etat['bilan_logement_data'])) {
     if (is_array($decodedRows)) {
         $bilanRows = array_values($decodedRows);
         usort($bilanRows, function($a, $b) {
-            return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+            return (int)($a['position'] ?? 0) <=> (int)($b['position'] ?? 0);
         });
         foreach ($bilanRows as $index => &$row) {
             $row['position'] = $index + 1;
@@ -615,7 +615,7 @@ if ($etat) {
                                         <input type="hidden"
                                                name="bilan_rows[<?php echo $index; ?>][position]"
                                                class="bilan-position"
-                                               value="<?php echo (int)($row['position'] ?? ($index + 1)); ?>">
+                                               value="<?php echo (int)$row['position']; ?>">
                                     </td>
                                     <td>
                                         <input type="text" name="bilan_rows[<?php echo $index; ?>][poste]" 

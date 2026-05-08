@@ -136,7 +136,7 @@ function generateBilanLogementPDF($contratId) {
         if (is_array($bilanRows)) {
             $bilanRows = array_values($bilanRows);
             usort($bilanRows, function($a, $b) {
-                return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+                return (int)($a['position'] ?? 0) <=> (int)($b['position'] ?? 0);
             });
         }
         
