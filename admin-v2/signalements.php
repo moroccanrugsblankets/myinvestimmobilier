@@ -15,13 +15,14 @@ $validStatutsSignalement = ['nouveau', 'en_cours', 'pris_en_charge', 'sur_place'
 $configSuccess = false;
 $configError   = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
+    $postAction = $_POST['action'] ?? '';
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        if (($_POST['action'] ?? '') === 'change_signalement_statut') {
+        if ($postAction === 'change_signalement_statut') {
             header('Location: signalements.php?error=csrf');
             exit;
         }
         $configError = 'Token CSRF invalide. Veuillez recharger la page.';
-    } elseif (($_POST['action'] ?? '') === 'change_signalement_statut') {
+    } elseif ($postAction === 'change_signalement_statut') {
         $signalementId = (int)($_POST['signalement_id'] ?? 0);
         $newStatut = $_POST['statut'] ?? '';
 
@@ -73,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         $redirectParams['updated'] = 1;
         header('Location: signalements.php' . (empty($redirectParams) ? '' : '?' . http_build_query($redirectParams)));
         exit;
-    } elseif (($_POST['action'] ?? '') === 'save_signalement_config') {
+    } elseif ($postAction === 'save_signalement_config') {
         $keys = [
             'texte_defaut_responsabilite_locataire',
             'texte_defaut_responsabilite_proprietaire',
