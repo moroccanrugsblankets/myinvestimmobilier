@@ -1011,7 +1011,7 @@ if ($etat) {
             newRow.innerHTML = `
                 <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
                     <i class="bi bi-grip-vertical"></i>
-                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="0">
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${document.querySelectorAll('.bilan-row').length + 1}">
                 </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
@@ -1097,7 +1097,7 @@ if ($etat) {
             newRow.innerHTML = `
                 <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
                     <i class="bi bi-grip-vertical"></i>
-                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="0">
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${document.querySelectorAll('.bilan-row').length + 1}">
                 </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
