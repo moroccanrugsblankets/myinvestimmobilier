@@ -27,10 +27,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         // Check if we should mark the bilan as sent
         $sendBilan = isset($_POST['send_bilan']) && $_POST['send_bilan'] === '1';
         
-        // Prepare bilan_logement_data if provided
+        // Prepare bilan_logement_data if provided (with stable manual ordering)
         $bilanData = null;
+        $normalizedBilanRows = [];
         if (isset($_POST['bilan_rows']) && is_array($_POST['bilan_rows'])) {
-            $bilanData = json_encode($_POST['bilan_rows']);
+            foreach ($_POST['bilan_rows'] as $rowIndex => $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $rowPosition = isset($row['position']) ? (int)$row['position'] : ((int)$rowIndex + 1);
+                $row['position'] = max(1, $rowPosition);
+                $normalizedBilanRows[] = $row;
+            }
+
+            usort($normalizedBilanRows, function($a, $b) {
+                return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+            });
+
+            foreach ($normalizedBilanRows as $index => &$row) {
+                $row['position'] = $index + 1;
+            }
+            unset($row);
+
+            $bilanData = json_encode($normalizedBilanRows);
         }
         
         // Get the exit etat_lieux ID for this contract
@@ -130,8 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $totalSoldeDebiteur = 0;
             $totalSoldeCrediteur = 0;
             
-            if (isset($_POST['bilan_rows']) && is_array($_POST['bilan_rows'])) {
-                foreach ($_POST['bilan_rows'] as $row) {
+            if (!empty($normalizedBilanRows)) {
+                foreach ($normalizedBilanRows as $row) {
                     if (!empty($row['valeur']) && is_numeric($row['valeur'])) {
                         $totalValeur += floatval($row['valeur']);
                     }
@@ -301,7 +320,17 @@ $bilanSent = false; // Track if bilan has been sent
 $staticLines = ['Eau', 'Électricité'];
 
 if ($etat && !empty($etat['bilan_logement_data'])) {
-    $bilanRows = json_decode($etat['bilan_logement_data'], true) ?: [];
+    $decodedRows = json_decode($etat['bilan_logement_data'], true) ?: [];
+    if (is_array($decodedRows)) {
+        $bilanRows = array_values($decodedRows);
+        usort($bilanRows, function($a, $b) {
+            return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+        });
+        foreach ($bilanRows as $index => &$row) {
+            $row['position'] = $index + 1;
+        }
+        unset($row);
+    }
     // Check if bilan has been sent
     $bilanSent = isset($etat['bilan_sent']) && $etat['bilan_sent'];
 }
@@ -362,7 +391,8 @@ if (empty($bilanRows)) {
             'commentaires' => '',
             'valeur' => '',
             'solde_debiteur' => '',
-            'solde_crediteur' => ''
+            'solde_crediteur' => '',
+            'position' => count($newRows) + 1
         ];
     }
     
@@ -377,7 +407,7 @@ if (empty($bilanRows)) {
     // Add static lines and one empty row by default
     $bilanRows = [];
     foreach ($staticLines as $staticLine) {
-        $bilanRows[] = ['poste' => $staticLine, 'commentaires' => '', 'valeur' => '', 'solde_debiteur' => '', 'solde_crediteur' => ''];
+        $bilanRows[] = ['poste' => $staticLine, 'commentaires' => '', 'valeur' => '', 'solde_debiteur' => '', 'solde_crediteur' => '', 'position' => count($bilanRows) + 1];
     }
 }
 
@@ -451,6 +481,20 @@ if ($etat) {
         }
         .bilan-row:hover {
             background-color: #f8f9fa;
+        }
+        .drag-handle {
+            cursor: grab;
+            color: #6c757d;
+            text-align: center;
+            vertical-align: middle;
+            width: 34px;
+            user-select: none;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .bilan-row.dragging {
+            opacity: .55;
         }
     </style>
 </head>
@@ -545,6 +589,9 @@ if ($etat) {
                         <table class="table table-bordered" id="bilanTable">
                             <thead class="table-light">
                                 <tr>
+                                    <th width="4%" class="text-center" title="Réorganiser">
+                                        <i class="bi bi-arrows-move"></i>
+                                    </th>
                                     <th width="20%">Poste / Équipement</th>
                                     <th width="30%">Commentaires</th>
                                     <th width="12%">Valeur (€)</th>
@@ -555,7 +602,14 @@ if ($etat) {
                             </thead>
                             <tbody id="bilanTableBody">
                                 <?php foreach ($bilanRows as $index => $row): ?>
-                                <tr class="bilan-row">
+                                <tr class="bilan-row" draggable="true">
+                                    <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
+                                        <i class="bi bi-grip-vertical"></i>
+                                        <input type="hidden"
+                                               name="bilan_rows[<?php echo $index; ?>][position]"
+                                               class="bilan-position"
+                                               value="<?php echo (int)($row['position'] ?? ($index + 1)); ?>">
+                                    </td>
                                     <td>
                                         <input type="text" name="bilan_rows[<?php echo $index; ?>][poste]" 
                                                class="form-control bilan-field" 
@@ -603,7 +657,7 @@ if ($etat) {
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="2" class="text-end"><strong>Total des frais constatés:</strong></td>
+                                    <td colspan="3" class="text-end"><strong>Total des frais constatés:</strong></td>
                                     <td><strong id="totalValeur">0.00 €</strong></td>
                                     <td><strong id="totalSoldeDebiteur">0.00 €</strong></td>
                                     <td><strong id="totalSoldeCrediteur">0.00 €</strong></td>
@@ -622,6 +676,7 @@ if ($etat) {
                     
                     <div class="alert alert-warning mt-2">
                         <i class="bi bi-exclamation-triangle"></i> Maximum 20 lignes. Aucun champ n'est obligatoire.
+                        <br><i class="bi bi-arrows-move"></i> Vous pouvez changer l'ordre des lignes par glisser-déposer.
                     </div>
                 </div>
                 
@@ -811,6 +866,7 @@ if ($etat) {
         const BILAN_ALLOWED_TYPES = <?php echo json_encode($config['BILAN_ALLOWED_TYPES']); ?>;
         const BILAN_SECTIONS_DATA = <?php echo json_encode($bilanSectionsData); ?>;
         const DEPOT_GARANTIE = <?php echo floatval($contrat['depot_garantie'] ?? 0); ?>;
+        let draggedBilanRow = null;
         
         // Import data from exit inventory (état de sortie)
         function importFromExitInventory() {
@@ -944,7 +1000,12 @@ if ($etat) {
             const tbody = document.getElementById('bilanTableBody');
             const newRow = document.createElement('tr');
             newRow.className = 'bilan-row';
+            newRow.setAttribute('draggable', 'true');
             newRow.innerHTML = `
+                <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
+                    <i class="bi bi-grip-vertical"></i>
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${bilanRowCounter + 1}">
+                </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
                            class="form-control bilan-field" 
@@ -990,6 +1051,8 @@ if ($etat) {
             `;
             tbody.appendChild(newRow);
             bilanRowCounter++;
+            attachRowDragAndDrop(newRow);
+            updateBilanRowOrder();
             
             // Add input listeners for validation
             newRow.querySelectorAll('.bilan-field').forEach(field => {
@@ -1023,7 +1086,12 @@ if ($etat) {
             const tbody = document.getElementById('bilanTableBody');
             const newRow = document.createElement('tr');
             newRow.className = 'bilan-row';
+            newRow.setAttribute('draggable', 'true');
             newRow.innerHTML = `
+                <td class="drag-handle" title="Glisser-déposer pour changer l'ordre">
+                    <i class="bi bi-grip-vertical"></i>
+                    <input type="hidden" name="bilan_rows[${bilanRowCounter}][position]" class="bilan-position" value="${bilanRowCounter + 1}">
+                </td>
                 <td>
                     <input type="text" name="bilan_rows[${bilanRowCounter}][poste]" 
                            class="form-control bilan-field" 
@@ -1064,6 +1132,8 @@ if ($etat) {
             `;
             tbody.appendChild(newRow);
             bilanRowCounter++;
+            attachRowDragAndDrop(newRow);
+            updateBilanRowOrder();
             
             // Add input listeners for validation
             newRow.querySelectorAll('.bilan-field').forEach(field => {
@@ -1078,9 +1148,50 @@ if ($etat) {
         function removeBilanRow(button) {
             const row = button.closest('tr');
             row.remove();
+            updateBilanRowOrder();
             calculateBilanTotals();
             updateBilanRowButton();
             validateBilanFields();
+        }
+
+        function attachRowDragAndDrop(row) {
+            row.addEventListener('dragstart', function() {
+                draggedBilanRow = row;
+                row.classList.add('dragging');
+            });
+
+            row.addEventListener('dragend', function() {
+                row.classList.remove('dragging');
+                draggedBilanRow = null;
+                updateBilanRowOrder();
+            });
+        }
+
+        function getDragAfterElement(container, y) {
+            const rows = [...container.querySelectorAll('.bilan-row:not(.dragging)')];
+            return rows.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset, element: child };
+                }
+                return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function updateBilanRowOrder() {
+            const rows = document.querySelectorAll('#bilanTableBody .bilan-row');
+            rows.forEach((row, index) => {
+                row.querySelectorAll('input[name^="bilan_rows["]').forEach(input => {
+                    input.name = input.name.replace(/bilan_rows\[\d+\]/, `bilan_rows[${index}]`);
+                });
+
+                const positionInput = row.querySelector('.bilan-position');
+                if (positionInput) {
+                    positionInput.value = index + 1;
+                }
+            });
+            bilanRowCounter = rows.length;
         }
         
         // Calculate totals for Valeur, Solde Débiteur and Solde Créditeur
@@ -1334,6 +1445,24 @@ if ($etat) {
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            const tbody = document.getElementById('bilanTableBody');
+            tbody.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const current = draggedBilanRow || document.querySelector('.bilan-row.dragging');
+                if (!current) {
+                    return;
+                }
+                const afterElement = getDragAfterElement(tbody, e.clientY);
+                if (afterElement == null) {
+                    tbody.appendChild(current);
+                } else {
+                    tbody.insertBefore(current, afterElement);
+                }
+            });
+
+            document.querySelectorAll('#bilanTableBody .bilan-row').forEach(attachRowDragAndDrop);
+            updateBilanRowOrder();
+
             // Add input listeners for validation
             document.querySelectorAll('.bilan-field').forEach(field => {
                 field.addEventListener('input', validateBilanFields);
@@ -1351,6 +1480,7 @@ if ($etat) {
         
         // Handle form submission - No validation needed as no fields are mandatory
         document.getElementById('bilanForm').addEventListener('submit', function(e) {
+            updateBilanRowOrder();
             // Simply allow the form to submit - validation always passes
             return true;
         });

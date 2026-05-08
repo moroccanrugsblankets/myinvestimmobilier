@@ -133,6 +133,12 @@ function generateBilanLogementPDF($contratId) {
 
         // Decode bilan data
         $bilanRows = json_decode($etatLieux['bilan_logement_data'], true) ?: [];
+        if (is_array($bilanRows)) {
+            $bilanRows = array_values($bilanRows);
+            usort($bilanRows, function($a, $b) {
+                return ((int)($a['position'] ?? 0)) <=> ((int)($b['position'] ?? 0));
+            });
+        }
         
         // Get HTML template from parametres
         $stmt = $pdo->prepare("SELECT valeur FROM parametres WHERE cle = 'bilan_logement_template_html'");
