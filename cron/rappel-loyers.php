@@ -86,6 +86,7 @@ function creerEntriesTrackingMoisCourant($pdo, $mois, $annee) {
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats
                 WHERE statut = 'valide'
+                AND deleted_at IS NULL
                 AND date_prise_effet IS NOT NULL
                 AND date_prise_effet <= CURDATE()
                 GROUP BY logement_id
@@ -252,6 +253,7 @@ function envoyerRappelLocataires($pdo, $mois, $annee) {
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats
                 WHERE statut = 'valide'
+                AND deleted_at IS NULL
                 AND date_prise_effet IS NOT NULL
                 AND date_prise_effet <= CURDATE()
                 GROUP BY logement_id

@@ -152,6 +152,7 @@ $stmt = $pdo->prepare("
            CONCAT(loc.prenom, ' ', loc.nom) as locataire_nom,
            (SELECT COUNT(*) FROM signalements_photos sp WHERE sp.signalement_id = sig.id) as nb_photos
     FROM signalements sig
+    INNER JOIN contrats c ON sig.contrat_id = c.id AND c.deleted_at IS NULL AND c.statut = 'valide'
     INNER JOIN logements l ON sig.logement_id = l.id
     LEFT JOIN locataires loc ON sig.locataire_id = loc.id
     WHERE $whereClause
@@ -164,11 +165,20 @@ $stmt->execute($params);
 $signalements = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Statistiques
+$statsRow = $pdo->query("
+    SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN sig.statut = 'nouveau' THEN 1 ELSE 0 END) as nouveau,
+        SUM(CASE WHEN sig.statut = 'en_cours' THEN 1 ELSE 0 END) as en_cours,
+        SUM(CASE WHEN sig.priorite = 'urgent' AND sig.statut NOT IN ('resolu','clos') THEN 1 ELSE 0 END) as urgents
+    FROM signalements sig
+    INNER JOIN contrats c ON sig.contrat_id = c.id AND c.deleted_at IS NULL AND c.statut = 'valide'
+")->fetch(PDO::FETCH_ASSOC);
 $stats = [
-    'total'     => $pdo->query("SELECT COUNT(*) FROM signalements")->fetchColumn(),
-    'nouveau'   => $pdo->query("SELECT COUNT(*) FROM signalements WHERE statut = 'nouveau'")->fetchColumn(),
-    'en_cours'  => $pdo->query("SELECT COUNT(*) FROM signalements WHERE statut = 'en_cours'")->fetchColumn(),
-    'urgents'   => $pdo->query("SELECT COUNT(*) FROM signalements WHERE priorite = 'urgent' AND statut NOT IN ('resolu','clos')")->fetchColumn(),
+    'total'    => (int)($statsRow['total']    ?? 0),
+    'nouveau'  => (int)($statsRow['nouveau']  ?? 0),
+    'en_cours' => (int)($statsRow['en_cours'] ?? 0),
+    'urgents'  => (int)($statsRow['urgents']  ?? 0),
 ];
 
 $statutLabels = [

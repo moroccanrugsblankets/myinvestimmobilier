@@ -79,6 +79,7 @@ $sqlContrats = "
         SELECT logement_id, MAX(id) AS max_id
         FROM contrats
         WHERE statut = 'valide'
+          AND deleted_at IS NULL
           AND date_prise_effet <= CURDATE()
         GROUP BY logement_id
     ) actifs ON c.id = actifs.max_id

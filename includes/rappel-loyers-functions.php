@@ -36,10 +36,12 @@ function genererMessageStatutLoyers($pdo, $mois, $annee) {
                  FROM locataires loc
                  INNER JOIN contrats c2 ON loc.contrat_id = c2.id
                  WHERE c2.logement_id = l.id AND c2.statut = 'valide'
+                 AND c2.deleted_at IS NULL
                  AND c2.date_prise_effet IS NOT NULL AND c2.date_prise_effet <= CURDATE()
                  AND c2.id = (
                      SELECT id FROM contrats c3
                      WHERE c3.logement_id = l.id AND c3.statut = 'valide'
+                     AND c3.deleted_at IS NULL
                      AND c3.date_prise_effet IS NOT NULL AND c3.date_prise_effet <= CURDATE()
                      ORDER BY c3.date_prise_effet DESC, c3.id DESC LIMIT 1
                  )) as locataires,
@@ -60,6 +62,7 @@ function genererMessageStatutLoyers($pdo, $mois, $annee) {
                 SELECT logement_id, MAX(id) AS max_contrat_id
                 FROM contrats
                 WHERE statut = 'valide'
+                AND deleted_at IS NULL
                 AND date_prise_effet IS NOT NULL AND date_prise_effet <= CURDATE()
                 GROUP BY logement_id
             ) dc ON c.id = dc.max_contrat_id
