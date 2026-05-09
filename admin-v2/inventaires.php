@@ -11,7 +11,7 @@ $stmt = $pdo->query("
            l.type as logement_type,
            inv.statut
     FROM inventaires inv
-    LEFT JOIN contrats c ON inv.contrat_id = c.id
+    INNER JOIN contrats c ON inv.contrat_id = c.id AND c.deleted_at IS NULL AND c.statut = 'valide'
     LEFT JOIN candidatures cand ON c.candidature_id = cand.id
     LEFT JOIN logements l ON inv.logement_id = l.id
     WHERE inv.deleted_at IS NULL

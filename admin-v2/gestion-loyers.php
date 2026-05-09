@@ -25,7 +25,7 @@ require_once '../pdf/generate-quittance.php';
 // Un contrat est considéré actif si :
 // - Son statut est 'valide' (contrat validé uniquement, selon cahier des charges section 8)
 // - Sa date de prise d'effet est dans le passé ou aujourd'hui (contrat déjà en cours)
-define('CONTRAT_ACTIF_FILTER', "c.statut = 'valide' AND c.date_prise_effet IS NOT NULL AND c.date_prise_effet <= CURDATE()");
+define('CONTRAT_ACTIF_FILTER', "c.statut = 'valide' AND c.deleted_at IS NULL AND c.date_prise_effet IS NOT NULL AND c.date_prise_effet <= CURDATE()");
 
 // Déterminer la période à afficher
 $anneeActuelle = (int)date('Y');
