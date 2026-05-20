@@ -988,6 +988,7 @@ if ($contrat['validated_by']) {
         </div>
 
         <!-- 4. Actions de Vérification -->
+		<?php if ($contrat['statut'] === 'signe'): ?>
         <div class="action-section">
             <h5><i class="bi bi-clipboard-check"></i> Actions de Vérification</h5>
             <p>Le contrat a été signé par le client. Vous devez maintenant vérifier les informations et:</p>
@@ -1049,6 +1050,7 @@ if ($contrat['validated_by']) {
                 </div>
             </div>
         </div>
+		<?php endif; ?>
 
         <!-- 5. Documents Envoyés -->
         <div class="detail-card">
