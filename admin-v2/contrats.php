@@ -318,8 +318,12 @@ $stats = [
                                             <i class="bi bi-envelope"></i> <span class="d-none d-lg-inline">Renvoyer</span>
                                         </button>
                                     <?php endif; ?>
+                                    <button type="button" class="btn btn-outline-secondary" title="Documents du contrat"
+                                           onclick="openDocsModal(<?php echo $contrat['id']; ?>, '<?php echo htmlspecialchars($contrat['reference_unique'], ENT_QUOTES); ?>')">
+                                       <i class="bi bi-folder2-open"></i> <span class="d-none d-lg-inline">Docs</span>
+                                    </button>
                                     <button class="btn btn-outline-danger" title="Supprimer" onclick="deleteContract(<?php echo $contrat['id']; ?>, '<?php echo htmlspecialchars($contrat['reference_unique'], ENT_QUOTES); ?>')">
-                                        <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
+                                       <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Supprimer</span>
                                     </button>
                                 </div>
                             </td>
@@ -474,5 +478,218 @@ $stats = [
             </div>
         </div>
     </div>
+
+    <!-- Documents Modal -->
+    <div class="modal fade" id="docsModal" tabindex="-1" aria-labelledby="docsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #2c3e50, #3498db);">
+                    <h5 class="modal-title text-white" id="docsModalLabel">
+                        <i class="bi bi-folder2-open me-2"></i>Documents — <span id="docsModalRef"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loading -->
+                    <div id="docsLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 text-muted">Chargement des documents…</p>
+                    </div>
+
+                    <!-- Contenu -->
+                    <div id="docsContent" style="display:none;">
+                        <!-- PDFs -->
+                        <div id="docsPdfSection">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Documents PDF</h6>
+                            <div id="docsPdfList" class="list-group mb-4"></div>
+                        </div>
+
+                        <!-- Photos -->
+                        <div id="docsPhotosSection">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary me-2"></i>Photos</h6>
+                            <!-- Grande photo active -->
+                            <div class="text-center mb-3 position-relative" id="docsGalleryMain" style="background:#000; border-radius:8px; overflow:hidden; min-height:300px; max-height:520px; display:flex; align-items:center; justify-content:center;">
+                                <button class="btn btn-light btn-sm position-absolute start-0 top-50 translate-middle-y ms-2" id="docsPrevBtn" style="z-index:10;" onclick="docsGalleryNav(-1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <img id="docsMainImg" src="" alt="" style="max-width:100%; max-height:520px; object-fit:contain; display:block;">
+                                <button class="btn btn-light btn-sm position-absolute end-0 top-50 translate-middle-y me-2" id="docsNextBtn" style="z-index:10;" onclick="docsGalleryNav(1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <p class="text-center text-muted small mb-3" id="docsImgLabel"></p>
+                            <!-- Miniatures -->
+                            <div id="docsThumbs" class="d-flex flex-wrap gap-2 justify-content-center"></div>
+                        </div>
+
+                        <!-- Aucun document -->
+                        <div id="docsEmpty" class="text-center py-4 text-muted" style="display:none;">
+                            <i class="bi bi-inbox" style="font-size:40px;"></i>
+                            <p class="mt-2">Aucun document trouvé pour ce contrat.</p>
+                        </div>
+                    </div>
+
+                    <!-- Erreur -->
+                    <div id="docsError" class="alert alert-danger" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Photo Lightbox -->
+    <div class="modal fade" id="docsLightbox" tabindex="-1" aria-hidden="true" style="z-index:1100;">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content bg-black">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body d-flex align-items-center justify-content-center position-relative p-0">
+                    <button class="btn btn-light btn-sm position-absolute start-0 ms-3" onclick="docsGalleryNav(-1)" style="z-index:10;">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <img id="docsLightboxImg" src="" alt="" style="max-width:100%; max-height:90vh; object-fit:contain;">
+                    <button class="btn btn-light btn-sm position-absolute end-0 me-3" onclick="docsGalleryNav(1)" style="z-index:10;">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <p class="text-white small mb-0" id="docsLightboxLabel"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Docs Gallery state ────────────────────────────────────────────────
+        var _docsPhotos = [];
+        var _docsCurrentIdx = 0;
+
+        function openDocsModal(contratId, reference) {
+            document.getElementById('docsModalRef').textContent = reference;
+            document.getElementById('docsLoading').style.display = '';
+            document.getElementById('docsContent').style.display = 'none';
+            document.getElementById('docsError').style.display = 'none';
+
+            var modal = new bootstrap.Modal(document.getElementById('docsModal'));
+            modal.show();
+
+            fetch('get-contrat-docs.php?contrat_id=' + encodeURIComponent(contratId))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        document.getElementById('docsLoading').style.display = 'none';
+                        var errEl = document.getElementById('docsError');
+                        errEl.textContent = data.error;
+                        errEl.style.display = '';
+                        return;
+                    }
+                    renderDocs(data.pdfs || [], data.photos || []);
+                })
+                .catch(function(err) {
+                    document.getElementById('docsLoading').style.display = 'none';
+                    var errEl = document.getElementById('docsError');
+                    errEl.textContent = 'Erreur lors du chargement des documents.';
+                    errEl.style.display = '';
+                });
+        }
+
+        function renderDocs(pdfs, photos) {
+            document.getElementById('docsLoading').style.display = 'none';
+            document.getElementById('docsContent').style.display = '';
+
+            var hasPdfs   = pdfs.length > 0;
+            var hasPhotos = photos.length > 0;
+
+            // PDFs
+            var pdfSection = document.getElementById('docsPdfSection');
+            var pdfList    = document.getElementById('docsPdfList');
+            pdfSection.style.display = hasPdfs ? '' : 'none';
+            pdfList.innerHTML = '';
+            pdfs.forEach(function(doc) {
+                var a = document.createElement('a');
+                a.href   = doc.url;
+                a.target = '_blank';
+                a.rel    = 'noopener noreferrer';
+                a.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+                a.innerHTML = '<i class="bi bi-file-earmark-pdf text-danger fs-5"></i>'
+                            + '<span class="flex-grow-1">' + escapeHtml(doc.label) + '</span>'
+                            + '<i class="bi bi-box-arrow-up-right text-muted"></i>';
+                pdfList.appendChild(a);
+            });
+
+            // Photos
+            var photosSection = document.getElementById('docsPhotosSection');
+            photosSection.style.display = hasPhotos ? '' : 'none';
+            _docsPhotos = photos;
+            _docsCurrentIdx = 0;
+
+            var thumbs = document.getElementById('docsThumbs');
+            thumbs.innerHTML = '';
+            photos.forEach(function(ph, idx) {
+                var img = document.createElement('img');
+                img.src     = ph.url;
+                img.alt     = ph.label;
+                img.title   = ph.label;
+                img.dataset.idx = idx;
+                img.style.cssText = 'width:80px; height:80px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:border-color .2s;';
+                img.onclick = function() { docsGalleryShow(idx); };
+                thumbs.appendChild(img);
+            });
+
+            if (hasPhotos) {
+                docsGalleryShow(0);
+            }
+
+            // Empty state
+            document.getElementById('docsEmpty').style.display = (!hasPdfs && !hasPhotos) ? '' : 'none';
+        }
+
+        function docsGalleryShow(idx) {
+            if (_docsPhotos.length === 0) return;
+            // Handle circular navigation: normalize negative indices and wrap around array bounds
+            idx = ((idx % _docsPhotos.length) + _docsPhotos.length) % _docsPhotos.length;
+            _docsCurrentIdx = idx;
+
+            var ph = _docsPhotos[idx];
+            document.getElementById('docsMainImg').src       = ph.url;
+            document.getElementById('docsMainImg').alt       = ph.label;
+            document.getElementById('docsImgLabel').textContent = ph.label + ' (' + (idx + 1) + '/' + _docsPhotos.length + ')';
+
+            // Sync lightbox
+            document.getElementById('docsLightboxImg').src          = ph.url;
+            document.getElementById('docsLightboxLabel').textContent = ph.label + ' (' + (idx + 1) + '/' + _docsPhotos.length + ')';
+
+            // Highlight active thumb
+            document.querySelectorAll('#docsThumbs img').forEach(function(t) {
+                t.style.borderColor = parseInt(t.dataset.idx) === idx ? '#0d6efd' : 'transparent';
+                t.style.opacity     = parseInt(t.dataset.idx) === idx ? '1' : '0.65';
+            });
+
+            // Show/hide nav buttons (only when there are multiple photos)
+            var showNavButtons = _docsPhotos.length > 1;
+            document.getElementById('docsPrevBtn').style.display = showNavButtons ? '' : 'none';
+            document.getElementById('docsNextBtn').style.display = showNavButtons ? '' : 'none';
+        }
+
+        function docsGalleryNav(dir) {
+            docsGalleryShow(_docsCurrentIdx + dir);
+        }
+
+        // Click on main image to open lightbox
+        document.getElementById('docsMainImg').addEventListener('click', function() {
+            if (_docsPhotos.length === 0) return;
+            var lb = new bootstrap.Modal(document.getElementById('docsLightbox'));
+            lb.show();
+        });
+
+        function escapeHtml(str) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(str));
+            return d.innerHTML;
+        }
+    </script>
 </body>
 </html>
