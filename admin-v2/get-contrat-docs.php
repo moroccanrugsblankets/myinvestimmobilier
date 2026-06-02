@@ -41,20 +41,11 @@ $photos = [];
 
 // ── 1. Contrat (bail) PDF ────────────────────────────────────────────────────
 if (in_array($contrat['statut'], ['signe', 'valide', 'actif', 'expire', 'termine'])) {
-    $pdfDir  = dirname(__DIR__) . '/pdf/contrats/';
-    $pdfFile = $pdfDir . 'bail-' . $contrat['reference_unique'] . '.pdf';
-    if (file_exists($pdfFile)) {
-        $pdfs[] = [
-            'label' => 'Contrat (bail)',
-            'url'   => $siteUrl . '/pdf/download.php?contrat_id=' . $contratId . '&view=1',
-        ];
-    } else {
-        // Lien qui génère le PDF à la volée
-        $pdfs[] = [
-            'label' => 'Contrat (bail)',
-            'url'   => $siteUrl . '/pdf/download.php?contrat_id=' . $contratId . '&view=1',
-        ];
-    }
+    // Le lien génère le PDF à la volée si le fichier n'existe pas encore
+    $pdfs[] = [
+        'label' => 'Contrat (bail)',
+        'url'   => $siteUrl . '/pdf/download.php?contrat_id=' . $contratId . '&view=1',
+    ];
 }
 
 // ── 2. États des lieux ────────────────────────────────────────────────────────

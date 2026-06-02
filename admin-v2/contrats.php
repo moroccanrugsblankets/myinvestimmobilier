@@ -649,6 +649,7 @@ $stats = [
 
         function docsGalleryShow(idx) {
             if (_docsPhotos.length === 0) return;
+            // Handle circular navigation: normalize negative indices and wrap around array bounds
             idx = ((idx % _docsPhotos.length) + _docsPhotos.length) % _docsPhotos.length;
             _docsCurrentIdx = idx;
 
@@ -667,10 +668,10 @@ $stats = [
                 t.style.opacity     = parseInt(t.dataset.idx) === idx ? '1' : '0.65';
             });
 
-            // Show/hide nav buttons
-            var hasPrev = _docsPhotos.length > 1;
-            document.getElementById('docsPrevBtn').style.display = hasPrev ? '' : 'none';
-            document.getElementById('docsNextBtn').style.display = hasPrev ? '' : 'none';
+            // Show/hide nav buttons (only when there are multiple photos)
+            var showNavButtons = _docsPhotos.length > 1;
+            document.getElementById('docsPrevBtn').style.display = showNavButtons ? '' : 'none';
+            document.getElementById('docsNextBtn').style.display = showNavButtons ? '' : 'none';
         }
 
         function docsGalleryNav(dir) {
