@@ -496,31 +496,9 @@ $stats = [
                         <p class="mt-2 text-muted">Chargement des documents…</p>
                     </div>
 
-                    <!-- Contenu -->
+                    <!-- Contenu par rubriques -->
                     <div id="docsContent" style="display:none;">
-                        <!-- PDFs -->
-                        <div id="docsPdfSection">
-                            <h6 class="fw-bold mb-3"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Documents PDF</h6>
-                            <div id="docsPdfList" class="list-group mb-4"></div>
-                        </div>
-
-                        <!-- Photos -->
-                        <div id="docsPhotosSection">
-                            <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary me-2"></i>Photos</h6>
-                            <!-- Grande photo active -->
-                            <div class="text-center mb-3 position-relative" id="docsGalleryMain" style="background:#000; border-radius:8px; overflow:hidden; min-height:300px; max-height:520px; display:flex; align-items:center; justify-content:center;">
-                                <button class="btn btn-light btn-sm position-absolute start-0 top-50 translate-middle-y ms-2" id="docsPrevBtn" style="z-index:10;" onclick="docsGalleryNav(-1)">
-                                    <i class="bi bi-chevron-left"></i>
-                                </button>
-                                <img id="docsMainImg" src="" alt="" style="max-width:100%; max-height:520px; object-fit:contain; display:block;">
-                                <button class="btn btn-light btn-sm position-absolute end-0 top-50 translate-middle-y me-2" id="docsNextBtn" style="z-index:10;" onclick="docsGalleryNav(1)">
-                                    <i class="bi bi-chevron-right"></i>
-                                </button>
-                            </div>
-                            <p class="text-center text-muted small mb-3" id="docsImgLabel"></p>
-                            <!-- Miniatures -->
-                            <div id="docsThumbs" class="d-flex flex-wrap gap-2 justify-content-center"></div>
-                        </div>
+                        <div id="docsSections"></div>
 
                         <!-- Aucun document -->
                         <div id="docsEmpty" class="text-center py-4 text-muted" style="display:none;">
@@ -539,7 +517,7 @@ $stats = [
         </div>
     </div>
 
-    <!-- Photo Lightbox -->
+    <!-- Photo Lightbox (partagé entre toutes les rubriques) -->
     <div class="modal fade" id="docsLightbox" tabindex="-1" aria-hidden="true" style="z-index:1100;">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content bg-black">
@@ -547,11 +525,11 @@ $stats = [
                     <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body d-flex align-items-center justify-content-center position-relative p-0">
-                    <button class="btn btn-light btn-sm position-absolute start-0 ms-3" onclick="docsGalleryNav(-1)" style="z-index:10;">
+                    <button class="btn btn-light btn-sm position-absolute start-0 ms-3" onclick="docsLightboxNav(-1)" style="z-index:10;">
                         <i class="bi bi-chevron-left"></i>
                     </button>
                     <img id="docsLightboxImg" src="" alt="" style="max-width:100%; max-height:90vh; object-fit:contain;">
-                    <button class="btn btn-light btn-sm position-absolute end-0 me-3" onclick="docsGalleryNav(1)" style="z-index:10;">
+                    <button class="btn btn-light btn-sm position-absolute end-0 me-3" onclick="docsLightboxNav(1)" style="z-index:10;">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>
@@ -563,9 +541,9 @@ $stats = [
     </div>
 
     <script>
-        // ── Docs Gallery state ────────────────────────────────────────────────
-        var _docsPhotos = [];
-        var _docsCurrentIdx = 0;
+        // ── Docs : état des galeries par rubrique ─────────────────────────────
+        var _docsSectionStates = {};   // { key: { photos: [], idx: 0 } }
+        var _docsLightboxKey   = null; // rubrique actuellement affichée en lightbox
 
         function openDocsModal(contratId, reference) {
             var modalEl   = document.getElementById('docsModal');
@@ -575,7 +553,7 @@ $stats = [
             var errorEl   = document.getElementById('docsError');
 
             if (!modalEl || !refEl || !loadingEl || !contentEl || !errorEl) {
-                console.error('openDocsModal: un ou plusieurs éléments du modal introuvables (docsModal, docsModalRef, docsLoading, docsContent, docsError).');
+                console.error('openDocsModal: un ou plusieurs éléments du modal introuvables.');
                 return;
             }
 
@@ -600,7 +578,7 @@ $stats = [
                     return r.json();
                 })
                 .then(function(data) {
-                    renderDocs(data.pdfs || [], data.photos || []);
+                    renderDocsSections(data.sections || []);
                 })
                 .catch(function(err) {
                     loadingEl.style.display = 'none';
@@ -609,98 +587,206 @@ $stats = [
                 });
         }
 
-        function renderDocs(pdfs, photos) {
-            var loadingEl = document.getElementById('docsLoading');
-            var contentEl = document.getElementById('docsContent');
-            if (loadingEl) { loadingEl.style.display = 'none'; }
-            if (contentEl) { contentEl.style.display = ''; }
+        // Icône Bootstrap Icons selon la clé de rubrique
+        function docsSectionIcon(key) {
+            var icons = {
+                contrat:    '<i class="bi bi-file-earmark-text text-primary me-2"></i>',
+                edl_entree: '<i class="bi bi-door-open text-success me-2"></i>',
+                edl_sortie: '<i class="bi bi-door-closed text-warning me-2"></i>',
+                inv_entree: '<i class="bi bi-clipboard-check text-success me-2"></i>',
+                inv_sortie: '<i class="bi bi-clipboard-x text-warning me-2"></i>',
+                bilan:      '<i class="bi bi-house-check text-info me-2"></i>',
+                quittances: '<i class="bi bi-receipt text-dark me-2"></i>',
+                signalement:'<i class="bi bi-exclamation-triangle text-danger me-2"></i>',
+                demandes:   '<i class="bi bi-folder2 text-secondary me-2"></i>'
+            };
+            return icons[key] || '<i class="bi bi-folder2 me-2"></i>';
+        }
 
-            var hasPdfs   = pdfs.length > 0;
-            var hasPhotos = photos.length > 0;
+        function renderDocsSections(sections) {
+            var loadingEl   = document.getElementById('docsLoading');
+            var contentEl   = document.getElementById('docsContent');
+            var emptyEl     = document.getElementById('docsEmpty');
+            var container   = document.getElementById('docsSections');
 
-            // PDFs
-            var pdfSection = document.getElementById('docsPdfSection');
-            var pdfList    = document.getElementById('docsPdfList');
-            pdfSection.style.display = hasPdfs ? '' : 'none';
-            pdfList.innerHTML = '';
-            pdfs.forEach(function(doc) {
-                var a = document.createElement('a');
-                a.href   = doc.url;
-                a.target = '_blank';
-                a.rel    = 'noopener noreferrer';
-                a.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
-                a.innerHTML = '<i class="bi bi-file-earmark-pdf text-danger fs-5"></i>'
-                            + '<span class="flex-grow-1">' + escapeHtml(doc.label) + '</span>'
-                            + '<i class="bi bi-box-arrow-up-right text-muted"></i>';
-                pdfList.appendChild(a);
+            loadingEl.style.display = 'none';
+            contentEl.style.display = '';
+            _docsSectionStates = {};
+            container.innerHTML = '';
+
+            var hasAny = false;
+
+            sections.forEach(function(section) {
+                var hasPdfs   = section.pdfs   && section.pdfs.length   > 0;
+                var hasPhotos = section.photos && section.photos.length > 0;
+                if (!hasPdfs && !hasPhotos) return;
+
+                hasAny = true;
+                var key = section.key;
+
+                var sectionDiv = document.createElement('div');
+                sectionDiv.className = 'docs-section mb-4 pb-3 border-bottom';
+
+                // ── Titre de la rubrique
+                var heading = document.createElement('h6');
+                heading.className = 'fw-bold mb-3 d-flex align-items-center';
+                heading.innerHTML = docsSectionIcon(key) + escapeHtml(section.rubrique);
+                sectionDiv.appendChild(heading);
+
+                // ── Liste des PDFs
+                if (hasPdfs) {
+                    var pdfList = document.createElement('div');
+                    pdfList.className = 'list-group mb-3';
+                    section.pdfs.forEach(function(doc) {
+                        var a = document.createElement('a');
+                        a.href      = doc.url;
+                        a.target    = '_blank';
+                        a.rel       = 'noopener noreferrer';
+                        a.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+                        a.innerHTML = '<i class="bi bi-file-earmark-pdf text-danger fs-5"></i>'
+                                    + '<span class="flex-grow-1">' + escapeHtml(doc.label) + '</span>'
+                                    + '<i class="bi bi-box-arrow-up-right text-muted"></i>';
+                        pdfList.appendChild(a);
+                    });
+                    sectionDiv.appendChild(pdfList);
+                }
+
+                // ── Galerie photos
+                if (hasPhotos) {
+                    _docsSectionStates[key] = { photos: section.photos, idx: 0 };
+
+                    var galleryDiv = document.createElement('div');
+                    galleryDiv.className = 'docs-gallery mt-2';
+
+                    // Grande photo active
+                    var mainArea = document.createElement('div');
+                    mainArea.className = 'text-center mb-2 position-relative';
+                    mainArea.style.cssText = 'background:#000; border-radius:8px; overflow:hidden; min-height:200px; max-height:400px; display:flex; align-items:center; justify-content:center;';
+
+                    var prevBtn = document.createElement('button');
+                    prevBtn.id = 'docs-prev-' + key;
+                    prevBtn.className = 'btn btn-light btn-sm position-absolute start-0 top-50 translate-middle-y ms-2';
+                    prevBtn.style.zIndex = '10';
+                    prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+                    prevBtn.addEventListener('click', (function(k) { return function() { docsGallerySectionNav(k, -1); }; })(key));
+
+                    var mainImg = document.createElement('img');
+                    mainImg.id = 'docs-main-' + key;
+                    mainImg.src = '';
+                    mainImg.alt = '';
+                    mainImg.title = 'Agrandir';
+                    mainImg.style.cssText = 'max-width:100%; max-height:400px; object-fit:contain; display:block; cursor:zoom-in;';
+                    mainImg.addEventListener('click', (function(k) { return function() { docsOpenLightbox(k); }; })(key));
+
+                    var nextBtn = document.createElement('button');
+                    nextBtn.id = 'docs-next-' + key;
+                    nextBtn.className = 'btn btn-light btn-sm position-absolute end-0 top-50 translate-middle-y me-2';
+                    nextBtn.style.zIndex = '10';
+                    nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+                    nextBtn.addEventListener('click', (function(k) { return function() { docsGallerySectionNav(k, 1); }; })(key));
+
+                    mainArea.appendChild(prevBtn);
+                    mainArea.appendChild(mainImg);
+                    mainArea.appendChild(nextBtn);
+                    galleryDiv.appendChild(mainArea);
+
+                    // Légende
+                    var labelEl = document.createElement('p');
+                    labelEl.className = 'text-center text-muted small mb-2';
+                    labelEl.id = 'docs-label-' + key;
+                    galleryDiv.appendChild(labelEl);
+
+                    // Miniatures
+                    var thumbsDiv = document.createElement('div');
+                    thumbsDiv.className = 'd-flex flex-wrap gap-2 justify-content-center';
+                    thumbsDiv.id = 'docs-thumbs-' + key;
+                    section.photos.forEach(function(ph, i) {
+                        var thumb = document.createElement('img');
+                        thumb.src           = ph.url;
+                        thumb.alt           = ph.label;
+                        thumb.title         = ph.label;
+                        thumb.dataset.idx   = i;
+                        thumb.style.cssText = 'width:70px; height:70px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:border-color .2s, opacity .2s;';
+                        thumb.addEventListener('click', (function(k, n) { return function() { docsGallerySectionShow(k, n); }; })(key, i));
+                        thumbsDiv.appendChild(thumb);
+                    });
+                    galleryDiv.appendChild(thumbsDiv);
+                    sectionDiv.appendChild(galleryDiv);
+                }
+
+                container.appendChild(sectionDiv);
+
+                // Initialiser la galerie sur la première photo
+                if (hasPhotos) {
+                    docsGallerySectionShow(key, 0);
+                }
             });
 
-            // Photos
-            var photosSection = document.getElementById('docsPhotosSection');
-            photosSection.style.display = hasPhotos ? '' : 'none';
-            _docsPhotos = photos;
-            _docsCurrentIdx = 0;
+            emptyEl.style.display = hasAny ? 'none' : '';
+        }
 
-            var thumbs = document.getElementById('docsThumbs');
-            thumbs.innerHTML = '';
-            photos.forEach(function(ph, idx) {
-                var img = document.createElement('img');
-                img.src     = ph.url;
-                img.alt     = ph.label;
-                img.title   = ph.label;
-                img.dataset.idx = idx;
-                img.style.cssText = 'width:80px; height:80px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:border-color .2s;';
-                img.onclick = function() { docsGalleryShow(idx); };
-                thumbs.appendChild(img);
-            });
+        // Affiche la photo à l'index idx pour la rubrique key
+        function docsGallerySectionShow(key, idx) {
+            var state = _docsSectionStates[key];
+            if (!state || state.photos.length === 0) return;
 
-            if (hasPhotos) {
-                docsGalleryShow(0);
+            idx = ((idx % state.photos.length) + state.photos.length) % state.photos.length;
+            state.idx = idx;
+
+            var ph      = state.photos[idx];
+            var mainImg = document.getElementById('docs-main-' + key);
+            var labelEl = document.getElementById('docs-label-' + key);
+            var prevBtn = document.getElementById('docs-prev-' + key);
+            var nextBtn = document.getElementById('docs-next-' + key);
+            var count   = state.photos.length;
+            var showNav = count > 1;
+
+            if (mainImg) { mainImg.src = ph.url; mainImg.alt = ph.label; }
+            if (labelEl) { labelEl.textContent = (ph.label ? ph.label + ' — ' : '') + (idx + 1) + ' / ' + count; }
+            if (prevBtn) { prevBtn.style.display = showNav ? '' : 'none'; }
+            if (nextBtn) { nextBtn.style.display = showNav ? '' : 'none'; }
+
+            // Mettre en évidence la miniature active
+            var thumbContainer = document.getElementById('docs-thumbs-' + key);
+            if (thumbContainer) {
+                thumbContainer.querySelectorAll('img').forEach(function(t) {
+                    var active = parseInt(t.dataset.idx) === idx;
+                    t.style.borderColor = active ? '#0d6efd' : 'transparent';
+                    t.style.opacity     = active ? '1' : '0.6';
+                });
             }
 
-            // Empty state
-            document.getElementById('docsEmpty').style.display = (!hasPdfs && !hasPhotos) ? '' : 'none';
+            // Synchroniser le lightbox si cette rubrique est actuellement affichée
+            if (_docsLightboxKey === key) {
+                document.getElementById('docsLightboxImg').src             = ph.url;
+                document.getElementById('docsLightboxLabel').textContent   = (ph.label ? ph.label + ' — ' : '') + (idx + 1) + ' / ' + count;
+            }
         }
 
-        function docsGalleryShow(idx) {
-            if (_docsPhotos.length === 0) return;
-            // Handle circular navigation: normalize negative indices and wrap around array bounds
-            idx = ((idx % _docsPhotos.length) + _docsPhotos.length) % _docsPhotos.length;
-            _docsCurrentIdx = idx;
-
-            var ph = _docsPhotos[idx];
-            document.getElementById('docsMainImg').src       = ph.url;
-            document.getElementById('docsMainImg').alt       = ph.label;
-            document.getElementById('docsImgLabel').textContent = ph.label + ' (' + (idx + 1) + '/' + _docsPhotos.length + ')';
-
-            // Sync lightbox
-            document.getElementById('docsLightboxImg').src          = ph.url;
-            document.getElementById('docsLightboxLabel').textContent = ph.label + ' (' + (idx + 1) + '/' + _docsPhotos.length + ')';
-
-            // Highlight active thumb
-            document.querySelectorAll('#docsThumbs img').forEach(function(t) {
-                t.style.borderColor = parseInt(t.dataset.idx) === idx ? '#0d6efd' : 'transparent';
-                t.style.opacity     = parseInt(t.dataset.idx) === idx ? '1' : '0.65';
-            });
-
-            // Show/hide nav buttons (only when there are multiple photos)
-            var showNavButtons = _docsPhotos.length > 1;
-            document.getElementById('docsPrevBtn').style.display = showNavButtons ? '' : 'none';
-            document.getElementById('docsNextBtn').style.display = showNavButtons ? '' : 'none';
+        // Navigation précédent / suivant dans une rubrique
+        function docsGallerySectionNav(key, dir) {
+            var state = _docsSectionStates[key];
+            if (!state) return;
+            docsGallerySectionShow(key, state.idx + dir);
         }
 
-        function docsGalleryNav(dir) {
-            docsGalleryShow(_docsCurrentIdx + dir);
+        // Ouvrir le lightbox pour une rubrique donnée
+        function docsOpenLightbox(key) {
+            var state = _docsSectionStates[key];
+            if (!state || state.photos.length === 0) return;
+            _docsLightboxKey = key;
+            var ph    = state.photos[state.idx];
+            var count = state.photos.length;
+            document.getElementById('docsLightboxImg').src           = ph.url;
+            document.getElementById('docsLightboxLabel').textContent = (ph.label ? ph.label + ' — ' : '') + (state.idx + 1) + ' / ' + count;
+            var lb = bootstrap.Modal.getOrCreateInstance(document.getElementById('docsLightbox'));
+            lb.show();
         }
 
-        // Click on main image to open lightbox
-        var _docsMainImg = document.getElementById('docsMainImg');
-        if (_docsMainImg) {
-            _docsMainImg.addEventListener('click', function() {
-                if (_docsPhotos.length === 0) return;
-                var lb = bootstrap.Modal.getOrCreateInstance(document.getElementById('docsLightbox'));
-                lb.show();
-            });
+        // Navigation dans le lightbox (utilise la rubrique active)
+        function docsLightboxNav(dir) {
+            if (!_docsLightboxKey) return;
+            docsGallerySectionNav(_docsLightboxKey, dir);
         }
 
         function escapeHtml(str) {
