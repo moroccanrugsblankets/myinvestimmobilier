@@ -568,37 +568,53 @@ $stats = [
         var _docsCurrentIdx = 0;
 
         function openDocsModal(contratId, reference) {
-            document.getElementById('docsModalRef').textContent = reference;
-            document.getElementById('docsLoading').style.display = '';
-            document.getElementById('docsContent').style.display = 'none';
-            document.getElementById('docsError').style.display = 'none';
+            var modalEl   = document.getElementById('docsModal');
+            var loadingEl = document.getElementById('docsLoading');
+            var contentEl = document.getElementById('docsContent');
+            var errorEl   = document.getElementById('docsError');
 
-            var modal = new bootstrap.Modal(document.getElementById('docsModal'));
+            if (!modalEl || !loadingEl || !contentEl || !errorEl) {
+                console.error('openDocsModal: modal elements not found in DOM', { modalEl: modalEl, loadingEl: loadingEl, contentEl: contentEl, errorEl: errorEl });
+                return;
+            }
+
+            document.getElementById('docsModalRef').textContent = reference;
+            loadingEl.style.display = '';
+            contentEl.style.display = 'none';
+            errorEl.style.display   = 'none';
+
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
 
-            fetch('get-contrat-docs.php?contrat_id=' + encodeURIComponent(contratId))
-                .then(function(r) { return r.json(); })
+            fetch('get-contrat-docs.php?contrat_id=' + encodeURIComponent(contratId), {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            })
+                .then(function(r) {
+                    if (!r.ok) { return r.json().catch(function() { return { error: 'Erreur serveur (' + r.status + ').' }; }); }
+                    return r.json();
+                })
                 .then(function(data) {
                     if (data.error) {
-                        document.getElementById('docsLoading').style.display = 'none';
-                        var errEl = document.getElementById('docsError');
-                        errEl.textContent = data.error;
-                        errEl.style.display = '';
+                        loadingEl.style.display = 'none';
+                        errorEl.textContent = data.error;
+                        errorEl.style.display = '';
                         return;
                     }
                     renderDocs(data.pdfs || [], data.photos || []);
                 })
                 .catch(function(err) {
-                    document.getElementById('docsLoading').style.display = 'none';
-                    var errEl = document.getElementById('docsError');
-                    errEl.textContent = 'Erreur lors du chargement des documents.';
-                    errEl.style.display = '';
+                    loadingEl.style.display = 'none';
+                    errorEl.textContent = 'Erreur lors du chargement des documents.';
+                    errorEl.style.display = '';
                 });
         }
 
         function renderDocs(pdfs, photos) {
-            document.getElementById('docsLoading').style.display = 'none';
-            document.getElementById('docsContent').style.display = '';
+            var loadingEl = document.getElementById('docsLoading');
+            var contentEl = document.getElementById('docsContent');
+            if (loadingEl) { loadingEl.style.display = 'none'; }
+            if (contentEl) { contentEl.style.display = ''; }
 
             var hasPdfs   = pdfs.length > 0;
             var hasPhotos = photos.length > 0;
@@ -679,11 +695,14 @@ $stats = [
         }
 
         // Click on main image to open lightbox
-        document.getElementById('docsMainImg').addEventListener('click', function() {
-            if (_docsPhotos.length === 0) return;
-            var lb = new bootstrap.Modal(document.getElementById('docsLightbox'));
-            lb.show();
-        });
+        var _docsMainImg = document.getElementById('docsMainImg');
+        if (_docsMainImg) {
+            _docsMainImg.addEventListener('click', function() {
+                if (_docsPhotos.length === 0) return;
+                var lb = bootstrap.Modal.getOrCreateInstance(document.getElementById('docsLightbox'));
+                lb.show();
+            });
+        }
 
         function escapeHtml(str) {
             var d = document.createElement('div');
