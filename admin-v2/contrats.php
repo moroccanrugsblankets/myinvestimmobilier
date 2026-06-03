@@ -662,12 +662,32 @@ $stats = [
                     var mainArea = document.createElement('div');
                     mainArea.className = 'text-center mb-2 position-relative';
                     mainArea.style.cssText = 'background:#000; border-radius:8px; overflow:hidden; min-height:200px; max-height:400px; display:flex; align-items:center; justify-content:center;';
-                    mainArea.innerHTML =
-                        '<button class="btn btn-light btn-sm position-absolute start-0 top-50 translate-middle-y ms-2" id="docs-prev-' + key + '" style="z-index:10;" onclick="docsGallerySectionNav(\'' + key + '\', -1)">'
-                        + '<i class="bi bi-chevron-left"></i></button>'
-                        + '<img id="docs-main-' + key + '" src="" alt="" title="Agrandir" style="max-width:100%; max-height:400px; object-fit:contain; display:block; cursor:zoom-in;" onclick="docsOpenLightbox(\'' + key + '\')">'
-                        + '<button class="btn btn-light btn-sm position-absolute end-0 top-50 translate-middle-y me-2" id="docs-next-' + key + '" style="z-index:10;" onclick="docsGallerySectionNav(\'' + key + '\', 1)">'
-                        + '<i class="bi bi-chevron-right"></i></button>';
+
+                    var prevBtn = document.createElement('button');
+                    prevBtn.id = 'docs-prev-' + key;
+                    prevBtn.className = 'btn btn-light btn-sm position-absolute start-0 top-50 translate-middle-y ms-2';
+                    prevBtn.style.zIndex = '10';
+                    prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+                    prevBtn.addEventListener('click', (function(k) { return function() { docsGallerySectionNav(k, -1); }; })(key));
+
+                    var mainImg = document.createElement('img');
+                    mainImg.id = 'docs-main-' + key;
+                    mainImg.src = '';
+                    mainImg.alt = '';
+                    mainImg.title = 'Agrandir';
+                    mainImg.style.cssText = 'max-width:100%; max-height:400px; object-fit:contain; display:block; cursor:zoom-in;';
+                    mainImg.addEventListener('click', (function(k) { return function() { docsOpenLightbox(k); }; })(key));
+
+                    var nextBtn = document.createElement('button');
+                    nextBtn.id = 'docs-next-' + key;
+                    nextBtn.className = 'btn btn-light btn-sm position-absolute end-0 top-50 translate-middle-y me-2';
+                    nextBtn.style.zIndex = '10';
+                    nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+                    nextBtn.addEventListener('click', (function(k) { return function() { docsGallerySectionNav(k, 1); }; })(key));
+
+                    mainArea.appendChild(prevBtn);
+                    mainArea.appendChild(mainImg);
+                    mainArea.appendChild(nextBtn);
                     galleryDiv.appendChild(mainArea);
 
                     // Légende
@@ -687,7 +707,7 @@ $stats = [
                         thumb.title         = ph.label;
                         thumb.dataset.idx   = i;
                         thumb.style.cssText = 'width:70px; height:70px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:border-color .2s, opacity .2s;';
-                        thumb.onclick = (function(k, n) { return function() { docsGallerySectionShow(k, n); }; })(key, i);
+                        thumb.addEventListener('click', (function(k, n) { return function() { docsGallerySectionShow(k, n); }; })(key, i));
                         thumbsDiv.appendChild(thumb);
                     });
                     galleryDiv.appendChild(thumbsDiv);

@@ -49,7 +49,7 @@ $sections = [
     'bilan'      => ['rubrique' => 'Bilan de logement',        'key' => 'bilan',      'pdfs' => [], 'photos' => []],
     'quittances' => ['rubrique' => 'Quittances',               'key' => 'quittances', 'pdfs' => [], 'photos' => []],
     'signalement'=> ['rubrique' => 'Signalement',              'key' => 'signalement','pdfs' => [], 'photos' => []],
-    'demandes'   => ['rubrique' => 'Demandes &amp; Documents', 'key' => 'demandes',   'pdfs' => [], 'photos' => []],
+    'demandes'   => ['rubrique' => 'Demandes & Documents',     'key' => 'demandes',   'pdfs' => [], 'photos' => []],
 ];
 
 // ── 1. Contrat (bail) PDF ────────────────────────────────────────────────────
