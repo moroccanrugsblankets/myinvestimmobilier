@@ -322,7 +322,7 @@ function docsSectionIconClass(string $key): string {
             $hasPdfs  = !empty($section['pdfs']);
             $hasPhotos= !empty($section['photos']);
             $iconCls  = docsSectionIconClass($key);
-            $jsonPhotos = htmlspecialchars(json_encode($section['photos']), ENT_QUOTES, 'UTF-8');
+            $jsonPhotos = htmlspecialchars(json_encode($section['photos'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8');
         ?>
             <div class="mb-4 p-4" style="background:white; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1);">
                 <h6 class="fw-bold mb-3 d-flex align-items-center">
