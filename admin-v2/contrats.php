@@ -574,7 +574,7 @@ $stats = [
             var errorEl   = document.getElementById('docsError');
 
             if (!modalEl || !loadingEl || !contentEl || !errorEl) {
-                console.error('openDocsModal: modal elements not found in DOM', { modalEl: modalEl, loadingEl: loadingEl, contentEl: contentEl, errorEl: errorEl });
+                console.error('openDocsModal: un ou plusieurs éléments du modal introuvables (docsModal, docsLoading, docsContent, docsError).');
                 return;
             }
 
@@ -591,21 +591,19 @@ $stats = [
                 headers: { 'Accept': 'application/json' }
             })
                 .then(function(r) {
-                    if (!r.ok) { return r.json().catch(function() { return { error: 'Erreur serveur (' + r.status + ').' }; }); }
+                    if (!r.ok) {
+                        return r.json()
+                            .catch(function() { throw new Error('Erreur serveur (' + r.status + ').'); })
+                            .then(function(body) { throw new Error(body.error || 'Erreur serveur (' + r.status + ').'); });
+                    }
                     return r.json();
                 })
                 .then(function(data) {
-                    if (data.error) {
-                        loadingEl.style.display = 'none';
-                        errorEl.textContent = data.error;
-                        errorEl.style.display = '';
-                        return;
-                    }
                     renderDocs(data.pdfs || [], data.photos || []);
                 })
                 .catch(function(err) {
                     loadingEl.style.display = 'none';
-                    errorEl.textContent = 'Erreur lors du chargement des documents.';
+                    errorEl.textContent = err.message || 'Erreur lors du chargement des documents.';
                     errorEl.style.display = '';
                 });
         }
