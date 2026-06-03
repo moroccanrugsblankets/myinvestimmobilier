@@ -569,16 +569,17 @@ $stats = [
 
         function openDocsModal(contratId, reference) {
             var modalEl   = document.getElementById('docsModal');
+            var refEl     = document.getElementById('docsModalRef');
             var loadingEl = document.getElementById('docsLoading');
             var contentEl = document.getElementById('docsContent');
             var errorEl   = document.getElementById('docsError');
 
-            if (!modalEl || !loadingEl || !contentEl || !errorEl) {
-                console.error('openDocsModal: un ou plusieurs éléments du modal introuvables (docsModal, docsLoading, docsContent, docsError).');
+            if (!modalEl || !refEl || !loadingEl || !contentEl || !errorEl) {
+                console.error('openDocsModal: un ou plusieurs éléments du modal introuvables (docsModal, docsModalRef, docsLoading, docsContent, docsError).');
                 return;
             }
 
-            document.getElementById('docsModalRef').textContent = reference;
+            refEl.textContent       = reference;
             loadingEl.style.display = '';
             contentEl.style.display = 'none';
             errorEl.style.display   = 'none';
