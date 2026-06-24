@@ -85,39 +85,44 @@ try {
         $motifRefus = $result['motif'];
         
         if ($accepted) {
-            // Send acceptance email using database template
-            $logement = isset($candidature['logement_reference']) ? $candidature['logement_reference'] : 'Logement';
-            $confirmUrl = $config['SITE_URL'] . "/candidature/confirmer-interet.php?ref=" . urlencode($reference);
+
+            // No automatic action for accepted applications — skip and leave status as-is
+            logMessage("Application #$id accepted criteria met — no automatic action taken, pending manual review");
+            continue;
             
-            $variables = [
-                'nom' => $nom,
-                'prenom' => $prenom,
-                'email' => $email,
-                'logement' => $logement,
-                'reference' => $reference,
-                'date' => date('d/m/Y'),
-                'lien_confirmation' => $confirmUrl
-            ];
+            // // Send acceptance email using database template
+            // $logement = isset($candidature['logement_reference']) ? $candidature['logement_reference'] : 'Logement';
+            // $confirmUrl = $config['SITE_URL'] . "/candidature/confirmer-interet.php?ref=" . urlencode($reference);
             
-            // Send email using template BEFORE updating status
-            if (sendTemplatedEmail('candidature_acceptee', $email, $variables, null, false, true)) {
-                // Only update status if email was sent successfully
-                $updateStmt = $pdo->prepare("UPDATE candidatures SET statut = 'accepte', reponse_automatique = 'accepte', date_reponse_auto = NOW(), date_reponse_envoyee = NOW() WHERE id = ?");
-                $updateStmt->execute([$id]);
+            // $variables = [
+                // 'nom' => $nom,
+                // 'prenom' => $prenom,
+                // 'email' => $email,
+                // 'logement' => $logement,
+                // 'reference' => $reference,
+                // 'date' => date('d/m/Y'),
+                // 'lien_confirmation' => $confirmUrl
+            // ];
+            
+            // // Send email using template BEFORE updating status
+            // if (sendTemplatedEmail('candidature_acceptee', $email, $variables, null, false, true)) {
+                // // Only update status if email was sent successfully
+                // $updateStmt = $pdo->prepare("UPDATE candidatures SET statut = 'accepte', reponse_automatique = 'accepte', date_reponse_auto = NOW(), date_reponse_envoyee = NOW() WHERE id = ?");
+                // $updateStmt->execute([$id]);
                 
-                logMessage("Acceptance email sent to $email for application #$id");
+                // logMessage("Acceptance email sent to $email for application #$id");
                 
-                // Log the action
-                $logStmt = $pdo->prepare("INSERT INTO logs (type_entite, entite_id, action, details) VALUES (?, ?, ?, ?)");
-                $logStmt->execute(['candidature', $id, 'email_acceptation', "Email d'acceptation envoyé à $email"]);
-            } else {
-                logMessage("ERROR: Failed to send acceptance email to $email - candidature #$id will be retried in next cron run");
-                logMessage("Check SMTP configuration in config.php or review logs table for details");
+                // // Log the action
+                // $logStmt = $pdo->prepare("INSERT INTO logs (type_entite, entite_id, action, details) VALUES (?, ?, ?, ?)");
+                // $logStmt->execute(['candidature', $id, 'email_acceptation', "Email d'acceptation envoyé à $email"]);
+            // } else {
+                // logMessage("ERROR: Failed to send acceptance email to $email - candidature #$id will be retried in next cron run");
+                // logMessage("Check SMTP configuration in config.php or review logs table for details");
                 
-                // Log the failure
-                $logStmt = $pdo->prepare("INSERT INTO logs (type_entite, entite_id, action, details) VALUES (?, ?, ?, ?)");
-                $logStmt->execute(['candidature', $id, 'email_error', "Échec de l'envoi de l'email d'acceptation à $email"]);
-            }
+                // // Log the failure
+                // $logStmt = $pdo->prepare("INSERT INTO logs (type_entite, entite_id, action, details) VALUES (?, ?, ?, ?)");
+                // $logStmt->execute(['candidature', $id, 'email_error', "Échec de l'envoi de l'email d'acceptation à $email"]);
+            // }
             
         } else {
             // Send rejection email using database template
