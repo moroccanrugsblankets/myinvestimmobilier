@@ -6,19 +6,26 @@
 /** Lifetime of the "remember me" persistent session: 30 days in seconds. */
 define('ADMIN_REMEMBER_LIFETIME', 30 * 24 * 3600);
 
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
+
 // Start session before any session variable access
 if (session_status() === PHP_SESSION_NONE) {
-    // When the admin already has a persistent "remember me" cookie, configure a
-    // long-lived session so the PHPSESSID cookie is persistent from the very first
-    // response (including the login page itself), not just after the first redirect.
     if (isset($_COOKIE['admin_remember']) && preg_match('/^[a-f0-9]{64}:\d+$/', $_COOKIE['admin_remember'])) {
         ini_set('session.gc_maxlifetime', ADMIN_REMEMBER_LIFETIME);
         session_set_cookie_params([
             'lifetime' => ADMIN_REMEMBER_LIFETIME,
             'path'     => '/',
             'httponly' => true,
-            'samesite' => 'Strict',
-            'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+            'samesite' => 'Lax', // Passe de Strict à Lax
+            'secure'   => $isSecure,
+        ]);
+    } else {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => $isSecure,
         ]);
     }
     session_start();
@@ -38,7 +45,6 @@ if (isset($_SESSION['admin_id'])) {
 // Check for persistent login cookie
 if (isset($_COOKIE['admin_remember'])) {
     $cookieValue = $_COOKIE['admin_remember'];
-    // Format: token:admin_id (token is 64-char hex)
     if (preg_match('/^([a-f0-9]{64}):(\d+)$/', $cookieValue, $matches)) {
         $cookieToken = $matches[1];
         $cookieAdminId = (int)$matches[2];
@@ -47,7 +53,6 @@ if (isset($_COOKIE['admin_remember'])) {
             $stmt->execute([$cookieAdminId]);
             $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($admin && hash_equals($admin['remember_token'], hash('sha256', $cookieToken))) {
-                // Valid persistent token — restore session
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_username'] = $admin['username'];
                 $_SESSION['admin_nom'] = $admin['nom'];
@@ -81,7 +86,6 @@ if (isset($_POST['login'])) {
             $_SESSION['admin_prenom'] = $admin['prenom'];
             $_SESSION['last_activity'] = time();
 
-            // Update last login
             $pdo->prepare("UPDATE administrateurs SET derniere_connexion = NOW() WHERE id = ?")->execute([$admin['id']]);
 
             // Handle "Rester connecté" persistent cookie
@@ -92,32 +96,33 @@ if (isset($_POST['login'])) {
                 try {
                     $tokenHash = hash('sha256', $token);
                     $pdo->prepare("UPDATE administrateurs SET remember_token = ? WHERE id = ?")->execute([$tokenHash, $admin['id']]);
-                    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+                    
                     setcookie('admin_remember', $cookieValue, [
                         'expires' => $expiry,
                         'path' => '/',
                         'httponly' => true,
-                        'samesite' => 'Strict',
+                        'samesite' => 'Lax', // Passe de Strict à Lax
                         'secure' => $isSecure,
                     ]);
+                    
                     $_SESSION['remember_me'] = true;
-                    // Upgrade the PHP session cookie to a 30-day persistent cookie so it
-                    // survives browser restarts from this very response, not just the next page.
-                    ini_set('session.gc_maxlifetime', ADMIN_REMEMBER_LIFETIME);
-                    session_set_cookie_params([
-                        'lifetime' => ADMIN_REMEMBER_LIFETIME,
+                    
+                    // Forcer le rafraîchissement du cookie de session courant PHPSESSID pour qu'il vive 30 jours
+                    setcookie(session_name(), session_id(), [
+                        'expires'  => time() + ADMIN_REMEMBER_LIFETIME,
                         'path'     => '/',
                         'httponly' => true,
-                        'samesite' => 'Strict',
+                        'samesite' => 'Lax',
                         'secure'   => $isSecure,
                     ]);
-                    session_regenerate_id(true); // true = delete old session file
+
+                    session_regenerate_id(true);
                 } catch (Exception $e) {
                     error_log("Remember token save error: " . $e->getMessage());
                 }
             }
 
-            // Redirect to originally requested URL if available and on the same host
+            // Redirect to originally requested URL
             $redirectUrl = 'index.php';
             if (!empty($_SESSION['redirect_after_login'])) {
                 $savedUrl = $_SESSION['redirect_after_login'];
@@ -183,15 +188,18 @@ if (isset($_POST['login'])) {
             <div class="alert alert-warning">Votre session a expiré. Veuillez vous reconnecter.</div>
         <?php endif; ?>
 
-        <form method="POST">
+        <!-- Ajout de action="login.php" -->
+        <form action="login.php" method="POST">
             <div class="mb-3">
                 <label for="username" class="form-label">Nom d'utilisateur</label>
-                <input type="text" class="form-control" id="username" name="username" required autofocus>
+                <!-- Ajout de autocomplete="username" -->
+                <input type="text" class="form-control" id="username" name="username" autocomplete="username" required autofocus>
             </div>
 
             <div class="mb-3">
                 <label for="password" class="form-label">Mot de passe</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+                <!-- Ajout de autocomplete="current-password" -->
+                <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
             </div>
 
             <div class="mb-3 form-check">
