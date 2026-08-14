@@ -69,10 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Vous devez confirmer la checklist à l'étape précédente.";
             $state = 'anomalie2';
         } else {
-            $typeProbleme  = trim($_POST['type_probleme'] ?? '');
-            $description   = trim($_POST['description']  ?? '');
-            $priorite      = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
-            $disponibilites = trim($_POST['disponibilites'] ?? '');
+            $typeProbleme         = trim($_POST['type_probleme'] ?? '');
+            $description          = trim($_POST['description']  ?? '');
+            $priorite             = in_array($_POST['priorite'] ?? '', ['urgent', 'normal']) ? $_POST['priorite'] : 'normal';
+            $disponibilites       = trim($_POST['disponibilites'] ?? '');
             $presenceIntervention = trim($_POST['presence_intervention'] ?? '');
 
             $typesValides = ['Plomberie', 'Électricité', 'Serrurerie', 'Chauffage', 'Électroménager', 'Autre'];
@@ -92,10 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Validation des photos/vidéos (obligatoires)
             $uploadedPhotos = [];
             if (empty($_FILES['photos']['name'][0])) {
-                $errors[] = 'Au moins une photo est obligatoire.';
+                $errors[] = 'La vidéo explicative est obligatoire.';
             } else {
-                $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
-                $maxSize      = 30 * 1024 * 1024;
+                $allowedMimes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-msvideo'];
+                $maxSize      = 100 * 1024 * 1024; // Porté à 100 Mo
                 $uploadDir    = __DIR__ . '/../uploads/signalements/';
 
                 if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
@@ -108,12 +108,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($_FILES['photos']['tmp_name'] as $i => $tmpName) {
                         if ($_FILES['photos']['error'][$i] !== UPLOAD_ERR_OK) continue;
                         if ($_FILES['photos']['size'][$i] > $maxSize) {
-                            $errors[] = 'Le fichier « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » dépasse 30 Mo.';
+                            $errors[] = 'Le fichier « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » dépasse 100 Mo.';
                             continue;
                         }
                         $mime = mime_content_type($tmpName);
                         if (!in_array($mime, $allowedMimes)) {
-                            $errors[] = 'Format non supporté pour « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » (JPG, PNG, WebP ou vidéo MP4/MOV).';
+                            $errors[] = 'Format non supporté pour « ' . htmlspecialchars($_FILES['photos']['name'][$i]) . ' » (formats acceptés : MP4, MOV, WebM, 3GP).';
                             continue;
                         }
                         $ext     = pathinfo($_FILES['photos']['name'][$i], PATHINFO_EXTENSION);
@@ -243,36 +243,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $locataireEmail = strtolower(trim($locataire['email'] ?? ''));
                     if (!empty($locataireEmail)) {
                         sendTemplatedEmail('nouveau_signalement_locataire', $locataireEmail, [
-                            'prenom'             => $locataire['prenom'],
-                            'nom'                => $locataire['nom'],
-                            'reference'          => $reference,
-                            'titre'              => $titre,
-                            'priorite'           => ucfirst($priorite),
-                            'adresse'            => $locataire['adresse'],
-                            'logement_reference' => $locataire['logement_ref'] ?? '',
-                            'date'               => date('d/m/Y à H:i'),
-                            'company'            => $config['COMPANY_NAME'] ?? '',
-                            'description'        => $description,
-                            'disponibilites_html' => $disponibilitesHtml,
-                            'photos_html'        => $photosHtml,
+                            'prenom'               => $locataire['prenom'],
+                            'nom'                  => $locataire['nom'],
+                            'reference'            => $reference,
+                            'titre'                => $titre,
+                            'priorite'             => ucfirst($priorite),
+                            'adresse'              => $locataire['adresse'],
+                            'logement_reference'   => $locataire['logement_ref'] ?? '',
+                            'date'                 => date('d/m/Y à H:i'),
+                            'company'              => $config['COMPANY_NAME'] ?? '',
+                            'description'          => $description,
+                            'disponibilites_html'  => $disponibilitesHtml,
+                            'photos_html'          => $photosHtml,
                             'presenceIntervention' => $presenceInterventionLabel,
                         ], $attachmentsArg, false, false, ['contexte' => "signalement_confirmation;sig_id=$newSignalementId"]);
                     }
 
                     // Email aux admins (depuis la table administrateurs + config)
                     $adminEmailVars = [
-                        'reference'           => $reference,
-                        'titre'               => $titre,
-                        'priorite'            => ucfirst($priorite),
-                        'adresse'             => $locataire['adresse'],
-                        'logement_reference'  => $locataire['logement_ref'] ?? '',
-                        'locataire'           => $locataire['prenom'] . ' ' . $locataire['nom'],
-                        'telephone'           => $locataire['telephone'] ?? '—',
-                        'description'         => $description,
-                        'date'                => date('d/m/Y à H:i'),
-                        'lien_admin'          => $siteUrl . '/admin-v2/signalement-detail.php?id=' . $newSignalementId,
-                        'disponibilites_html' => $disponibilitesHtml,
-                        'photos_html'         => $photosHtml,
+                        'reference'            => $reference,
+                        'titre'                => $titre,
+                        'priorite'             => ucfirst($priorite),
+                        'adresse'              => $locataire['adresse'],
+                        'logement_reference'   => $locataire['logement_ref'] ?? '',
+                        'locataire'            => $locataire['prenom'] . ' ' . $locataire['nom'],
+                        'telephone'            => $locataire['telephone'] ?? '—',
+                        'description'          => $description,
+                        'date'                 => date('d/m/Y à H:i'),
+                        'lien_admin'           => $siteUrl . '/admin-v2/signalement-detail.php?id=' . $newSignalementId,
+                        'disponibilites_html'  => $disponibilitesHtml,
+                        'photos_html'          => $photosHtml,
                         'presenceIntervention' => $presenceInterventionLabel,
                     ];
 
@@ -303,17 +303,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             . 'style="display:inline-block;background:#3498db;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">'
                             . 'Voir le signalement →</a></div>';
                         sendTemplatedEmail('nouveau_signalement_service_technique', $stEmail, [
-                            'reference'           => $reference,
-                            'titre'               => $titre,
-                            'priorite'            => ucfirst($priorite),
-                            'adresse'             => $locataire['adresse'],
-                            'logement_reference'  => $locataire['logement_ref'] ?? '',
-                            'locataire'           => $locataire['prenom'] . ' ' . $locataire['nom'],
-                            'telephone'           => $locataire['telephone'] ?? '—',
-                            'description'         => $description,
-                            'date'                => date('d/m/Y à H:i'),
-                            'disponibilites_html' => $disponibilitesHtml,
-                            'photos_html'         => $photosHtml,
+                            'reference'            => $reference,
+                            'titre'                => $titre,
+                            'priorite'             => ucfirst($priorite),
+                            'adresse'              => $locataire['adresse'],
+                            'logement_reference'   => $locataire['logement_ref'] ?? '',
+                            'locataire'            => $locataire['prenom'] . ' ' . $locataire['nom'],
+                            'telephone'            => $locataire['telephone'] ?? '—',
+                            'description'          => $description,
+                            'date'                 => date('d/m/Y à H:i'),
+                            'disponibilites_html'  => $disponibilitesHtml,
+                            'photos_html'          => $photosHtml,
                             'action_buttons_html' => $stActionButtonsHtml,
                             'presenceIntervention' => $presenceInterventionLabel,
                         ], $attachmentsArg, false, false, ['contexte' => "signalement_st_notification;sig_id=$newSignalementId"]);
@@ -749,7 +749,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
 
                                 <!-- Drop zone -->
                                 <div class="drop-zone" id="dropZone">
-                                    <input type="file" id="photos" name="photos[]" multiple
+                                    <input type="file" id="photos" name="photos[]"
                                            accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime">
                                     <i class="bi bi-cloud-upload fs-2 text-muted d-block mb-2"></i>
                                     <p class="mb-1 fw-semibold">Glissez vos fichiers ici</p>
@@ -758,7 +758,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                         <i class="bi bi-folder2-open me-1"></i>Parcourir les fichiers
                                     </button>
                                     <p class="mt-2 mb-0 text-muted" style="font-size:.75rem;">
-                                        Formats acceptés : MP4, MOV, WebM, 3GP. Max 30 Mo.
+                                        Formats acceptés : MP4, MOV, WebM, 3GP. Max 100 Mo.
                                     </p>
                                 </div>
 
