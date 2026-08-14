@@ -210,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Build photos/videos HTML (links) for email
                     $photosHtml = '';
                     if (!empty($uploadedPhotos)) {
-                        $photosHtml = '<p style="margin-top:15px;"><strong>Vidéo explicative (avec voix) :</strong></p><ul>';
+                        $photosHtml = '<p style="margin-top:15px;"><strong>Vidéo explicative avec voix (30s max) :</strong></p><ul>';
                         foreach ($uploadedPhotos as $up) {
                             $mediaUrl = $siteUrl . '/uploads/signalements/' . rawurlencode($up['filename']);
                             $photosHtml .= '<li><a href="' . htmlspecialchars($mediaUrl) . '">' . htmlspecialchars($up['original']) . '</a></li>';
@@ -744,15 +744,15 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
 
                             <div class="mb-4">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-camera me-1"></i>Vidéo explicative (avec voix) <span class="text-danger">*</span>
+                                    <i class="bi bi-camera me-1"></i>Vidéo explicative avec son (30s max) <span class="text-danger">*</span>
                                 </label>
 
                                 <!-- Drop zone -->
                                 <div class="drop-zone" id="dropZone">
                                     <input type="file" id="photos" name="photos[]"
-                                           accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime">
+                                           accept="video/mp4,video/quicktime,video/webm,video/3gpp">
                                     <i class="bi bi-cloud-upload fs-2 text-muted d-block mb-2"></i>
-                                    <p class="mb-1 fw-semibold">Glissez vos fichiers ici</p>
+                                    <p class="mb-1 fw-semibold">Glissez votre vidéo explicative ici</p>
                                     <p class="mb-2 text-muted small">ou</p>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btnBrowse">
                                         <i class="bi bi-folder2-open me-1"></i>Parcourir les fichiers
