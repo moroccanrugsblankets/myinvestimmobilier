@@ -1065,7 +1065,7 @@ if ($successParam) {
                     <?php endif; ?>
                 </div>
 
-                <!-- Photos / Vidéos -->
+                <!-- Vidéo -->
                 <?php if (!empty($photos)): ?>
                 <?php
                 // Group photos by type
@@ -1081,7 +1081,7 @@ if ($successParam) {
                 ];
                 ?>
                 <div class="section-card">
-                    <h5 class="mb-3"><i class="bi bi-camera me-2"></i>Photos / Vidéos (<?php echo count($photos); ?>)</h5>
+                    <h5 class="mb-3"><i class="bi bi-camera me-2"></i>Vidéo (<?php echo count($photos); ?>)</h5>
                     <?php foreach ($photosByType as $ptKey => $ptPhotos): ?>
                     <?php if (count($photosByType) > 1): ?>
                     <h6 class="text-muted small mb-2">
