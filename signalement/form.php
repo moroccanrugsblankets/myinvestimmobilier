@@ -210,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Build photos/videos HTML (links) for email
                     $photosHtml = '';
                     if (!empty($uploadedPhotos)) {
-                        $photosHtml = '<p style="margin-top:15px;"><strong>Photos / Vidéos jointes :</strong></p><ul>';
+                        $photosHtml = '<p style="margin-top:15px;"><strong>Vidéo explicative (avec voix) :</strong></p><ul>';
                         foreach ($uploadedPhotos as $up) {
                             $mediaUrl = $siteUrl . '/uploads/signalements/' . rawurlencode($up['filename']);
                             $photosHtml .= '<li><a href="' . htmlspecialchars($mediaUrl) . '">' . htmlspecialchars($up['original']) . '</a></li>';
@@ -744,7 +744,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
 
                             <div class="mb-4">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-camera me-1"></i>Photos / vidéos <span class="text-danger">*</span>
+                                    <i class="bi bi-camera me-1"></i>Vidéo explicative (avec voix) <span class="text-danger">*</span>
                                 </label>
 
                                 <!-- Drop zone -->
@@ -758,7 +758,7 @@ $companyEmail = $config['COMPANY_EMAIL'] ?? '';
                                         <i class="bi bi-folder2-open me-1"></i>Parcourir les fichiers
                                     </button>
                                     <p class="mt-2 mb-0 text-muted" style="font-size:.75rem;">
-                                        Formats acceptés : JPG, PNG, WebP, MP4, MOV. Max 30 Mo par fichier.
+                                        Formats acceptés : MP4, MOV, WebM, 3GP. Max 30 Mo.
                                     </p>
                                 </div>
 
