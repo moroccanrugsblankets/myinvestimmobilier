@@ -900,8 +900,8 @@ function evaluateCandidature($candidature) {
     // RULE 2: Monthly net income - must be >= 3000€
     // Convert enum values to numeric for comparison
     $revenus = $candidature['revenus_mensuels'];
-    if ($revenus === '< 2300' || $revenus === '2300-3000') {
-        $motifs[] = "Revenus nets mensuels insuffisants (minimum 3000€ requis)";
+    if ($revenus === '< 2700') {
+        $motifs[] = "Revenus nets mensuels insuffisants (minimum 2700€ requis)";
     }
     
     // RULE 3: Income type - must be Salaires
