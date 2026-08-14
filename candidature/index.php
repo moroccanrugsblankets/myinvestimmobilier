@@ -325,9 +325,8 @@ $showRecaptcha = $rcEnabled && $rcSiteKey !== '';
                                     <label for="revenus_mensuels" class="form-label required-field">Revenus nets mensuels</label>
                                     <select class="form-select" id="revenus_mensuels" name="revenus_mensuels" required>
                                         <option value="">-- Sélectionnez --</option>
-                                        <option value="< 2300">< 2300 €</option>
-                                        <option value="2300-3000">2300-3000 €</option>
-                                        <option value="3000+">3000 € et +</option>
+                                        <option value="< 2700">< Entre 0 et 2700 €</option>
+                                        <option value="2700+">2700 € et +</option>
                                     </select>
                                 </div>
 
